@@ -190,7 +190,11 @@ Tests geben einen Fake.
   (auch nicht AppData). Kein `fs:default` (Lesezugriff auf App-Ordner) und
   nicht `fs:allow-write-file` (erlaubt zusätzlich `open`/`write`).
 - Der eingetragene Pfad bleibt bis zum Programmende im Scope (Verhalten des
-  Plugins).
+  Plugins). Bis dahin kann die WebView diese Datei erneut beschreiben – auch
+  anhängen: `fs:allow-write-text-file` erlaubt die Option `append: true` von
+  `writeTextFile`, eine Capability kann das nicht abschalten. Der Export nutzt
+  sie nicht; er schreibt ohne Optionen (anlegen bzw. ersetzen, `truncate`), der
+  Dialog fragt vor dem Überschreiben.
 - Die Plugins sprechen nur über die IPC (`ipc:`/`http://ipc.localhost`) – die
   CSP braucht keine Erweiterung.
 
@@ -682,16 +686,16 @@ aktuellen Filter in der Sortierung der Liste, nicht nur die Seite.
 **CSV-Format** (`src/business/csv`, `toCsv(rows)`; gilt für alle Exporte,
 auch die EÜR #27):
 
-| Punkt         | Festlegung                                                                                         |
-| ------------- | -------------------------------------------------------------------------------------------------- |
-| Trennzeichen  | `;` (Listentrennzeichen von Excel in de-DE)                                                        |
-| Zeilenende    | CRLF nach **jeder** Zeile, auch der letzten (RFC 4180, Excel unter Windows)                        |
-| Kodierung     | UTF-8 mit BOM: `toCsv` setzt U+FEFF an den Anfang (genau eine Stelle); geschrieben `EF BB BF`      |
-| Quoting       | Felder mit `;`, `"`, CR oder LF in `"…"`, innere `"` verdoppelt; sonst unverändert                 |
-| Datum         | `TT.MM.JJJJ` (`formatDate`)                                                                        |
-| Beträge       | `formatAmountPlain`: Dezimalkomma, kein Tausenderpunkt, kein `€`, ASCII-Minus (`1234,56`, `-0,05`) |
-| Leere Felder  | `null` → leeres Feld (z. B. USt-Satz im Kleinunternehmer-Jahr, Referenz/Notiz/externe ID)          |
-| Formel-Schutz | Text, der mit `=`, `+`, `-`, `@`, Tab oder CR beginnt, bekommt ein `'` davor (OWASP CSV Injection) |
+| Punkt         | Festlegung                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Trennzeichen  | `;` (Listentrennzeichen von Excel in de-DE)                                                                                |
+| Zeilenende    | CRLF nach **jeder** Zeile, auch der letzten (RFC 4180, Excel unter Windows)                                                |
+| Kodierung     | UTF-8 mit BOM: `toCsv` setzt U+FEFF an den Anfang (genau eine Stelle); geschrieben `EF BB BF`                              |
+| Quoting       | Felder mit `;`, `"`, CR oder LF in `"…"`, innere `"` verdoppelt; sonst unverändert                                         |
+| Datum         | `TT.MM.JJJJ` (`formatDate`)                                                                                                |
+| Beträge       | `formatAmountPlain`: Dezimalkomma, kein Tausenderpunkt, kein `€`, ASCII-Minus (`1234,56`, `-0,05`)                         |
+| Leere Felder  | `null` → leeres Feld (z. B. USt-Satz im Kleinunternehmer-Jahr, Referenz/Notiz/externe ID)                                  |
+| Formel-Schutz | Text, der (auch nach Leerraum) mit `=`, `+`, `-`, `@` oder mit Tab/CR beginnt, bekommt ein `'` davor (OWASP CSV Injection) |
 
 - **Formel-Schutz nur für Texte:** Zellen sind `string` (Nutzer- oder
   Label-Text, geschützt), `csvLiteral(…)` (von der App formatiert: Beträge,
@@ -721,7 +725,7 @@ auch die EÜR #27):
 - **Button:** deaktiviert (fokussierbar, Grund im Tooltip), solange die Filter
   ungültig sind, nichts geladen ist, nichts passt oder ein Export läuft
   (dann mit Spinner und „Exportiere …“). Die Anzahl kommt aus derselben
-  Listen-Abfrage wie die Tabelle (gleicher Query-Key). Erfolg: Toast mit
+  Listen-Abfrage wie die Tabelle (gleicher Query-Key), nie aus Platzhalterdaten der vorigen Suche. Erfolg: Toast mit
   Anzahl und Dateiname; Abbruch des Dialogs: kein Toast; Fehler (z. B. Datei
   in Excel geöffnet): Fehler-Toast, Details in der Konsole.
 

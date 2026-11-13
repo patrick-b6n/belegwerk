@@ -14,8 +14,8 @@
  *   in double quotes, inner quotes are doubled. Other fields are written as
  *   they are – leading/trailing spaces stay (Excel keeps them either way).
  * - **Formula injection** (OWASP "CSV Injection"): a text cell starting with
- *   `=`, `+`, `-`, `@`, tab or CR would be evaluated as a formula by a
- *   spreadsheet. Such texts get a leading apostrophe (`'=1+1`), which shows
+ *   `=`, `+`, `-`, `@` (also after leading whitespace), tab or CR would be
+ *   evaluated as a formula by a spreadsheet. Such texts get a leading apostrophe (`'=1+1`), which shows
  *   them as text. This changes the value visibly (e.g. `'-Rabatt`) – accepted,
  *   it only affects texts users typed or imported. Values the app formats
  *   itself (amounts like `-12,50`, dates) are {@link CsvLiteral}s and are
@@ -23,7 +23,7 @@
  */
 
 /** Byte order mark; UTF-8 encoded `EF BB BF`. */
-export const CSV_BOM = "﻿";
+export const CSV_BOM = "\uFEFF";
 export const CSV_SEPARATOR = ";";
 export const CSV_LINE_ENDING = "\r\n";
 
@@ -48,8 +48,9 @@ export function csvLiteral(value: string): CsvLiteral {
   return { literal: value };
 }
 
-// Characters that make a spreadsheet treat a cell as a formula (OWASP).
-const FORMULA_START = /^[=+\-@\t\r]/;
+// Characters that make a spreadsheet treat a cell as a formula (OWASP), also
+// after leading whitespace (some spreadsheets trim before evaluating).
+const FORMULA_START = /^\s*[=+\-@]|^[\t\r]/;
 const NEEDS_QUOTES = /[;"\r\n]/;
 
 function escapeField(value: string): string {

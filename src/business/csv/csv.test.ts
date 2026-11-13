@@ -81,7 +81,16 @@ describe("toCsv", () => {
       expect(body(toCsv([["\r=1"]]))).toBe('"\'\r=1"\r\n');
     });
 
-    it.each(["a=b", "Summe -5", " =1", "'=1"])("leaves %j alone (not at the start)", (value) => {
+    it.each([
+      [" =1", "' =1"],
+      ["  -5", "'  -5"],
+      ["\u00A0+x", "'\u00A0+x"],
+      ["\n@x", '"\'\n@x"'],
+    ])("guards %j after leading whitespace as %j", (value, expected) => {
+      expect(body(toCsv([[value]]))).toBe(`${expected}\r\n`);
+    });
+
+    it.each(["a=b", "Summe -5", " a=b", "'=1"])("leaves %j alone (not at the start)", (value) => {
       expect(body(toCsv([[value]]))).toBe(`${value}\r\n`);
     });
 

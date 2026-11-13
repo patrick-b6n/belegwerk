@@ -103,7 +103,8 @@ function BookingsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <BookingExportButton
             query={exportQuery}
-            total={list.data?.ok ? list.data.total : undefined}
+            // Not from the previous search's placeholder: its total may differ.
+            total={list.data?.ok && !list.isPlaceholderData ? list.data.total : undefined}
             invalid={!normalized.ok}
           />
           <Link to="/buchungen/neu" className={buttonVariants()}>
