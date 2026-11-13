@@ -8,11 +8,11 @@ import {
 import { Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useMemo } from "react";
 
 import type { BookingListItem } from "@/business/bookings";
 import { formatCurrency, formatDate } from "@/business/format";
-import type { BookingSource, BookingType } from "@/business/model";
+import type { BookingType } from "@/business/model";
 import { m } from "@/paraglide/messages.js";
 import {
   Table,
@@ -24,6 +24,8 @@ import {
   TableRow,
 } from "@/ui/components/ui/table";
 
+import { BOOKING_SOURCE_LABELS, BOOKING_TYPE_LABELS } from "./booking-messages";
+
 /** Classes per column, applied to header and cells (e.g. right-aligned amounts). */
 type BookingColumnMeta = { className?: string };
 
@@ -31,16 +33,6 @@ const features = tableFeatures({ columnMeta: metaHelper<BookingColumnMeta>() });
 const column = createColumnHelper<typeof features, BookingListItem>();
 
 const AMOUNT = "text-right tabular-nums";
-
-const TYPE_LABELS: Record<BookingType, () => string> = {
-  income: m.bookings_type_income,
-  expense: m.bookings_type_expense,
-};
-
-const SOURCE_LABELS: Record<BookingSource, () => string> = {
-  manual: m.bookings_source_manual,
-  stripe: m.bookings_source_stripe,
-};
 
 /**
  * Text colour of the gross amount. Never the only signal: the type column
@@ -119,7 +111,7 @@ const columns = column.columns([
   }),
   column.accessor("source", {
     header: () => m.bookings_column_source(),
-    cell: ({ getValue }) => SOURCE_LABELS[getValue()](),
+    cell: ({ getValue }) => BOOKING_SOURCE_LABELS[getValue()](),
   }),
 ]);
 
@@ -132,10 +124,12 @@ const columns = column.columns([
  * (#21), not from the table: the table gets the rows of one page.
  */
 export function BookingTable({ bookings }: Readonly<{ bookings: readonly BookingListItem[] }>) {
+  // A copy: the table only reads the rows but types them as a mutable array.
+  const data = useMemo(() => [...bookings], [bookings]);
   const table = useTable({
     features,
     columns,
-    data: bookings as BookingListItem[],
+    data,
     getRowId: (booking) => String(booking.id),
   });
 
@@ -174,8 +168,14 @@ function BookingRow({
 }: Readonly<{ children: ReactNode; row: Row<typeof features, BookingListItem> }>) {
   const navigate = useNavigate();
   const onClick = (event: MouseEvent<HTMLTableRowElement>) => {
-    // The description link navigates itself (and prevents the default);
-    // selecting text in a row is no click.
+    // Clicks on the description link are the link's (incl. Ctrl/Shift/Meta/
+    // Alt-clicks, which the router leaves to the browser without preventing
+    // the default); a modifier click elsewhere in the row is no plain row
+    // click either. Selecting text in a row is no click.
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("a") || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+      return;
+    }
     const selection = window.getSelection();
     const selecting =
       selection?.isCollapsed === false && event.currentTarget.contains(selection.anchorNode);
@@ -201,7 +201,7 @@ function BookingTypeBadge({ type }: Readonly<{ type: BookingType }>) {
       )}
     >
       <Icon aria-hidden className="size-3.5" />
-      {TYPE_LABELS[type]()}
+      {BOOKING_TYPE_LABELS[type]()}
     </span>
   );
 }

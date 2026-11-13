@@ -367,8 +367,8 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 | ----------------------- | ------------------------------------------------------------------- |
 | `/`                     | Weiterleitung auf `/buchungen` (Startseite)                         |
 | `/buchungen`            | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
-| `/buchungen/$bookingId` | Buchung bearbeiten (Formular #18; bis dahin Platzhalter)            |
-| `/buchungen/neu`        | Neue Buchung (#18, noch nicht angelegt)                             |
+| `/buchungen/$bookingId` | Buchung bearbeiten (Formular, #18)                                  |
+| `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
 | `/euer`                 | EÜR-Jahresansicht                                                   |
 | `/kategorien`           | Kategorienverwaltung                                                |
 | `/einstellungen`        | Einstellungen (Steuerjahre, später Stripe)                          |
@@ -430,9 +430,17 @@ Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
 **Query-Keys** liegen pro Bereich mit den Hooks in `src/ui/<bereich>/*-queries.ts`,
 z. B. `bookingQueryKeys` in `src/ui/bookings/booking-queries.ts`:
 `["bookings"]` (alles), `["bookings", "list"]` (Liste; die Suche #21/#22
-hängt ihr Query-Objekt an) und `["bookings", "detail", id]`. Mutationen
-(#18) invalidieren `bookingQueryKeys.all` – Liste und geladene
-Einzelbuchungen.
+hängt ihr Query-Objekt an) und `["bookings", "detail", id]` (nur für
+ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
+`categoryQueryKeys` (`src/ui/categories/category-queries.ts`,
+`useCategoryList()`) und `taxYearQueryKeys`
+(`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`).
+Buchungs-Mutationen (`useBookingMutations()`, #18) invalidieren
+`bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`) und
+`taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen). Verlässt das
+Formular danach die Seite (Erfolg, „nicht gefunden“), werden nur inaktive
+Queries neu geladen – sonst zeigte die Bearbeiten-Seite eine eben gelöschte
+Buchung kurz als „nicht gefunden“.
 
 ### Buchungsliste (#17)
 
@@ -448,11 +456,57 @@ Einzelbuchungen.
   werden gekürzt (voller Text im `title`), damit die Tabelle ins
   Standardfenster (1280 px) passt.
 - **Bearbeiten:** Klick auf die Zeile navigiert zu `/buchungen/$bookingId`;
-  für die Tastatur ist die Beschreibung ein Link (Tab, Enter). Die Route
-  parst die ID zu einer Zahl (sonst `NaN` → der Service meldet „nicht
-  gefunden“ ohne Abfrage) und zeigt eine unbekannte Buchung auf der Seite an,
-  ohne `notFound()` – den 404-Titel erkennt die Root-Route an `_notFound`,
-  das gilt nur für unbekannte Pfade.
+  für die Tastatur ist die Beschreibung ein Link (Tab, Enter). Klicks auf den
+  Link und Klicks mit Modifier (Strg/Shift/Alt/Meta) lösen keine
+  Zeilennavigation aus. Die Route parst die ID zu einer Zahl (sonst `NaN` →
+  „nicht gefunden“ ohne Abfrage) und zeigt eine unbekannte Buchung auf der
+  Seite an, ohne `notFound()` – den 404-Titel erkennt die Root-Route an
+  `_notFound`, das gilt nur für unbekannte Pfade.
+
+### Buchungsformular (#18)
+
+`src/ui/bookings/booking-form.tsx` (TanStack Form) dient `/buchungen/neu`
+und `/buchungen/$bookingId`; die reine Logik (Werte, Umwandlung in
+`BookingFormInput`, Client-Prüfungen, Vorschau, Kategorie-Optionen) liegt
+getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
+`booking-messages.ts`.
+
+- **Werte sind Strings;** beim Absenden wird daraus `BookingFormInput`. Quelle
+  und externe ID werden nie gesendet (`update` behält sie); importierte
+  Buchungen zeigen sie nur zur Information.
+- **Validierung:** Der Service ist maßgeblich. Das Formular prüft vorab nur,
+  was es selbst weiß (Pflichtfelder, Betragstext per `parseAmount`, Betrag
+  größer 0) – beim Absenden, danach bei jeder Änderung
+  (`revalidateKeepingServerErrorsOnBlur` in `src/ui/forms/validation-logic.ts`:
+  `revalidateLogic()`, aber Verlassen eines Feldes löscht keine Service-Fehler).
+  Service-Fehler werden pro Feld als `errorMap.onServer` gesetzt und bleiben,
+  bis sich der Wert ändert oder erneut abgesendet wird. Form-core löscht sie
+  nur bei Feldern mit `validators`; Felder ohne Client-Prüfung (Art, Referenz,
+  Notiz) haben deshalb einen No-op-Validator (`noValidation`). Fehler zu
+  Quelle/externer ID erscheinen über den Buttons. Nach einem fehlgeschlagenen
+  Absenden bekommt das erste ungültige Feld den Fokus (im Kleinunternehmer-Jahr
+  ggf. der Hinweis statt des USt-Felds); Fehlertexte hängen per
+  `aria-describedby` am Feld.
+- **Datum:** natives `<input type="date">` (liefert ISO; WebView2 zeigt das
+  Systemformat, z. B. `TT.MM.JJJJ`, samt Kalender). Neue Buchungen starten
+  mit heute, Ausgabe und 19 %.
+- **Betrag:** Textfeld mit Dezimalkomma; beim Verlassen wird ein gültiger
+  Betrag normalisiert (`1.500` → `1.500,00`, der Punkt ist Tausendertrenner).
+- **USt-Satz** nur im regelbesteuerten Jahr des Datums (`useTaxYear`); bei
+  unvollständigem Datum gilt das Jahr als regelbesteuert. Im
+  Kleinunternehmer-Jahr steht stattdessen ein Hinweis, gesendet wird `null`.
+  Die Seiten laden den Status des Anfangsdatums vor dem Formular (kein
+  Flackern).
+- **Vorschau** Netto/USt/Brutto live mit `calculateBookingAmounts`, „–“
+  solange Betrag oder Satz ungültig sind.
+- **Kategorie:** nur Kategorien der Art, ohne archivierte – außer der
+  bisherigen Kategorie der bearbeiteten Buchung und der gerade gewählten
+  (wird sie währenddessen archiviert, bleibt sie markiert sichtbar und der
+  Service meldet `categoryArchived`). Wechselt die Art, wird eine unpassende
+  Kategorie geleert.
+- **Nach dem Speichern/Löschen** zurück zur Liste mit Toast; „nicht gefunden“
+  ebenso, mit Hinweis. Löschen fragt in einem Alert-Dialog nach (Fokus auf
+  „Abbrechen“, Escape schließt).
 
 ## Content Security Policy
 
