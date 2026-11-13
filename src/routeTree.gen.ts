@@ -10,33 +10,74 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BuchungenRouteImport } from './routes/buchungen'
+import { Route as EinstellungenRouteImport } from './routes/einstellungen'
+import { Route as EuerRouteImport } from './routes/euer'
+import { Route as KategorienRouteImport } from './routes/kategorien'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BuchungenRoute = BuchungenRouteImport.update({
+  id: '/buchungen',
+  path: '/buchungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EinstellungenRoute = EinstellungenRouteImport.update({
+  id: '/einstellungen',
+  path: '/einstellungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EuerRoute = EuerRouteImport.update({
+  id: '/euer',
+  path: '/euer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KategorienRoute = KategorienRouteImport.update({
+  id: '/kategorien',
+  path: '/kategorien',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/buchungen': typeof BuchungenRoute
+  '/einstellungen': typeof EinstellungenRoute
+  '/euer': typeof EuerRoute
+  '/kategorien': typeof KategorienRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/buchungen': typeof BuchungenRoute
+  '/einstellungen': typeof EinstellungenRoute
+  '/euer': typeof EuerRoute
+  '/kategorien': typeof KategorienRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/buchungen': typeof BuchungenRoute
+  '/einstellungen': typeof EinstellungenRoute
+  '/euer': typeof EuerRoute
+  '/kategorien': typeof KategorienRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/buchungen' | '/einstellungen' | '/euer' | '/kategorien'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/buchungen' | '/einstellungen' | '/euer' | '/kategorien'
+  id:
+    '__root__' | '/' | '/buchungen' | '/einstellungen' | '/euer' | '/kategorien'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BuchungenRoute: typeof BuchungenRoute
+  EinstellungenRoute: typeof EinstellungenRoute
+  EuerRoute: typeof EuerRoute
+  KategorienRoute: typeof KategorienRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +89,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/buchungen': {
+      id: '/buchungen'
+      path: '/buchungen'
+      fullPath: '/buchungen'
+      preLoaderRoute: typeof BuchungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/einstellungen': {
+      id: '/einstellungen'
+      path: '/einstellungen'
+      fullPath: '/einstellungen'
+      preLoaderRoute: typeof EinstellungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/euer': {
+      id: '/euer'
+      path: '/euer'
+      fullPath: '/euer'
+      preLoaderRoute: typeof EuerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kategorien': {
+      id: '/kategorien'
+      path: '/kategorien'
+      fullPath: '/kategorien'
+      preLoaderRoute: typeof KategorienRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BuchungenRoute: BuchungenRoute,
+  EinstellungenRoute: EinstellungenRoute,
+  EuerRoute: EuerRoute,
+  KategorienRoute: KategorienRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

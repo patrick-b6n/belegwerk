@@ -1,8 +1,20 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "app_title": "Belegwerk",
-  "home_toast_button": "Toast anzeigen",
-  "home_toast_description": "UI-Setup aktiv.",
+  "page_title": "{page} – Belegwerk",
   "common_close": "Schließen",
+  "nav_label": "Hauptnavigation",
+  "nav_skip_to_content": "Zum Inhalt springen",
+  "bookings_title": "Buchungen",
+  "bookings_placeholder": "Hier werden künftig Einnahmen und Ausgaben erfasst, gesucht und exportiert.",
+  "euer_title": "EÜR",
+  "euer_placeholder": "Hier entsteht künftig die Einnahmenüberschussrechnung pro Jahr.",
+  "categories_title": "Kategorien",
+  "categories_placeholder": "Hier werden künftig die Kategorien und ihre EÜR-Positionen verwaltet.",
+  "settings_title": "Einstellungen",
+  "settings_placeholder": "Hier werden künftig der Steuerstatus pro Jahr und weitere Einstellungen gepflegt.",
+  "not_found_title": "Seite nicht gefunden",
+  "not_found_description": "Diese Seite gibt es nicht.",
+  "not_found_back": "Zu den Buchungen",
   "toast_close": "Benachrichtigung schließen"
 }

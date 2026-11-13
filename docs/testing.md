@@ -20,6 +20,9 @@ Einzelne Dateien oder Testnamen: `pnpm test src/business/format` bzw.
   DB-Helfer), liegen in einem Ordner `__tests__/` im jeweiligen Layer, z. B.
   `src/business/__tests__/` oder `src/persistence/__tests__/`. So gelten für
   sie dieselben Layer-Grenzen wie für den Code daneben.
+- Unter `src/routes` werden `*.test.ts[x]` und `__tests__/` vom Router
+  ignoriert (`routeFileIgnorePattern` in `vite.config.ts`), Tests können also
+  auch dort neben den Routen liegen.
 - Produktivcode importiert **nie** aus `*.test.ts` oder `__tests__/`.
 - APIs explizit importieren (`import { describe, expect, it } from "vitest"`),
   keine Globals.
