@@ -216,6 +216,15 @@ einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
 
 ### Offene Punkte für #25
 
+- **Steuerstatus des Jahres, nicht der Satz der Buchung:** Nach einem
+  bestätigten Statuswechsel (#16, `acknowledgeConflicts`) kann ein Jahr
+  Buchungen enthalten, deren `vat_rate` nicht zum Status passt. Die EÜR
+  richtet sich nach dem Status des Jahres: Im Kleinunternehmer-Jahr geht der
+  Bruttobetrag in die Position der Kategorie, USt-Positionen gibt es keine –
+  auch wenn ein Satz gespeichert ist. Im regelbesteuerten Jahr zählt eine
+  Buchung ohne Satz mit Netto = Brutto und USt 0; Empfehlung für #25: eine
+  Einnahme ohne Satz wie Satz `"0"` behandeln (→ `BETRIEBSEINNAHMEN_UST_FREI`)
+  und die unpassenden Buchungen als Hinweis ausweisen.
 - **Kategorien nur über Position und Flag:** Die Berechnung liest
   `euer_position` und `reduces_income` der Kategorie zum
   Berechnungszeitpunkt (Änderungen wirken rückwirkend, #15) und erkennt auch

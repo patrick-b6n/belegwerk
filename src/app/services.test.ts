@@ -211,3 +211,74 @@ describe("createAppServices – categories on SQLite", () => {
     });
   });
 });
+
+const booking = (incomeId: number, date: string, vatRate: "19" | null) =>
+  ({
+    date,
+    type: "income",
+    grossCents: 11900,
+    vatRate,
+    categoryId: incomeId,
+    description: "x",
+    counterparty: "y",
+    reference: null,
+    note: null,
+  }) as const;
+
+// The tax year service against SQLite, together with the booking service.
+describe("createAppServices – tax years on SQLite", () => {
+  it("adds years, lists years with bookings and switches the status", async () => {
+    const { services, sqlite, incomeId } = await setup();
+    expect(await services.taxYears.list()).toEqual([]);
+    expect(await services.taxYears.addYear(2027)).toMatchObject({ ok: true });
+    expect(await services.taxYears.addYear(2027)).toEqual({
+      ok: false,
+      reason: "invalid",
+      errors: [{ field: "year", code: "yearExists" }],
+    });
+    expect((await services.bookings.create(booking(incomeId, "2025-03-01", "19"))).ok).toBe(true);
+    expect(await services.taxYears.list()).toEqual([
+      { year: 2025, smallBusiness: false, explicit: false },
+      { year: 2027, smallBusiness: false, explicit: true },
+    ]);
+
+    // Switching 2025 conflicts with its booking until acknowledged.
+    expect(await services.taxYears.setSmallBusiness(2025, true)).toEqual({
+      ok: false,
+      reason: "conflicts",
+      mismatchedBookings: 1,
+    });
+    expect(sqlite.prepare("SELECT count(*) AS n FROM tax_years WHERE year = 2025").get()).toEqual({
+      n: 0,
+    });
+    expect(
+      await services.taxYears.setSmallBusiness(2025, true, { acknowledgeConflicts: true }),
+    ).toEqual({
+      ok: true,
+      taxYear: { year: 2025, smallBusiness: true, explicit: true },
+      mismatchedBookings: 1,
+    });
+    expect(await services.taxYears.get(2025)).toEqual({
+      ok: true,
+      taxYear: { year: 2025, smallBusiness: true, explicit: true },
+    });
+
+    // New bookings follow the new status.
+    expect(await services.bookings.create(booking(incomeId, "2025-04-01", "19"))).toEqual({
+      ok: false,
+      reason: "invalid",
+      errors: [{ field: "vatRate", code: "vatRateNotAllowed" }],
+    });
+    expect(await services.bookings.create(booking(incomeId, "2025-04-01", null))).toMatchObject({
+      ok: true,
+      booking: { vatRate: null, netCents: 11900, vatCents: 0 },
+    });
+
+    // Back to regular: the booking without a rate now conflicts.
+    expect(await services.taxYears.setSmallBusiness(2025, false)).toEqual({
+      ok: false,
+      reason: "conflicts",
+      mismatchedBookings: 1,
+    });
+  });
+});

@@ -224,6 +224,11 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
       const withVatRate = inYear.filter((booking) => booking.vatRate !== null).length;
       return { withVatRate, withoutVatRate: inYear.length - withVatRate };
     }),
+    listYears: op(() => {
+      const years = new Set<number>();
+      for (const { date } of state().bookings.values()) years.add(Number(date.slice(0, 4)));
+      return [...years].toSorted((a, b) => a - b);
+    }),
   };
 }
 

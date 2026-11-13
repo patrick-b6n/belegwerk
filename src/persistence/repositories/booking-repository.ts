@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import type { Booking, BookingInput } from "@/business/model";
 import type { BookingRepository, Clock } from "@/business/repositories";
@@ -105,6 +105,16 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
       const total = row?.total ?? 0;
       const withVatRate = row?.withVatRate ?? 0;
       return { withVatRate, withoutVatRate: total - withVatRate };
+    },
+
+    listYears: async () => {
+      // Dates are validated `YYYY-MM-DD` (CHECK), so the first four characters are the year.
+      const year = sql<number>`cast(substr(${bookings.date}, 1, 4) AS integer)`;
+      const rows = await db
+        .selectDistinct({ year: year.as("year") })
+        .from(bookings)
+        .orderBy(year);
+      return rows.map((row) => row.year);
     },
   };
 }
