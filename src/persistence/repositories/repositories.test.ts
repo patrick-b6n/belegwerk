@@ -9,9 +9,10 @@ import { createRepositories, createUnitOfWork } from ".";
 // Every repository query runs here against better-sqlite3 – through the same
 // migrations, proxy adapter and connection as the app. The test client
 // rejects duplicate result column names, which the plugin would silently
-// collapse (docs/data-model.md).
+// collapse (docs/data-model.md). The contract starts from an empty store,
+// without the default categories.
 describeRepositoryContract("Drizzle on better-sqlite3", async (clock) => {
-  const { database } = await createTestDb();
+  const { database } = await createTestDb({ defaultCategories: false });
   return {
     repositories: createRepositories(database.db, clock),
     unitOfWork: createUnitOfWork(database, clock),
@@ -21,7 +22,7 @@ describeRepositoryContract("Drizzle on better-sqlite3", async (clock) => {
 const NOW = new Date("2025-03-07T12:34:56.789Z");
 
 async function setup() {
-  const { database, sqlite } = await createTestDb();
+  const { database, sqlite } = await createTestDb({ defaultCategories: false });
   const repos = createRepositories(database.db, () => NOW);
   const category = await repos.categories.insert({
     name: "Umsatzerlöse",
