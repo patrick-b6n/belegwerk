@@ -18,3 +18,5 @@ tauri-build = { version = "2.7.4", features = [] }
 tauri = { version = "2.12.5", features = [] }
 tauri-plugin-log = "2"
 log = "0.4"
+tauri-plugin-sql = { version = "2.6.0", features = ["sqlite"] }
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
