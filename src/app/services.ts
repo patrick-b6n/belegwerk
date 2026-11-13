@@ -1,4 +1,5 @@
 import { type BookingService, createBookingService } from "@/business/bookings";
+import { type CategoryService, createCategoryService } from "@/business/categories";
 import type { Clock } from "@/business/repositories";
 import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
@@ -10,6 +11,7 @@ import { createUnitOfWork } from "@/persistence/repositories";
  */
 export interface AppServices {
   readonly bookings: BookingService;
+  readonly categories: CategoryService;
 }
 
 const systemClock: Clock = () => new Date();
@@ -18,5 +20,6 @@ export function createAppServices(database: Database, clock: Clock = systemClock
   const unitOfWork = createUnitOfWork(database, clock);
   return {
     bookings: createBookingService({ unitOfWork }),
+    categories: createCategoryService({ unitOfWork }),
   };
 }

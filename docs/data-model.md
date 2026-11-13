@@ -188,9 +188,11 @@ einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
 | Ausgabe  | Erlösminderung / Rückerstattung (`reduces_income`) | `BETRIEBSEINNAHMEN_UST_PFLICHTIG` | ja     |
 
 - `is_system = 1` nur für die Kategorien, auf die sich die EÜR verlässt
-  (USt an das bzw. vom Finanzamt, Erlösminderung). Was das für Bearbeiten
-  und Löschen heißt, legt der Kategorien-Service (#15) fest. Die übrigen
-  sind normale, änderbare Vorschläge.
+  (USt an das bzw. vom Finanzamt, Erlösminderung). Der Kategorien-Service
+  (#15) erlaubt bei ihnen nur das Umbenennen: nicht archivieren, nicht
+  löschen, Position und „mindert Einnahmen“ fest
+  ([Architektur](architecture.md#kategorien-service-15)). Die übrigen sind
+  normale, änderbare Vorschläge.
 - Die Migration läuft wie jede Migration genau einmal. Löscht oder benennt
   der Nutzer eine Standardkategorie um, kommt sie nicht wieder.
 - Tests, die eine leere Kategorientabelle brauchen (z. B. der
@@ -213,6 +215,11 @@ einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
    Position anlegen; alte Schlüssel bleiben.
 
 ### Offene Punkte für #25
+
+- **Kategorien nur über Position und Flag:** Die Berechnung liest
+  `euer_position` und `reduces_income` der Kategorie zum
+  Berechnungszeitpunkt (Änderungen wirken rückwirkend, #15) und erkennt auch
+  Systemkategorien nie am Namen – Nutzer dürfen sie umbenennen.
 
 - **Zeile 15 vs. 16 bei Einnahmen:** Die Kategorie bestimmt die Position,
   aber eine Einnahme mit USt-Satz `"0"` oder `"reverse_charge"` gehört in

@@ -243,6 +243,57 @@ sie (`calculateBookingAmounts`).
   abgebildet: `unique` → `externalIdDuplicate`, `foreign_key` →
   `categoryNotFound`; alles andere wird weitergeworfen.
 
+## Kategorien-Service (#15)
+
+`src/business/categories` – `createCategoryService({ unitOfWork })` mit
+`list()`, `get(id)`, `create(input)`, `update(id, changes)`, `archive(id)`,
+`reactivate(id)`, `delete(id)`. Gleiche Konventionen wie der
+Buchungs-Service: eine Unit of Work pro Operation, Ergebnisobjekte mit
+Feldcodes (`CategoryFieldErrorCodes`), `notFound` auch bei ungültiger ID ohne
+Datenbankzugriff, Texte getrimmt (`trimText`/`isId` aus
+`src/business/validation.ts`, gemeinsam mit #14).
+
+- **`list()`** liefert alle Kategorien inkl. archivierter (nach `id`), jeweils
+  mit `bookingCount` – die Verwaltung (#19) gruppiert nach Art und bietet
+  „Löschen“ nur bei `bookingCount === 0` an; das Buchungsformular (#18)
+  filtert nach Art und ohne archivierte.
+- **`create({ name, type, euerPosition, reducesIncome })`** legt eine normale
+  Kategorie an (`isSystem: false`, nicht archiviert). **`update(id, changes)`**
+  ändert `name`, `euerPosition`, `reducesIncome`; fehlende Felder bleiben, die
+  Art ist fest. Position und Flag werden nur geprüft, wenn sich eines davon
+  ändert – Umbenennen scheitert nie an der Position. Archivierte Kategorien
+  sind bearbeitbar.
+- **Name:** getrimmt und NFC-normalisiert, Pflicht, höchstens
+  `CATEGORY_NAME_MAX_LENGTH` (100) Zeichen, eindeutig pro Art ohne
+  Groß-/Kleinschreibung (`toLocaleLowerCase("de")`, „Büro“ = „BÜRO“, auch mit
+  kombinierendem Umlaut) – auch gegenüber archivierten Kategorien, da der
+  Unique-Key der DB sie einschließt. Codes: `required`, `tooLong`,
+  `nameDuplicate`.
+- **Position/Flag:** `validateCategoryPosition`, Codes auf Felder verteilt:
+  `euerPosition` bekommt `required` (leer), `unknownPosition`,
+  `positionNotAssignable`, `positionKindMismatch`,
+  `reducesIncomeNeedsIncomePosition`, `reducesIncomeNeedsTurnoverPosition`;
+  `reducesIncome` bekommt `reducesIncomeNotExpense` (Einnahme-Kategorie; die
+  Position wird dann wie bei einer normalen Einnahme-Kategorie geprüft). Bei
+  ungültiger Art (`type: invalidType`) nur die artunabhängigen Prüfungen.
+- **Position ändern wirkt rückwirkend:** Buchungen speichern nur die
+  Kategorie; die EÜR (#25) nimmt Position und Flag der Kategorie zum
+  Berechnungszeitpunkt. Keine Buchung wird umgeschrieben.
+- **Systemkategorien** (`isSystem`: USt-Vorauszahlung, USt-Erstattung,
+  Erlösminderung / Rückerstattung): umbenennbar, aber nicht archivierbar oder
+  löschbar (`{ ok: false, reason: "systemCategory" }`); Position und Flag
+  sind fest (`systemCategoryFixed` am jeweiligen Feld, nur wenn sich der Wert
+  ändert). Reaktivieren ist immer erlaubt. Vertrag für #25: Die EÜR erkennt
+  diese Kategorien an Position und Flag, **nie am Namen**.
+- **Archivieren/Reaktivieren** ist idempotent; archivierte Kategorien bleiben
+  für ihre Buchungen gültig (siehe Buchungs-Service). Ein Namenskonflikt beim
+  Reaktivieren ist unmöglich (der Unique-Key umfasst archivierte).
+- **Löschen** nur ohne Buchungen: Die Anzahl wird in derselben Unit of Work
+  geprüft, sonst `{ ok: false, reason: "inUse", bookingCount }` (Hinweis:
+  archivieren). Ein `foreign_key`-`ConstraintViolationError` (Wettlauf) wird
+  ebenso zu `inUse`; `unique` beim Anlegen/Ändern zu `nameDuplicate`; alles
+  andere wird weitergeworfen.
+
 ## EÜR-Positionen (#13)
 
 `src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
