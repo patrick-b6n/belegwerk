@@ -1,0 +1,20 @@
+[package]
+name = "belegwerk"
+version = "0.1.0"
+description = "Belegwerk – Einnahmen/Ausgaben und Anlage EÜR"
+authors = ["Patrick"]
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[lib]
+name = "belegwerk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-log = "2"
+log = "0.4"
