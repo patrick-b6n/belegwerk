@@ -196,7 +196,7 @@ Gleitkommazahlen).
 ## Buchungs-Service (#14)
 
 `src/business/bookings` – `createBookingService({ unitOfWork })` mit
-`get(id)`, `create(input)`, `update(id, input)`, `delete(id)`. Eingabe ist
+`list()`, `get(id)`, `create(input)`, `update(id, input)`, `delete(id)`. Eingabe ist
 `BookingFormInput` (was das Formular abschickt): Datum, Art, Brutto in Cent,
 USt-Satz, Kategorie, Beschreibung, Gegenpartei, Referenz, Notiz, optional
 Quelle und externe ID. Netto/USt nimmt der Service nie entgegen, er berechnet
@@ -244,6 +244,17 @@ sie (`calculateBookingAmounts`).
   `ConstraintViolationError` beim Schreiben (Wettlauf) wird explizit
   abgebildet: `unique` → `externalIdDuplicate`, `foreign_key` →
   `categoryNotFound`; alles andere wird weitergeworfen.
+
+- **`list()`** (Buchungsliste, #17) liefert `{ items }`: alle Buchungen,
+  neueste zuerst (Datum absteigend, dann `id` absteigend), jeweils mit
+  `category: { id, name, archived }`. Zwei Abfragen in einer Unit of Work
+  (`BookingRepository.list()` und `CategoryRepository.list()`), verknüpft im
+  Service – kein N+1 und kein SQL-Join mit doppelten Spaltennamen.
+  **Erweiterung (#21):** `list(query?)` bekommt das Query-Objekt (Freitext,
+  Zeitraum, Art, Kategorien, Quelle, Betrag, Sortierung, Seite) als optionalen
+  Parameter, das Repository dafür `search(query)`; das Ergebnis bekommt
+  Gesamtanzahl und Summen dazu. Bestehende Aufrufer ohne Query bleiben gültig
+  (deshalb ein Ergebnisobjekt statt eines Arrays).
 
 ## Kategorien-Service (#15)
 
@@ -352,14 +363,16 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 
 ## App-Shell & Routen
 
-| Route            | Bereich                                                             |
-| ---------------- | ------------------------------------------------------------------- |
-| `/`              | Weiterleitung auf `/buchungen` (Startseite)                         |
-| `/buchungen`     | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
-| `/euer`          | EÜR-Jahresansicht                                                   |
-| `/kategorien`    | Kategorienverwaltung                                                |
-| `/einstellungen` | Einstellungen (Steuerjahre, später Stripe)                          |
-| alles andere     | `notFoundComponent` der Root-Route, innerhalb der Shell             |
+| Route                   | Bereich                                                             |
+| ----------------------- | ------------------------------------------------------------------- |
+| `/`                     | Weiterleitung auf `/buchungen` (Startseite)                         |
+| `/buchungen`            | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
+| `/buchungen/$bookingId` | Buchung bearbeiten (Formular #18; bis dahin Platzhalter)            |
+| `/buchungen/neu`        | Neue Buchung (#18, noch nicht angelegt)                             |
+| `/euer`                 | EÜR-Jahresansicht                                                   |
+| `/kategorien`           | Kategorienverwaltung                                                |
+| `/einstellungen`        | Einstellungen (Steuerjahre, später Stripe)                          |
+| alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
   Code-Bezeichner bleiben englisch (`BookingsPage`, `bookings_title`).
@@ -402,8 +415,9 @@ Ladebildschirm, danach die App; Komponenten holen die Services mit
 - **Browser ohne Tauri** (`pnpm dev` direkt im Browser): Es gibt keine
   Datenbank; der Fehlerbildschirm weist darauf hin, die App mit
   `pnpm tauri dev` zu starten.
-- Services werden (noch) nicht als Router-Context an Loader gegeben; braucht
-  ein Loader sie, kommt das mit der ersten Route, die Daten lädt.
+- Services werden nicht als Router-Context an Loader gegeben (es gibt sie
+  erst nach dem Start im Provider); die Buchungsseiten laden per `useQuery`
+  in der Komponente.
 
 ### TanStack Query
 
@@ -412,6 +426,33 @@ Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
 `src/router.tsx` legt pro Router-Instanz einen Client an, stellt ihn über
 `Wrap` per `QueryClientProvider` bereit und gibt ihn als Router-Context
 (`context.queryClient`) an Loader weiter.
+
+**Query-Keys** liegen pro Bereich mit den Hooks in `src/ui/<bereich>/*-queries.ts`,
+z. B. `bookingQueryKeys` in `src/ui/bookings/booking-queries.ts`:
+`["bookings"]` (alles), `["bookings", "list"]` (Liste; die Suche #21/#22
+hängt ihr Query-Objekt an) und `["bookings", "detail", id]`. Mutationen
+(#18) invalidieren `bookingQueryKeys.all` – Liste und geladene
+Einzelbuchungen.
+
+### Buchungsliste (#17)
+
+- `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit `useBookingList()`
+  und zeigt Lade-, Fehler- (mit „Erneut versuchen“) und Leerzustand.
+  Search-Params (#22/#23) kommen als `validateSearch` an diese Route.
+- `src/ui/bookings/booking-table.tsx` rendert die Zeilen mit TanStack Table
+  (v9: `useTable`, `tableFeatures`, `columnMeta` für Spaltenklassen), ohne
+  eigene Sortierung/Pagination – das macht später die Suche per SQL (#21, #23).
+- **Art** als Text mit Pfeil-Icon und Farbe, Brutto in der Farbe der Art (nie
+  nur Farbe). Beträge rechtsbündig mit `tabular-nums` und `formatCurrency`,
+  Datum mit `formatDate`. Archivierte Kategorien sind markiert. Lange Texte
+  werden gekürzt (voller Text im `title`), damit die Tabelle ins
+  Standardfenster (1280 px) passt.
+- **Bearbeiten:** Klick auf die Zeile navigiert zu `/buchungen/$bookingId`;
+  für die Tastatur ist die Beschreibung ein Link (Tab, Enter). Die Route
+  parst die ID zu einer Zahl (sonst `NaN` → der Service meldet „nicht
+  gefunden“ ohne Abfrage) und zeigt eine unbekannte Buchung auf der Seite an,
+  ohne `notFound()` – den 404-Titel erkennt die Root-Route an `_notFound`,
+  das gilt nur für unbekannte Pfade.
 
 ## Content Security Policy
 
