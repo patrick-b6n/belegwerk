@@ -1,28 +1,34 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createTestDb } from "./__tests__/test-db";
+import { createTestDb, dbError } from "./__tests__/test-db";
 import { bookings, categories, settings, taxYears } from "./schema";
 
-type TestDb = ReturnType<typeof createTestDb>;
+type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 
 const NOW = "2025-03-07T12:34:56.789Z";
+
+/** Booking overrides setting a NOT NULL column to null (bypassing the types). */
+function nulls(column: string) {
+  return { [column]: null } as Partial<typeof bookings.$inferInsert>;
+}
 
 describe("schema migrations", () => {
   let db: TestDb["db"];
   let sqlite: TestDb["sqlite"];
   let incomeCategoryId: number;
 
-  beforeEach(() => {
-    ({ db, sqlite } = createTestDb());
-    incomeCategoryId = db
+  beforeEach(async () => {
+    ({ db, sqlite } = await createTestDb());
+    const category = await db
       .insert(categories)
       .values({ name: "Umsatz", type: "income", euerPosition: "BETRIEBSEINNAHMEN_UST_PFLICHTIG" })
       .returning({ id: categories.id })
-      .get().id;
+      .get();
+    incomeCategoryId = category.id;
   });
 
-  function insertBooking(overrides: Partial<typeof bookings.$inferInsert> = {}) {
+  async function insertBooking(overrides: Partial<typeof bookings.$inferInsert> = {}) {
     return db
       .insert(bookings)
       .values({
@@ -61,8 +67,8 @@ describe("schema migrations", () => {
     );
   });
 
-  it("round-trips a booking with defaults", () => {
-    const booking = insertBooking({ reference: null, note: "Notiz" });
+  it("round-trips a booking with defaults", async () => {
+    const booking = await insertBooking({ reference: null, note: "Notiz" });
     expect(booking).toMatchObject({
       id: expect.any(Number),
       date: "2025-03-07",
@@ -74,36 +80,42 @@ describe("schema migrations", () => {
     });
   });
 
-  it("maps boolean flags with defaults", () => {
-    const category = db.select().from(categories).where(eq(categories.id, incomeCategoryId)).get();
+  it("maps boolean flags with defaults", async () => {
+    const category = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, incomeCategoryId))
+      .get();
     expect(category).toMatchObject({ reducesIncome: false, archived: false, isSystem: false });
 
-    db.insert(taxYears).values({ year: 2025, smallBusiness: true }).run();
-    expect(db.select().from(taxYears).get()).toEqual({ year: 2025, smallBusiness: true });
+    await db.insert(taxYears).values({ year: 2025, smallBusiness: true }).run();
+    expect(await db.select().from(taxYears).get()).toEqual({ year: 2025, smallBusiness: true });
   });
 
   describe("unique (source, external_id) where external_id is not null", () => {
-    it("rejects a duplicate external ID from the same source", () => {
-      insertBooking({ source: "stripe", externalId: "ch_1" });
-      expect(() => insertBooking({ source: "stripe", externalId: "ch_1" })).toThrow(/UNIQUE/);
+    it("rejects a duplicate external ID from the same source", async () => {
+      await insertBooking({ source: "stripe", externalId: "ch_1" });
+      expect(await dbError(insertBooking({ source: "stripe", externalId: "ch_1" }))).toMatch(
+        /UNIQUE/,
+      );
     });
 
-    it("allows the same external ID from another source", () => {
-      insertBooking({ source: "stripe", externalId: "x_1" });
-      expect(() => insertBooking({ source: "manual", externalId: "x_1" })).not.toThrow();
+    it("allows the same external ID from another source", async () => {
+      await insertBooking({ source: "stripe", externalId: "x_1" });
+      await expect(insertBooking({ source: "manual", externalId: "x_1" })).resolves.toBeDefined();
     });
 
-    it("allows any number of bookings without external ID", () => {
-      insertBooking({ source: "stripe" });
-      insertBooking({ source: "stripe" });
-      insertBooking();
-      expect(() => insertBooking()).not.toThrow();
+    it("allows any number of bookings without external ID", async () => {
+      await insertBooking({ source: "stripe" });
+      await insertBooking({ source: "stripe" });
+      await insertBooking();
+      await expect(insertBooking()).resolves.toBeDefined();
     });
 
-    it("allows re-importing after the booking was deleted", () => {
-      const booking = insertBooking({ source: "stripe", externalId: "ch_1" });
-      db.delete(bookings).where(eq(bookings.id, booking.id)).run();
-      expect(() => insertBooking({ source: "stripe", externalId: "ch_1" })).not.toThrow();
+    it("allows re-importing after the booking was deleted", async () => {
+      const booking = await insertBooking({ source: "stripe", externalId: "ch_1" });
+      await db.delete(bookings).where(eq(bookings.id, booking.id)).run();
+      await expect(insertBooking({ source: "stripe", externalId: "ch_1" })).resolves.toBeDefined();
     });
   });
 
@@ -114,8 +126,8 @@ describe("schema migrations", () => {
       ["7 %", { vatRate: "7", netCents: 11121, vatCents: 779 }],
       ["reverse charge", { vatRate: "reverse_charge", netCents: 11900, vatCents: 0 }],
       ["leap day", { date: "2024-02-29" }],
-    ] as const)("accepts %s", (_, overrides) => {
-      expect(() => insertBooking(overrides)).not.toThrow();
+    ] as const)("accepts %s", async (_, overrides) => {
+      await expect(insertBooking(overrides)).resolves.toBeDefined();
     });
 
     it.each([
@@ -136,15 +148,15 @@ describe("schema migrations", () => {
       ["fractional net/VAT cents", { netCents: 9999.5, vatCents: 1900.5 }],
       ["non-numeric cents", { grossCents: "viel", netCents: "viel", vatCents: 0 }],
       ["empty external ID", { source: "stripe", externalId: "" }],
-    ])("rejects %s", (_, overrides) => {
-      expect(() => insertBooking(overrides as Partial<typeof bookings.$inferInsert>)).toThrow(
-        /CHECK constraint failed/,
-      );
+    ])("rejects %s", async (_, overrides) => {
+      expect(
+        await dbError(insertBooking(overrides as Partial<typeof bookings.$inferInsert>)),
+      ).toMatch(/CHECK constraint failed/);
     });
 
-    it("stores numeric text as integer cents (SQLite type affinity)", () => {
+    it("stores numeric text as integer cents (SQLite type affinity)", async () => {
       // INTEGER affinity converts '11900' to 11900 before the CHECKs run.
-      const booking = insertBooking({ grossCents: "11900" } as unknown as Partial<
+      const booking = await insertBooking({ grossCents: "11900" } as unknown as Partial<
         typeof bookings.$inferInsert
       >);
       const row = sqlite
@@ -153,69 +165,56 @@ describe("schema migrations", () => {
       expect(row).toEqual({ type: "integer", gross_cents: 11900 });
     });
 
-    it("requires description and counterparty", () => {
-      expect(() =>
-        insertBooking({ description: null } as unknown as Partial<typeof bookings.$inferInsert>),
-      ).toThrow(/NOT NULL/);
-      expect(() =>
-        insertBooking({ counterparty: null } as unknown as Partial<typeof bookings.$inferInsert>),
-      ).toThrow(/NOT NULL/);
+    it("requires description and counterparty", async () => {
+      expect(await dbError(insertBooking(nulls("description")))).toMatch(/NOT NULL/);
+      expect(await dbError(insertBooking(nulls("counterparty")))).toMatch(/NOT NULL/);
     });
   });
 
   describe("categories", () => {
-    it("rejects a booking with an unknown category", () => {
-      expect(() => insertBooking({ categoryId: 999 })).toThrow(/FOREIGN KEY/);
+    it("rejects a booking with an unknown category", async () => {
+      expect(await dbError(insertBooking({ categoryId: 999 }))).toMatch(/FOREIGN KEY/);
     });
 
-    it("cannot be deleted while bookings reference them", () => {
-      insertBooking();
-      expect(() => db.delete(categories).where(eq(categories.id, incomeCategoryId)).run()).toThrow(
-        /FOREIGN KEY/,
-      );
+    it("cannot be deleted while bookings reference them", async () => {
+      await insertBooking();
+      const deletion = db.delete(categories).where(eq(categories.id, incomeCategoryId)).run();
+      expect(await dbError(deletion)).toMatch(/FOREIGN KEY/);
     });
 
-    it("have unique names per type", () => {
+    it("have unique names per type", async () => {
       const values = { name: "Umsatz", euerPosition: "SONSTIGE_AUSGABEN" };
-      expect(() =>
+      const insert = (type: "income" | "expense") =>
         db
           .insert(categories)
-          .values({ ...values, type: "income" })
-          .run(),
-      ).toThrow(/UNIQUE/);
-      expect(() =>
-        db
-          .insert(categories)
-          .values({ ...values, type: "expense" })
-          .run(),
-      ).not.toThrow();
+          .values({ ...values, type })
+          .run();
+      expect(await dbError(insert("income"))).toMatch(/UNIQUE/);
+      await insert("expense");
     });
 
-    it("only reduce income if they are expense categories", () => {
+    it("only reduce income if they are expense categories", async () => {
       const values = { name: "Rückerstattung", euerPosition: "X", reducesIncome: true };
-      expect(() =>
+      const insert = (type: "income" | "expense") =>
         db
           .insert(categories)
-          .values({ ...values, type: "income" })
-          .run(),
-      ).toThrow(/CHECK constraint failed/);
-      expect(() =>
-        db
-          .insert(categories)
-          .values({ ...values, type: "expense" })
-          .run(),
-      ).not.toThrow();
+          .values({ ...values, type })
+          .run();
+      expect(await dbError(insert("income"))).toMatch(/CHECK constraint failed/);
+      await insert("expense");
     });
   });
 
-  it("rejects implausible tax years", () => {
-    expect(() => db.insert(taxYears).values({ year: 25 }).run()).toThrow(/CHECK constraint failed/);
+  it("rejects implausible tax years", async () => {
+    expect(await dbError(db.insert(taxYears).values({ year: 25 }).run())).toMatch(
+      /CHECK constraint failed/,
+    );
   });
 
-  it("stores settings as key/value pairs", () => {
-    db.insert(settings).values({ key: "stripe.apiKey", value: "rk_test" }).run();
-    expect(() => db.insert(settings).values({ key: "stripe.apiKey", value: "x" }).run()).toThrow(
-      /UNIQUE/,
-    );
+  it("stores settings as key/value pairs", async () => {
+    await db.insert(settings).values({ key: "stripe.apiKey", value: "rk_test" }).run();
+    expect(
+      await dbError(db.insert(settings).values({ key: "stripe.apiKey", value: "x" }).run()),
+    ).toMatch(/UNIQUE/);
   });
 });

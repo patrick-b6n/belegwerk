@@ -16,5 +16,11 @@
   "not_found_title": "Seite nicht gefunden",
   "not_found_description": "Diese Seite gibt es nicht.",
   "not_found_back": "Zu den Buchungen",
-  "toast_close": "Benachrichtigung schließen"
+  "toast_close": "Benachrichtigung schließen",
+  "startup_loading": "Datenbank wird geöffnet …",
+  "startup_error_title": "Belegwerk konnte nicht gestartet werden",
+  "startup_error_description": "Beim Öffnen der Datenbank ist ein Fehler aufgetreten. Die Details unten helfen bei der Fehlersuche.",
+  "startup_error_no_tauri": "Belegwerk läuft nur als Desktop-App. Im Browser steht keine Datenbank zur Verfügung – starte die App mit „pnpm tauri dev“.",
+  "startup_error_details": "Details",
+  "startup_error_retry": "Erneut versuchen"
 }
