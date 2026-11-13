@@ -1,4 +1,4 @@
-import { revalidateLogic, useForm, useStore } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 
@@ -37,6 +37,7 @@ import {
 } from "@/ui/components/ui/select";
 import { Textarea } from "@/ui/components/ui/textarea";
 import { toast } from "@/ui/components/ui/toast";
+import { noValidation, revalidateKeepingServerErrorsOnBlur } from "@/ui/forms/validation-logic";
 import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
 import {
@@ -106,10 +107,12 @@ export interface BookingFormProps {
  * - Values are strings (`BookingFormValues`); on submit they become the
  *   service's `BookingFormInput` (`toBookingFormInput`). The service
  *   validates everything; its field errors appear at the fields
- *   (`errorMap.onServer`, cleared when the field changes), errors of fields
+ *   (`errorMap.onServer`, kept on blur, cleared when the value changes or on
+ *   the next submit – every field therefore has a validator), errors of fields
  *   the form does not show (source, external ID) above the buttons.
  * - Client-side checks (required fields, the amount text) run on submit and,
- *   after the first submit, on every change (`revalidateLogic`).
+ *   after the first submit, on every change
+ *   (`revalidateKeepingServerErrorsOnBlur`).
  * - The VAT rate field is shown only in regularly taxed years – the year
  *   comes from the date; while the date is incomplete the year counts as
  *   regularly taxed. In a small business year the rate is sent as `null`.
@@ -125,7 +128,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
 
   const form = useForm({
     defaultValues: booking ? bookingFormValues(booking) : newBookingFormValues(todayIsoDate()),
-    validationLogic: revalidateLogic(),
+    validationLogic: revalidateKeepingServerErrorsOnBlur(),
     onSubmitInvalid: () => focusFirstInvalid(formRef.current),
     onSubmit: async ({ value, formApi }) => {
       setOtherErrors([]);
@@ -225,6 +228,8 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
 
         <form.Field
           name="type"
+          // No client check; lets a change clear a server error (see validation-logic.ts).
+          validators={{ onDynamic: noValidation }}
           listeners={{
             onChange: ({ value, fieldApi }) => {
               // Keep the category only if it fits the new type.
@@ -321,14 +326,11 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
         >
           {(field) =>
             smallBusiness ? (
-              // Hidden in small business years; its errors (e.g. from the
-              // service) still show here.
-              <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                <p className="text-sm text-muted-foreground sm:mt-6">
-                  {m.booking_form_small_business_note({ year: String(year) })}
-                </p>
-                <FieldError role={undefined} errors={fieldErrors(field.state.meta.errors)} />
-              </Field>
+              <SmallBusinessNote
+                id={id("vatRate")}
+                year={year}
+                errors={fieldErrors(field.state.meta.errors)}
+              />
             ) : (
               <FormField
                 id={id("vatRate")}
@@ -475,7 +477,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
           )}
         </form.Field>
 
-        <form.Field name="reference">
+        <form.Field name="reference" validators={{ onDynamic: noValidation }}>
           {(field) => (
             <FormField
               id={id("reference")}
@@ -496,7 +498,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
           )}
         </form.Field>
 
-        <form.Field name="note">
+        <form.Field name="note" validators={{ onDynamic: noValidation }}>
           {(field) => (
             <FormField
               id={id("note")}
@@ -558,6 +560,34 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
         )}
       </div>
     </form>
+  );
+}
+
+/**
+ * Shown instead of the VAT rate in small business years. Its errors (e.g.
+ * `vatRateNotAllowed` from the service) still show here; with an error the
+ * note is focusable and marked invalid, so the focus after a failed submit
+ * lands on it (`focusFirstInvalid`).
+ */
+function SmallBusinessNote({
+  id,
+  year,
+  errors,
+}: Readonly<{ id: string; year: number | undefined; errors: { message: string }[] }>) {
+  const invalid = errors.length > 0;
+  return (
+    <Field data-invalid={invalid || undefined}>
+      <p
+        id={id}
+        tabIndex={invalid ? -1 : undefined}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring sm:mt-6"
+      >
+        {m.booking_form_small_business_note({ year: String(year) })}
+      </p>
+      <FieldError id={`${id}-error`} role={undefined} errors={errors} />
+    </Field>
   );
 }
 

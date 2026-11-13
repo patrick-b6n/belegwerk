@@ -476,11 +476,17 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   Buchungen zeigen sie nur zur Information.
 - **Validierung:** Der Service ist maßgeblich. Das Formular prüft vorab nur,
   was es selbst weiß (Pflichtfelder, Betragstext per `parseAmount`, Betrag
-  > 0. – beim Absenden, danach bei jeder Änderung (`revalidateLogic`).
-  >    Service-Fehler werden pro Feld als `errorMap.onServer` gesetzt (beim
-  >    Ändern des Feldes gelöscht); Fehler zu Quelle/externer ID erscheinen über
-  >    den Buttons. Nach einem fehlgeschlagenen Absenden bekommt das erste
-  >    ungültige Feld den Fokus; Fehlertexte hängen per `aria-describedby` am Feld.
+  größer 0) – beim Absenden, danach bei jeder Änderung
+  (`revalidateKeepingServerErrorsOnBlur` in `src/ui/forms/validation-logic.ts`:
+  `revalidateLogic()`, aber Verlassen eines Feldes löscht keine Service-Fehler).
+  Service-Fehler werden pro Feld als `errorMap.onServer` gesetzt und bleiben,
+  bis sich der Wert ändert oder erneut abgesendet wird. Form-core löscht sie
+  nur bei Feldern mit `validators`; Felder ohne Client-Prüfung (Art, Referenz,
+  Notiz) haben deshalb einen No-op-Validator (`noValidation`). Fehler zu
+  Quelle/externer ID erscheinen über den Buttons. Nach einem fehlgeschlagenen
+  Absenden bekommt das erste ungültige Feld den Fokus (im Kleinunternehmer-Jahr
+  ggf. der Hinweis statt des USt-Felds); Fehlertexte hängen per
+  `aria-describedby` am Feld.
 - **Datum:** natives `<input type="date">` (liefert ISO; WebView2 zeigt das
   Systemformat, z. B. `TT.MM.JJJJ`, samt Kalender). Neue Buchungen starten
   mit heute, Ausgabe und 19 %.

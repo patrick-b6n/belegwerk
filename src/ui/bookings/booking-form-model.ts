@@ -250,15 +250,11 @@ export function categoryOptions(
   type: BookingType,
   keep: readonly (number | undefined)[] = [],
 ): CategoryWithUsage[] {
-  return (
-    categories
-      .filter(
-        (category) => category.type === type && (!category.archived || keep.includes(category.id)),
-      )
-      // `filter` returned a fresh array; `toSorted` needs Chrome 110 (build target chrome105).
-      // oxlint-disable-next-line unicorn/no-array-sort
-      .sort((a, b) => a.name.localeCompare(b.name, "de"))
+  const options = categories.filter(
+    (category) => category.type === type && (!category.archived || keep.includes(category.id)),
   );
+  options.sort((a, b) => a.name.localeCompare(b.name, "de"));
+  return options;
 }
 
 /**
