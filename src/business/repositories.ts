@@ -55,8 +55,15 @@ export interface BookingRepository {
   countVatRateUsage(year: number): Promise<VatRateUsage>;
   /** Distinct years of the booking dates, ascending (tax year list, #16/#20). */
   listYears(): Promise<number[]>;
+  /**
+   * All bookings, newest first: by `date` descending, then `id` descending
+   * (several bookings of a day in reverse entry order) – the booking list
+   * (#17).
+   */
+  list(): Promise<Booking[]>;
   // Search, filter, sort, pagination and sums follow with #21 as a separate
-  // method taking a query object (`search(query)`).
+  // method taking a query object (`search(query)`); `list()` stays the
+  // unfiltered default.
 }
 
 export interface VatRateUsage {

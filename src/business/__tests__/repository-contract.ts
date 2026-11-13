@@ -287,6 +287,33 @@ export function describeRepositoryContract(
         expect(await repos.bookings.listYears()).toEqual([1000, 2024, 2025, 9999]);
       });
 
+      it("lists all bookings by date descending, then id descending", async () => {
+        expect(await repos.bookings.list()).toEqual([]);
+        const older = await insertBooking({ date: "2025-01-31" });
+        const sameDayFirst = await insertBooking({ date: "2025-03-07" });
+        const newest = await insertBooking({ date: "2026-01-01" });
+        const sameDaySecond = await insertBooking({ date: "2025-03-07", description: "Zweite" });
+        const oldest = await insertBooking({ date: "1999-12-31" });
+
+        const listed = await repos.bookings.list();
+        expect(listed.map((b) => b.id)).toEqual([
+          newest.id,
+          sameDaySecond.id,
+          sameDayFirst.id,
+          older.id,
+          oldest.id,
+        ]);
+        // Complete domain objects, equal to what findById returns.
+        expect(listed[1]).toEqual(await repos.bookings.findById(sameDaySecond.id));
+      });
+
+      it("lists copies that do not change the stored bookings", async () => {
+        const inserted = await insertBooking();
+        const [listed] = await repos.bookings.list();
+        (listed as { description: string }).description = "Verändert";
+        expect(await repos.bookings.findById(inserted.id)).toEqual(inserted);
+      });
+
       it("counts bookings of the year 9999", async () => {
         await insertBooking({ date: "9998-12-31" });
         await insertBooking({ date: "9999-01-01" });
