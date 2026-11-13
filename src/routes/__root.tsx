@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { AppServicesProvider } from "@/app/app-services";
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
 import { buttonVariants } from "@/ui/components/ui/button";
@@ -47,9 +48,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   return (
     <RootDocument>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      {/* Opens the database before the app renders; error screen on failure. */}
+      <AppServicesProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </AppServicesProvider>
     </RootDocument>
   );
 }
