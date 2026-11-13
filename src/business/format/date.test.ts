@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate } from "./date";
+import { formatDate, parseIsoDate } from "./date";
 
 describe("formatDate", () => {
   it("runs in a non-UTC time zone (see vitest.config.ts)", () => {
@@ -37,4 +37,29 @@ describe("formatDate", () => {
       expect(() => formatDate(input)).toThrow(RangeError);
     },
   );
+});
+
+describe("parseIsoDate", () => {
+  it.each([
+    ["2025-03-07", { year: 2025, month: 3, day: 7 }],
+    ["2024-02-29", { year: 2024, month: 2, day: 29 }],
+    ["1000-01-01", { year: 1000, month: 1, day: 1 }],
+    ["9999-12-31", { year: 9999, month: 12, day: 31 }],
+  ])("parses %j", (iso, expected) => {
+    expect(parseIsoDate(iso)).toEqual(expected);
+  });
+
+  it.each([
+    "",
+    "2025-02-29",
+    "2025-02-30",
+    "2025-13-01",
+    "0999-12-31",
+    "2025-3-7",
+    " 2025-03-07",
+    "2025-03-07T10:00:00Z",
+    "12025-01-01",
+  ])("rejects %j", (input) => {
+    expect(parseIsoDate(input)).toBeUndefined();
+  });
 });

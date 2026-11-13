@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MAX_AMOUNT_CENTS } from "../money/limits";
 import { formatCurrency, parseAmount } from "./currency";
 
 // Intl (de-DE) separates amount and symbol with a no-break space (U+00A0).
@@ -91,7 +92,7 @@ describe("parseAmount", () => {
   });
 
   it("round-trips formatCurrency output", () => {
-    for (const cents of [0, 1, 29, 123456, 100000000, Number.MAX_SAFE_INTEGER]) {
+    for (const cents of [0, 1, 29, 123456, 100000000, MAX_AMOUNT_CENTS]) {
       expect(parseAmount(formatCurrency(cents))).toEqual({ ok: true, cents });
     }
   });
@@ -150,11 +151,10 @@ describe("parseAmount", () => {
     expect(parseAmount(input)).toEqual({ ok: false, error: "invalid" });
   });
 
-  it("rejects amounts above Number.MAX_SAFE_INTEGER cents", () => {
-    expect(parseAmount("90.071.992.547.409,91")).toEqual({
-      ok: true,
-      cents: Number.MAX_SAFE_INTEGER,
-    });
+  it("rejects amounts above MAX_AMOUNT_CENTS (100.000.000,00 €)", () => {
+    expect(MAX_AMOUNT_CENTS).toBe(10_000_000_000);
+    expect(parseAmount("100.000.000,00")).toEqual({ ok: true, cents: MAX_AMOUNT_CENTS });
+    expect(parseAmount("100.000.000,01")).toEqual({ ok: false, error: "tooLarge" });
     expect(parseAmount("90.071.992.547.409,92")).toEqual({ ok: false, error: "tooLarge" });
     expect(parseAmount("99999999999999999999")).toEqual({ ok: false, error: "tooLarge" });
   });
