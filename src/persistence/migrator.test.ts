@@ -32,6 +32,20 @@ function migrations(...files: [tag: string, sql: string][]) {
   );
 }
 
+/** Connection whose `PRAGMA foreign_keys = ON` fails. */
+function failingPragma() {
+  const sqlite = new Database(":memory:");
+  const client = createBetterSqlite3Client(sqlite);
+  const connection = new SqlConnection({
+    ...client,
+    execute: async (sql, params) => {
+      if (/^PRAGMA foreign_keys = ON$/.test(sql)) throw new Error("pragma failed");
+      return client.execute(sql, params);
+    },
+  });
+  return { connection, sqlite };
+}
+
 const A: [string, string] = ["0000_a", "CREATE TABLE a (id INTEGER PRIMARY KEY);"];
 const B: [string, string] = ["0001_b", "CREATE TABLE b (id INTEGER PRIMARY KEY);"];
 
@@ -133,6 +147,25 @@ describe("migrate", () => {
     // Still usable, e.g. after the migration was fixed.
     await migrate(connection, await migrations(A), { now });
     expect(tracking()).toMatchObject([{ tag: "0000_a" }]);
+  });
+
+  describe("when re-enabling foreign keys fails", () => {
+    it("still reports the error that made the migration fail", async () => {
+      const { connection, sqlite } = failingPragma();
+      const broken: [string, string] = ["0000_broken", "NOT SQL"];
+
+      await expect(migrate(connection, await migrations(broken), { now })).rejects.toThrow(
+        /syntax error/,
+      );
+      expect(sqlite.prepare("SELECT name FROM sqlite_master").all()).toEqual([]);
+    });
+
+    it("reports that error after a successful migration", async () => {
+      const { connection } = failingPragma();
+      await expect(migrate(connection, await migrations(A), { now })).rejects.toThrow(
+        "pragma failed",
+      );
+    });
   });
 
   it("rolls back on foreign key violations", async () => {

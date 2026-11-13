@@ -13,14 +13,23 @@ import type { ExecuteResult, SqlClient, SqlRow, SqlValue } from "./sql-client";
  *
  * Never use the connection itself inside {@link exclusive} or
  * {@link transaction} – that call would wait for the running callback and
- * deadlock. Use the client passed to the callback.
+ * deadlock. Use the client passed to the callback. (For repositories: inside
+ * `UnitOfWork.run` only the repositories passed to the callback.) As a hint,
+ * a call that waits longer than {@link SqlConnectionOptions.slowWaitMs} is
+ * reported via `console.error`.
  */
 export class SqlConnection implements SqlClient {
   readonly #client: SqlClient;
+  readonly #slowWaitMs: number;
+  readonly #onSlowWait: (waitedMs: number) => void;
   #queue: Promise<unknown> = Promise.resolve();
+  /** Calls started but not yet settled (at most one runs at a time). */
+  #pending = 0;
 
-  constructor(client: SqlClient) {
+  constructor(client: SqlClient, options: SqlConnectionOptions = {}) {
     this.#client = client;
+    this.#slowWaitMs = options.slowWaitMs ?? 10_000;
+    this.#onSlowWait = options.onSlowWait ?? reportSlowWait;
   }
 
   execute(sql: string, params?: readonly SqlValue[]): Promise<ExecuteResult> {
@@ -36,12 +45,20 @@ export class SqlConnection implements SqlClient {
    * must not be used after its promise settled (it throws then).
    */
   exclusive<T>(fn: (client: SqlClient) => Promise<T>): Promise<T> {
+    // Watchdog: only if the call has to queue behind another one.
+    const watchdog =
+      this.#pending > 0
+        ? setTimeout(() => this.#onSlowWait(this.#slowWaitMs), this.#slowWaitMs)
+        : undefined;
+    this.#pending += 1;
     const run = this.#queue.then(async () => {
+      clearTimeout(watchdog);
       const scoped = scopedClient(this.#client);
       try {
         return await fn(scoped.client);
       } finally {
         scoped.close();
+        this.#pending -= 1;
       }
     });
     this.#queue = run.catch(() => undefined);
@@ -71,6 +88,21 @@ export class SqlConnection implements SqlClient {
       return result;
     });
   }
+}
+
+export interface SqlConnectionOptions {
+  /** A call that waits longer than this for the connection is reported (default 10 s). */
+  slowWaitMs?: number;
+  /** Reports a slow wait; default `console.error` with a hint at the deadlock rule. */
+  onSlowWait?: (waitedMs: number) => void;
+}
+
+function reportSlowWait(waitedMs: number) {
+  console.error(
+    `A database call has been waiting for more than ${waitedMs / 1000} s. If it was issued ` +
+      "inside Database.transaction / UnitOfWork.run with the outer db or repositories " +
+      "(instead of the tx / the repositories passed to the callback), it deadlocks.",
+  );
 }
 
 /**
