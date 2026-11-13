@@ -1,7 +1,9 @@
 import { defineConfig } from "@inlang/paraglide-js";
 
-// Shared by the Vite plugin (dev/build) and the CLI (`pnpm i18n:compile`,
-// used before typecheck), so both emit identical output.
+// Single source of truth for the compiler options, read by both the Vite
+// plugin (dev/build) and the CLI (`pnpm i18n:compile`, run before typecheck).
+// The generated modules and their types are the same; the runtime flags may
+// differ (e.g. the Vite plugin sets `isServer`/`isDevelopment` per build).
 export default defineConfig({
   outdir: "./src/paraglide",
   // Physical files (not Vite's virtual modules) so `tsc` sees the same

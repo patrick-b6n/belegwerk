@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { formatCurrency, parseAmount } from "./currency";
 
 // Intl (de-DE) separates amount and symbol with a no-break space (U+00A0).
-const NBSP = " ";
+const NBSP = "\u00A0";
+// Narrow no-break space, used by some locales/tools before the currency sign.
+const NNBSP = "\u202F";
+const MINUS_SIGN = "\u2212";
 
 describe("formatCurrency", () => {
   it.each([
@@ -19,8 +22,9 @@ describe("formatCurrency", () => {
   });
 
   it("uses a no-break space (U+00A0) before the euro sign", () => {
-    expect(formatCurrency(123456)).toBe("1.234,56 €");
-    expect(formatCurrency(123456).replace(NBSP, " ")).toBe("1.234,56 €");
+    const formatted = formatCurrency(123456);
+    expect(formatted.charCodeAt(formatted.length - 2)).toBe(0x00a0);
+    expect(formatted.replace(NBSP, " ")).toBe("1.234,56 €");
   });
 
   it.each([
@@ -55,6 +59,7 @@ describe("parseAmount", () => {
     ["1234,56", 123456],
     ["1.234,56", 123456],
     ["1.234", 123400],
+    ["1.500", 150000], // dot is always the thousands separator in de-DE
     ["12.345.678,90", 1234567890],
     ["0", 0],
     ["0,00", 0],
@@ -72,12 +77,16 @@ describe("parseAmount", () => {
 
   it.each([
     ["  12,50  ", 1250],
+    [`${NBSP}12,50${NNBSP}`, 1250],
     ["1.234,56 €", 123456],
     [`1.234,56${NBSP}€`, 123456],
-    ["1.234,56 €", 123456],
+    [`1.234,56${NNBSP}€`, 123456],
+    ["1.234,56  € ", 123456],
     ["€ 12", 1200],
+    [`€${NBSP}12`, 1200],
+    ["€12", 1200],
     ["12€", 1200],
-  ])("tolerates whitespace and euro sign in %j", (input, cents) => {
+  ])("tolerates whitespace at the ends and next to the euro sign in %j", (input, cents) => {
     expect(parseAmount(input)).toEqual({ ok: true, cents });
   });
 
@@ -91,12 +100,29 @@ describe("parseAmount", () => {
     expect(parseAmount(input)).toEqual({ ok: false, error: "empty" });
   });
 
-  it.each(["-12", "-0,50", "- 1.234,56 €", "−12"])("rejects negative input %j", (input) => {
-    expect(parseAmount(input)).toEqual({ ok: false, error: "negative" });
-  });
+  it.each(["-12", "-0,50", "- 1.234,56 €", "€ -12", `${MINUS_SIGN}12`])(
+    "rejects negative input %j",
+    (input) => {
+      expect(parseAmount(input)).toEqual({ ok: false, error: "negative" });
+    },
+  );
 
   it.each(["1,234", "0,001", "12,500"])("rejects more than two decimals in %j", (input) => {
     expect(parseAmount(input)).toEqual({ ok: false, error: "tooManyDecimals" });
+  });
+
+  it.each([
+    "1 2",
+    "1 50",
+    "12,5 0",
+    "12 34,5 6",
+    "1 234,56", // space is not accepted as a group separator
+    `1${NBSP}234,56`,
+    `1${NNBSP}234,56`,
+    "1. 234",
+    "12 ,50",
+  ])("rejects whitespace inside the number in %j", (input) => {
+    expect(parseAmount(input)).toEqual({ ok: false, error: "invalid" });
   });
 
   it.each([
@@ -107,6 +133,9 @@ describe("parseAmount", () => {
     "1.23",
     "1234.567,00", // wrong grouping
     "12.34,5",
+    "0.123", // leading zero group
+    "01.234",
+    "000.000",
     ".234",
     "1.234.",
     ",5",

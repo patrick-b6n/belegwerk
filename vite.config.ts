@@ -32,12 +32,10 @@ export default defineConfig({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
   plugins: [
-    // Compiles messages/*.json into src/paraglide. Compiler options shared
-    // with the CLI (`pnpm i18n:compile`) live in project.inlang/paraglide.config.js.
-    paraglideVitePlugin({
-      project: "./project.inlang",
-      outdir: "./src/paraglide",
-    }),
+    // Compiles messages/*.json into src/paraglide. All compiler options
+    // (outdir, output structure, strategy) live in
+    // project.inlang/paraglide.config.js, shared with `pnpm i18n:compile`.
+    paraglideVitePlugin({ project: "./project.inlang" }),
     tailwindcss(),
     tanstackStart({
       // SPA mode: static build, no server functions. The prerendered shell

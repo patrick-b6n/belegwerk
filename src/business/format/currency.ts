@@ -64,40 +64,49 @@ export type ParseAmountResult =
   | { readonly ok: false; readonly error: ParseAmountError };
 
 // Integer part either plain digits ("1234") or correctly grouped with dots
-// ("1.234", "12.345.678"); optional decimal comma with digits.
-const AMOUNT_PATTERN = /^(\d+|\d{1,3}(?:\.\d{3})+)(?:,(\d+))?$/;
+// ("1.234", "12.345.678", first group without leading zero); optional
+// decimal comma with digits.
+const AMOUNT_PATTERN = /^(\d+|[1-9]\d{0,2}(?:\.\d{3})+)(?:,(\d+))?$/;
 
-// All Unicode whitespace incl. no-break space (U+00A0) and narrow no-break
-// space (U+202F), so pasted output of `formatCurrency` parses again.
-const WHITESPACE = /\s/gu;
+const EURO_SIGN = "€";
+const MINUS_SIGN = "\u2212";
 
 /**
  * Parses a user-entered de-DE amount into integer cents.
  *
  * Accepted: `"12"`, `"12,5"`, `"0,29"`, `"1234,56"`, `"1.234,56"`, optionally
- * with a leading or trailing `€` and surrounding/inner whitespace
- * (`"1.234,56 €"`). Zero is accepted (`"0"` → `0`); whether zero is a valid
- * booking amount is a business rule, not a parsing concern.
+ * with a leading or trailing `€` (`"1.234,56 €"`, `"€ 12"`). Whitespace
+ * (incl. no-break space U+00A0 and narrow no-break space U+202F) is allowed
+ * only at the ends and between the number and `€`, so `formatCurrency` output
+ * parses again. Whitespace inside the number (`"1 2"`, `"1 234,56"`) is
+ * `"invalid"` – it is not accepted as a group separator. Zero is accepted
+ * (`"0"` → `0`); whether zero is a valid booking amount is a business rule,
+ * not a parsing concern.
+ *
+ * The dot is always the de-DE thousands separator: `"1.500"` parses as
+ * 1.500 € (`150000`), not 1,50 €. UIs should therefore show a preview of
+ * the parsed amount (e.g. via `formatCurrency`).
  *
  * Rejected (with a reason, never rounded or guessed):
  * - empty input → `"empty"`
  * - leading minus → `"negative"`
  * - more than two decimals (`"1,234"`) → `"tooManyDecimals"`
  * - a dot as decimal separator or wrong grouping (`"12.5"`, `"1.23"`,
- *   `"12.34,5"`), a leading plus, missing integer part (`",5"`), letters,
- *   multiple commas, … → `"invalid"`
+ *   `"12.34,5"`, `"0.123"`), inner whitespace, a leading plus, missing
+ *   integer part (`",5"`), letters, multiple commas, … → `"invalid"`
  * - more than `Number.MAX_SAFE_INTEGER` cents → `"tooLarge"`
  *
  * Works purely on the digit string, so there is no floating-point rounding
  * (`"0,29"` → `29`, not `28`).
  */
 export function parseAmount(input: string): ParseAmountResult {
-  let value = input.replace(WHITESPACE, "");
-  if (value.startsWith("€")) value = value.slice(1);
-  else if (value.endsWith("€")) value = value.slice(0, -1);
+  // String#trim removes all Unicode whitespace, incl. U+00A0 and U+202F.
+  let value = input.trim();
+  if (value.startsWith(EURO_SIGN)) value = value.slice(EURO_SIGN.length).trimStart();
+  else if (value.endsWith(EURO_SIGN)) value = value.slice(0, -EURO_SIGN.length).trimEnd();
 
   if (value === "") return { ok: false, error: "empty" };
-  if (value.startsWith("-") || value.startsWith("−")) {
+  if (value.startsWith("-") || value.startsWith(MINUS_SIGN)) {
     return { ok: false, error: "negative" };
   }
 
