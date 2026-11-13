@@ -6,11 +6,14 @@ Richtung zeigen. Die Grenzen werden per **oxlint** (`no-restricted-imports`)
 erzwungen, siehe [`.oxlintrc.json`](../.oxlintrc.json).
 
 ```
-src/routes ─┐
-            ├─► src/business ◄── src/persistence
-src/ui ─────┘         ▲                ▲
-                      └── src/app ─────┘   (Composition Root, kennt alle)
+src/routes ─┬──────────────────► src/app ──────────────┐
+src/ui ─────┤                   (Composition Root)     │ verdrahtet
+            │                        │                 ▼
+            └──► src/business ◄──────┴────────── src/persistence
 ```
+
+Pfeile = „importiert aus“. `src/app` importiert aus allen Layern; UI und
+Routen beziehen Services über `src/app`, nie direkt aus `src/persistence`.
 
 ## Ordner
 
@@ -27,16 +30,41 @@ Router) und `src/paraglide/` (Paraglide, git-ignoriert).
 
 ## Import-Regeln
 
-| Layer                  | darf nicht importieren aus                                                                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/ui`, `src/routes` | `src/persistence`                                                                                                                                     |
-| `src/business`         | `src/persistence`, `src/ui`, `src/routes`, `src/app`, React-Paketen (`react`, `react-dom`, `@tanstack/react-*`, `@base-ui/react`, …), `@tauri-apps/*` |
-| `src/persistence`      | `src/ui`, `src/routes`, `src/app`, React-Paketen                                                                                                      |
-| `src/app`              | – (darf alles)                                                                                                                                        |
+| Layer                  | darf nicht importieren aus                                                                                                                                                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/ui`, `src/routes` | `src/persistence`                                                                                                                                                                                                                                                                   |
+| `src/business`         | `src/persistence`, `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, `src/paraglide`, React-Paketen (`react`, `react-dom`, `@tanstack/react-*`, `@base-ui/react`, …), `@tauri-apps/*`, `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; außerdem kein JSX |
+| `src/persistence`      | `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, React-Paketen                                                                                                                                                                                          |
+| `src/app`              | – (darf alles)                                                                                                                                                                                                                                                                      |
 
 Erfasst werden sowohl der Alias (`@/persistence/...`) als auch relative Pfade
 (`../persistence/...`, `../../persistence`), jeweils für `import`,
 `import type` und `export … from`.
+
+**Bekannte Lücke (akzeptiert):** Die Regeln arbeiten auf dem Import-String,
+nicht auf dem aufgelösten Pfad. Nicht normalisierte Pfade wie `./../persistence`
+oder `@/ui/../persistence` werden nicht erkannt. Solche Pfade schreibt niemand
+versehentlich; Reviews fangen sie ab.
+
+### Kein JSX in `src/business`
+
+Business enthält keine `.tsx`-Komponenten. oxlint meldet JSX in
+`src/business` über `react/jsx-filename-extension` (keine Endung darf JSX
+enthalten); React-Imports sind ohnehin verboten. Eine `.tsx`-Datei ohne JSX
+wird nicht gemeldet – Business-Dateien sind trotzdem `.ts`.
+
+### Keine UI-Texte in `src/business`
+
+Business importiert nicht aus `src/paraglide`. Es gibt Codes zurück (z. B.
+Fehlercodes von `parseAmount`); übersetzt wird in `src/ui` bzw. `src/routes`
+(siehe [`docs/i18n.md`](i18n.md)).
+
+### `src/app` stellt Services bereit
+
+`src/app` gibt UI und Routen **Services** (bzw. Business-Interfaces) heraus und
+re-exportiert nie Module aus `src/persistence` (Schema, Drizzle-Instanz,
+Repository-Implementierungen). Sonst ließe sich die Regel „UI importiert nicht
+aus Persistence“ über `@/app` umgehen; das kann Lint nicht erkennen.
 
 ### Repository-Interfaces liegen in `src/business`
 
@@ -60,7 +88,8 @@ Persistence“, und Business hängt nicht vom DB-Schema ab.
 Business ist frei von Tauri. Braucht Logik Plattformfunktionen (HTTP für
 Stripe, Dateien für CSV), definiert Business ein Interface; die Implementierung
 mit `@tauri-apps/*` liegt außerhalb von `src/business` und wird in `src/app`
-verdrahtet.
+verdrahtet. Ebenso sind `drizzle-orm`, `drizzle-kit` und `better-sqlite3` in
+Business verboten – Drizzle gibt es nur in `src/persistence`.
 
 ## Lint & Format
 
@@ -74,7 +103,9 @@ verdrahtet.
 - **oxlint** ([`.oxlintrc.json`](../.oxlintrc.json)): Kategorien
   `correctness` und `suspicious` als Fehler, Plugins `typescript`, `unicorn`,
   `oxc`, `react` (inkl. Hooks-Regeln), `import`, `vitest`. Warnungen werden
-  nicht verwendet – eine Regel ist entweder Fehler oder aus.
+  nicht verwendet – eine Regel ist entweder Fehler oder aus; `pnpm lint` läuft
+  zusätzlich mit `--deny-warnings`, damit auch künftige Warnungen den Lauf
+  scheitern lassen.
 - **oxfmt** ([`.oxfmtrc.json`](../.oxfmtrc.json)): Prettier-kompatibel,
   `printWidth` 100, sonst Defaults (doppelte Anführungszeichen, Semikolons).
   Formatiert auch JSON, CSS und Markdown.

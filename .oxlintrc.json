@@ -52,6 +52,8 @@
     {
       "files": ["src/business/**"],
       "rules": {
+        // No JSX in business: no extension is allowed to contain JSX.
+        "react/jsx-filename-extension": ["error", { "extensions": [] }],
         "no-restricted-imports": [
           "error",
           {
@@ -63,6 +65,18 @@
               {
                 "regex": "^(@/|(\\.\\./)+)(ui|routes|app)(/|$)",
                 "message": "Business darf nicht aus src/ui, src/routes oder src/app importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(router|routeTree\\.gen)(\\.[cm]?[jt]sx?)?$",
+                "message": "Business darf nicht aus src/router.tsx oder src/routeTree.gen.ts importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)paraglide(/|$)",
+                "message": "Business gibt Codes statt UI-Texten zurück; übersetzt wird in src/ui bzw. src/routes (docs/i18n.md)."
+              },
+              {
+                "regex": "^(drizzle-orm|drizzle-kit|better-sqlite3)(/|$)",
+                "message": "Drizzle/SQLite nur in src/persistence."
               },
               {
                 "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
@@ -87,6 +101,10 @@
               {
                 "regex": "^(@/|(\\.\\./)+)(ui|routes|app)(/|$)",
                 "message": "Persistence darf nicht aus src/ui, src/routes oder src/app importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(router|routeTree\\.gen)(\\.[cm]?[jt]sx?)?$",
+                "message": "Persistence darf nicht aus src/router.tsx oder src/routeTree.gen.ts importieren."
               },
               {
                 "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
