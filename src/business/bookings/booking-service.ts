@@ -45,7 +45,10 @@ import {
  *
  * Texts are trimmed (also invisible format characters like U+200B–U+200D,
  * U+2060, U+00AD and U+FEFF at the ends, see `trimText`); a text without any
- * visible character counts as blank.
+ * visible character counts as blank. Description, counterparty, reference
+ * and note are stored NFC-normalized (a decomposed "u + U+0308" becomes
+ * "ü"), so the search (#21), which normalizes its text the same way, finds
+ * them; the external ID stays as given.
  */
 export interface BookingFormInput {
   /** Payment date `YYYY-MM-DD`. */
@@ -451,7 +454,7 @@ function requiredText(
   field: "description" | "counterparty",
   errors: BookingFieldError[],
 ): string {
-  const text = trimText(value);
+  const text = trimText(value).normalize("NFC");
   if (text === "") errors.push({ field, code: "required" });
   else if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;
@@ -463,7 +466,9 @@ function optionalText(
   field: "reference" | "note" | "externalId",
   errors: BookingFieldError[],
 ): string | null {
-  const text = value === null ? "" : trimText(value);
+  const trimmed = value === null ? "" : trimText(value);
+  // IDs of a source system are kept exactly as given.
+  const text = field === "externalId" ? trimmed : trimmed.normalize("NFC");
   if (text === "") return null;
   if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;

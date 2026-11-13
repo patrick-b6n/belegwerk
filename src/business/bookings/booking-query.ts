@@ -84,7 +84,13 @@ export interface BookingQuery {
 
 /** Error codes per query property. At most one error is reported per property. */
 export interface BookingQueryErrorCodes {
-  readonly text: "tooLong";
+  /**
+   * `tooLong`: more than {@link BOOKING_SEARCH_TEXT_MAX_LENGTH} characters;
+   * `invalidText`: contains a control character (`\p{Cc}`, e.g. NUL – SQLite's
+   * GLOB would end the pattern there – tab or line break) or a lone UTF-16
+   * surrogate (not a valid character).
+   */
+  readonly text: "tooLong" | "invalidText";
   readonly dateFrom: "invalidDate";
   /** `dateRangeInverted`: `dateTo` is before `dateFrom` (not swapped silently). */
   readonly dateTo: "invalidDate" | "dateRangeInverted";
@@ -144,7 +150,9 @@ export type NormalizeBookingQueryResult =
  * Normalization: text trimmed (`trimText`) and NFC-normalized (so a
  * decomposed "ü" typed somewhere still finds the usual composed one);
  * blank texts and dates and an empty `categoryIds` are dropped; category
- * ids deduplicated.
+ * ids deduplicated. Control characters and lone surrogates inside the text
+ * are rejected (`invalidText`), not stripped: a search box cannot produce
+ * them, so they mean a manipulated URL or a bug.
  */
 export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookingQueryResult {
   const errors: BookingQueryError[] = [];
@@ -153,7 +161,9 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
   // Text
   if (query.text !== undefined) {
     const text = trimText(query.text).normalize("NFC");
-    if (text.length > BOOKING_SEARCH_TEXT_MAX_LENGTH) {
+    if (INVALID_TEXT_CHARACTER.test(text)) {
+      errors.push({ field: "text", code: "invalidText" });
+    } else if (text.length > BOOKING_SEARCH_TEXT_MAX_LENGTH) {
       errors.push({ field: "text", code: "tooLong" });
     } else if (text !== "") {
       filter.text = text;
@@ -236,6 +246,12 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     query: { filter, sort: { field: sort.field, direction: sort.direction }, page, pageSize },
   };
 }
+
+/**
+ * Control characters (NUL, tab, line breaks, …) and lone surrogates; with
+ * the `u` flag, a valid surrogate pair is one code point and not `\p{Cs}`.
+ */
+const INVALID_TEXT_CHARACTER = /[\p{Cc}\p{Cs}]/u;
 
 /** `undefined`: absent or blank; `null`: invalid. */
 function optionalDate(value: string | undefined): string | null | undefined {

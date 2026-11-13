@@ -663,6 +663,41 @@ describe("BookingService.list", () => {
     expect(await page(1000)).toEqual(await page(3));
   });
 
+  it("stores texts NFC-normalized so composed and decomposed searches find them", async () => {
+    const { service, create } = await setup();
+    const decomposed = "Mu\u0308ller";
+    const booking = await create({
+      description: decomposed,
+      counterparty: decomposed,
+      reference: decomposed,
+      note: decomposed,
+      externalId: decomposed,
+    });
+    expect(booking).toMatchObject({
+      description: "Müller",
+      counterparty: "Müller",
+      reference: "Müller",
+      note: "Müller",
+      // External IDs stay exactly as given.
+      externalId: decomposed,
+    });
+    for (const text of ["müller", "MU\u0308LLER"]) {
+      expect((await listed(service, { text })).items.map((item) => item.id)).toEqual([booking.id]);
+    }
+  });
+
+  it("rejects a search text with NUL or a lone surrogate without querying", async () => {
+    const { service, create } = await setup();
+    await create();
+    for (const text of ["\u0000", "a\u0000b", "\ud800"]) {
+      expect(await service.list({ text })).toEqual({
+        ok: false,
+        reason: "invalid",
+        errors: [{ field: "text", code: "invalidText" }],
+      });
+    }
+  });
+
   it("returns every matching booking with pageSize 'all'", async () => {
     const { service, create } = await setup();
     for (let index = 0; index < DEFAULT_BOOKING_PAGE_SIZE + 5; index += 1) await create();

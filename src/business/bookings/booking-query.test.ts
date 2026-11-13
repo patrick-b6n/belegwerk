@@ -80,6 +80,25 @@ describe("normalizeBookingQuery", () => {
     ]);
   });
 
+  it("rejects control characters and lone surrogates in the text", () => {
+    const invalid = [
+      "a\u0000b",
+      "\u0000",
+      "Rate\nfür",
+      "a\tb",
+      "a\u007fb",
+      "a\ud800b",
+      "a\udc00",
+      "\ud83d",
+    ];
+    for (const text of invalid) {
+      expect(errorsOf({ text })).toEqual([{ field: "text", code: "invalidText" }]);
+    }
+    // Trimmed at the ends first; surrogate pairs are fine.
+    expect(normalized({ text: "\n\tMüller\r\n" }).filter).toEqual({ text: "Müller" });
+    expect(normalized({ text: "😀 𐐀" }).filter).toEqual({ text: "😀 𐐀" });
+  });
+
   it("validates the period; blank dates do not filter", () => {
     expect(normalized({ dateFrom: " ", dateTo: "" }).filter).toEqual({});
     expect(normalized({ dateFrom: " 2025-03-01 " }).filter).toEqual({ dateFrom: "2025-03-01" });

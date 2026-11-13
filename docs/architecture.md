@@ -235,7 +235,9 @@ sie (`calculateBookingAmounts`).
   (`\p{Z}`) am Rand; Innenleerraum, Zeilenumbrüche und innere Formatzeichen
   (z. B. ZWJ in Emojis) bleiben. Enthält ein Text kein sichtbares Zeichen, gilt
   er als leer;
-  leere optionale Texte werden `null`. Höchstlängen nach dem Trimmen
+  leere optionale Texte werden `null`. Beschreibung, Gegenpartei, Referenz
+  und Notiz werden NFC-normalisiert gespeichert (die Suche #21 findet sie so
+  auch bei zerlegter Eingabe), die externe ID bleibt unverändert. Höchstlängen nach dem Trimmen
   (`BOOKING_TEXT_MAX_LENGTH`): Beschreibung 500, Gegenpartei 200, Referenz
   200, Notiz 2000, externe ID 255 Zeichen.
 - **Referenz und Notiz** sind Pflicht-Properties (`string | null`); `null`
@@ -283,6 +285,9 @@ oder `{ ok: false, reason: "invalid", errors }`.
   (`amountRangeInverted`), unbekannte Sortierung (`invalidSort`), Seite bzw.
   Seitengröße ungültig. Ein ungültiges Query fragt die Datenbank nicht ab.
   Text wird getrimmt (`trimText`) und NFC-normalisiert, max. 200 Zeichen;
+  Steuerzeichen (`\p{Cc}`, z. B. NUL – `GLOB` endete dort – oder
+  Zeilenumbruch) und einzelne Surrogates werden abgelehnt (`invalidText`),
+  nicht entfernt;
   leere Texte/Daten und leere `categoryIds` filtern nicht.
 - **Seite hinter der letzten** → die letzte Seite; `page` im Ergebnis ist
   die tatsächlich gelieferte (z. B. nach dem Löschen der letzten Buchung
@@ -314,8 +319,10 @@ oder `{ ok: false, reason: "invalid", errors }`.
   `"Mü"` → `*[Mm][üÜ]*`. Wildcards im Suchtext (`*`, `?`, `[`) stehen in
   eigenen Mengen und gelten wörtlich; `%` und `_` sind in `GLOB` ohnehin
   normale Zeichen. Grenzen: Abbildungen auf mehrere Zeichen fehlen (`ß`
-  findet nicht `SS`), und gespeicherte Texte in zerlegter Form (NFD) findet
-  ein NFC-Suchtext nicht. Der In-Memory-Fake baut aus denselben Mengen einen
+  findet nicht `SS`), und Texte, die vor #21
+  in zerlegter Form (NFD) gespeichert wurden, findet ein NFC-Suchtext nicht –
+  seit #21 speichert der Service Beschreibung, Gegenpartei, Referenz und
+  Notiz NFC-normalisiert. Der In-Memory-Fake baut aus denselben Mengen einen
   RegExp; der Vertragstest prüft beide gleich.
 
 ## Kategorien-Service (#15)
