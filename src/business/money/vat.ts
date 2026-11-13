@@ -20,7 +20,7 @@
 
 import type { VatRate } from "../model";
 
-/** Rates that carry VAT, in percent. All other rates have VAT 0. */
+/** Percent per rate; "0" and "reverse_charge" carry no VAT. */
 const PERCENT_BY_RATE: Readonly<Record<VatRate, number>> = {
   "0": 0,
   "7": 7,

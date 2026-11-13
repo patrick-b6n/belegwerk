@@ -41,7 +41,7 @@ describe("splitGross", () => {
     [119, "7", 111, 8], // 7.785 → 8
     [100, "7", 93, 7], // 6.54 → 7
     [10700, "7", 10000, 700],
-  ])("splits %i cents at %s %% into net %i + VAT %i", (gross, rate, net, vat) => {
+  ])("splits %i cents at %s % into net %i + VAT %i", (gross, rate, net, vat) => {
     expect(splitGross(gross, rate)).toEqual({
       grossCents: gross,
       netCents: net,
@@ -57,12 +57,12 @@ describe("splitGross", () => {
       // rate, gross just below ½ (rounds down), expected VAT, gross just above ½ (rounds up), expected VAT
       ["7", 84, 5, 23, 2], // 5.495 → 5; 1.505 → 2
       ["19", 72, 11, 47, 8], // 11.496 → 11; 7.504 → 8
-    ] as const)("rounds %s %% correctly around ½", (rate, below, belowVat, above, aboveVat) => {
+    ] as const)("rounds %s % correctly around ½", (rate, below, belowVat, above, aboveVat) => {
       expect(splitGross(below, rate).vatCents).toBe(belowVat);
       expect(splitGross(above, rate).vatCents).toBe(aboveVat);
     });
 
-    it.each(TAXED_RATES)("finds and rounds every near-½ residue at %s %%", (rate, percent) => {
+    it.each(TAXED_RATES)("finds and rounds every near-½ residue at %s %", (rate, percent) => {
       const denominator = 100 + percent;
       const lower = (denominator - 1) / 2;
       const upper = (denominator + 1) / 2;
@@ -82,36 +82,45 @@ describe("splitGross", () => {
     });
 
     it.each(TAXED_RATES)(
-      "never hits an exact ½ cent at %s %%, so VAT-first and net-first agree",
+      "never hits an exact ½ cent at %s %, so VAT-first and net-first agree",
       (rate, percent) => {
         const denominator = 100 + percent;
         // The remainder of gross × rate depends only on gross mod (100 + rate),
         // so one full period of residues covers every possible gross amount.
+        const exactHalves: number[] = [];
         for (let gross = 1; gross <= denominator; gross++) {
-          expect(2 * ((gross * percent) % denominator)).not.toBe(denominator);
+          if (2 * ((gross * percent) % denominator) === denominator) exactHalves.push(gross);
         }
+        expect(exactHalves).toEqual([]);
+
+        const disagreements: number[] = [];
         for (let gross = 1; gross <= 100_000; gross++) {
-          expect(splitGross(gross, rate).vatCents).toBe(netFirstVat(gross, percent));
+          if (splitGross(gross, rate).vatCents !== netFirstVat(gross, percent)) {
+            disagreements.push(gross);
+          }
         }
+        expect(disagreements).toEqual([]);
       },
     );
   });
 
   it.each(TAXED_RATES)(
-    "holds net + VAT = gross, VAT ≥ 0 and |VAT − exact| ≤ ½ for 1…100000 cents at %s %%",
+    "holds net + VAT = gross, VAT ≥ 0 and |VAT − exact| ≤ ½ for 1…100000 cents at %s %",
     (rate, percent) => {
       const denominator = 100 + percent;
+      const mismatches: { gross: number; netCents: number; vatCents: number }[] = [];
       for (let gross = 1; gross <= 100_000; gross++) {
         const { netCents, vatCents } = splitGross(gross, rate);
-        expect(netCents + vatCents).toBe(gross);
-        expect(vatCents).toBeGreaterThanOrEqual(0);
-        expect(netCents).toBeGreaterThanOrEqual(0);
-        // |vat − gross·r/d| ≤ ½  ⇔  |2·vat·d − 2·gross·r| ≤ d (exact integers)
-        expect(Math.abs(2 * vatCents * denominator - 2 * gross * percent)).toBeLessThanOrEqual(
-          denominator,
-        );
-        expect(vatCents).toBe(referenceVat(gross, percent));
+        const ok =
+          netCents + vatCents === gross &&
+          vatCents >= 0 &&
+          netCents >= 0 &&
+          // |vat − gross·r/d| ≤ ½  ⇔  |2·vat·d − 2·gross·r| ≤ d (exact integers)
+          Math.abs(2 * vatCents * denominator - 2 * gross * percent) <= denominator &&
+          vatCents === referenceVat(gross, percent);
+        if (!ok) mismatches.push({ gross, netCents, vatCents });
       }
+      expect(mismatches).toEqual([]);
     },
   );
 
@@ -141,14 +150,14 @@ describe("splitGross", () => {
     it.each([
       ["7", 589256026011093, 8417943228729898],
       ["19", 1438124250756965, 7569075003984026],
-    ] as const)("is exact for Number.MAX_SAFE_INTEGER at %s %%", (rate, vat, net) => {
+    ] as const)("is exact for Number.MAX_SAFE_INTEGER at %s %", (rate, vat, net) => {
       const split = splitGross(Number.MAX_SAFE_INTEGER, rate);
       expect(split.vatCents).toBe(vat);
       expect(split.netCents).toBe(net);
       expect(split.netCents + split.vatCents).toBe(Number.MAX_SAFE_INTEGER);
     });
 
-    it.each(TAXED_RATES)("matches the exact reference near the limit at %s %%", (rate, percent) => {
+    it.each(TAXED_RATES)("matches the exact reference near the limit at %s %", (rate, percent) => {
       for (let offset = 0; offset < 500; offset++) {
         const gross = Number.MAX_SAFE_INTEGER - offset;
         const { netCents, vatCents } = splitGross(gross, rate);
