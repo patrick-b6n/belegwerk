@@ -132,6 +132,39 @@ describe("SqlConnection", () => {
     await expect(connection.select("SELECT 1 AS one")).resolves.toEqual([{ one: 1 }]);
   });
 
+  it("reports a call that waits too long for the connection (deadlock hint)", async () => {
+    const waits: number[] = [];
+    const connection = new SqlConnection(createBetterSqlite3Client(new Database(":memory:")), {
+      slowWaitMs: 20,
+      onSlowWait: (waited) => waits.push(waited),
+    });
+    let release!: () => void;
+    const section = connection.exclusive(() => new Promise<void>((resolve) => (release = resolve)));
+    // Like using the outer connection inside the section: has to wait.
+    const waiting = connection.select("SELECT 1 AS one");
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(waits).toEqual([20]);
+
+    release();
+    await section;
+    await expect(waiting).resolves.toEqual([{ one: 1 }]);
+  });
+
+  it("does not report calls that get the connection in time", async () => {
+    const waits: number[] = [];
+    const connection = new SqlConnection(createBetterSqlite3Client(new Database(":memory:")), {
+      slowWaitMs: 20,
+      onSlowWait: (waited) => waits.push(waited),
+    });
+    await Promise.all([
+      connection.exclusive(() => new Promise((resolve) => setTimeout(resolve, 5))),
+      connection.select("SELECT 1"),
+      connection.select("SELECT 2"),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(waits).toEqual([]);
+  });
+
   it("rejects using the section's client after it ended", async () => {
     const connection = new SqlConnection(createBetterSqlite3Client(new Database(":memory:")));
     const leaked = await connection.exclusive(async (client) => client);

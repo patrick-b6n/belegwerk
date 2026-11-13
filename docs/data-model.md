@@ -127,7 +127,11 @@ Zeile oder `undefined`. Parameter: Booleans werden zu `1`/`0`, `undefined` zu
   `db.transaction()` schickt `begin`/`commit` als einzelne Aufrufe, zwischen
   die andere Flows geraten könnten; der Adapter lehnt Transaktions-Statements
   deshalb ab. Im Callback nur `tx` verwenden – `db` wartet auf das Ende der
-  Transaktion (Deadlock).
+  Transaktion (Deadlock). Repositories kapseln das als `UnitOfWork`
+  ([Architektur](architecture.md#transaktionen-nur-über-unitofworkrun)).
+  Wartet ein Aufruf länger als 10 s auf die Verbindung, meldet
+  `SqlConnection` das per `console.error` als Hinweis auf einen solchen
+  Deadlock.
 - **`db.batch([...])`** läuft atomar in einer Transaktion.
 - **Fehler:** Drizzle verpackt Datenbankfehler in `DrizzleQueryError`
   („Failed query: …“); die SQLite-Meldung (z. B. `UNIQUE constraint failed`)
@@ -189,14 +193,18 @@ Verbindung:
 3. `PRAGMA foreign_key_check` – liefert es Zeilen: `ROLLBACK` und Fehler,
 4. `COMMIT` (bei jedem Fehler stattdessen `ROLLBACK`, auch für die
    Tracking-Tabelle),
-5. `PRAGMA foreign_keys = ON` (auch nach einem Fehler).
+5. `PRAGMA foreign_keys = ON` (auch nach einem Fehler; scheitert es dann
+   selbst, wird der ursprüngliche Fehler gemeldet, nicht der des Pragmas).
 
-### Hinweise für #11 ff.
+### Hinweise für Repositories (#11 ff.)
 
-- Repositories bauen auf `Database` (`db` für Abfragen, `transaction` für
-  zusammengehörige Schreibvorgänge) und werden in `createAppServices`
-  (`src/app/services.ts`) erzeugt; UI und Routen erhalten nur Services
-  (`useAppServices()`).
+- Repositories (`src/persistence/repositories/`) sind Fabriken über eine
+  Drizzle-Instanz (`Db`): `database.db` für einzelne Abfragen oder `tx` in
+  `Database.transaction`. `createAppServices` (`src/app/services.ts`)
+  erzeugt sie; UI und Routen erhalten nur Business-Interfaces
+  (`useAppServices()`). Details: [Architektur](architecture.md#repositories-und-unit-of-work-11).
+- **Joins** nie als `select().from(a).innerJoin(b)` (doppelte Spaltennamen),
+  sondern mit explizitem Select-Objekt und eindeutigen Aliassen.
 - **`onConflictDoNothing` (Stripe-Import, #30):** Drizzle 0.45 erzeugt mit
   `onConflictDoNothing({ target, where })` für den partiellen Index
   ungültiges SQL. Stattdessen das nackte `.onConflictDoNothing()` verwenden

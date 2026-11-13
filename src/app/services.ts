@@ -1,14 +1,27 @@
+import type { Clock, Repositories, UnitOfWork } from "@/business/repositories";
 import type { Database } from "@/persistence/database";
+import { createRepositories, createUnitOfWork } from "@/persistence/repositories";
 
 /**
  * What UI and routes get from the composition root: services and business
  * interfaces – never persistence modules (docs/architecture.md).
  *
- * Empty until the first repositories exist (#11). They are created in
- * {@link createAppServices} from `database`, the services from them.
+ * Until the services exist (#14 ff.), the repositories and the unit of work
+ * are exposed as business interfaces. Services will be created here from
+ * them; UI and routes should then use the services only.
  */
-export type AppServices = Readonly<Record<never, never>>;
+export interface AppServices {
+  /** Each call on its own; never use them inside `unitOfWork.run` (deadlock). */
+  readonly repositories: Repositories;
+  /** Atomic sequences of repository calls (one transaction). */
+  readonly unitOfWork: UnitOfWork;
+}
 
-export function createAppServices(_database: Database): AppServices {
-  return {};
+const systemClock: Clock = () => new Date();
+
+export function createAppServices(database: Database, clock: Clock = systemClock): AppServices {
+  return {
+    repositories: createRepositories(database.db, clock),
+    unitOfWork: createUnitOfWork(database, clock),
+  };
 }

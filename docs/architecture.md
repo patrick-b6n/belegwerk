@@ -34,7 +34,7 @@ aber eingecheckt und nur von oxfmt ausgenommen: `src/persistence/migrations/`
 
 | Layer                  | darf nicht importieren aus                                                                                                                                                                                                                                                          |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/ui`, `src/routes` | `src/persistence`                                                                                                                                                                                                                                                                   |
+| `src/ui`, `src/routes` | `src/persistence`, `drizzle-orm`, `drizzle-kit`, `better-sqlite3`, `@tauri-apps/plugin-sql`                                                                                                                                                                                         |
 | `src/business`         | `src/persistence`, `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, `src/paraglide`, React-Paketen (`react`, `react-dom`, `@tanstack/react-*`, `@base-ui/react`, …), `@tauri-apps/*`, `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; außerdem kein JSX |
 | `src/persistence`      | `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, React-Paketen; außerhalb von Tests (`__tests__/`, `*.test.ts[x]`) zusätzlich `better-sqlite3`, `drizzle-kit`, `drizzle-orm/better-sqlite3` und `node:*` (läuft im WebView)                             |
 | `src/app`              | – (darf alles)                                                                                                                                                                                                                                                                      |
@@ -85,6 +85,82 @@ Dependency Inversion:
 So bleibt die Regel ein einfaches „Business importiert nichts aus
 Persistence“, und Business hängt nicht vom DB-Schema ab.
 
+UI und Routen dürfen außerdem weder `drizzle-orm`, `drizzle-kit`,
+`better-sqlite3` noch `@tauri-apps/plugin-sql` importieren – Datenbankzugriff
+gibt es nur in `src/persistence`.
+
+## Repositories und Unit of Work (#11)
+
+| Datei                                              | Inhalt                                                                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/business/model.ts`                            | Domänentypen: `Booking`, `BookingInput`, `Category`, `CategoryInput`, `CategoryChanges`, `TaxYear`, Enums     |
+| `src/business/repositories.ts`                     | Interfaces `BookingRepository`, `CategoryRepository`, `TaxYearRepository`, `SettingsRepository`, `UnitOfWork` |
+| `src/persistence/repositories/`                    | Drizzle-Implementierungen, `createRepositories(db, clock)`, `createUnitOfWork(database, clock)`               |
+| `src/business/__tests__/in-memory-repositories.ts` | In-Memory-Fakes für Business-Tests (`createInMemoryDatabase({ clock })`)                                      |
+| `src/business/__tests__/repository-contract.ts`    | gemeinsame Vertragstests, laufen gegen Fakes **und** Drizzle (better-sqlite3)                                 |
+
+- **Dünn:** Repositories lesen und schreiben, ohne Fachregeln. Pflichtfelder,
+  Beträge, Kategorie-Art, archivierte Kategorien, Steuerstatus prüfen die
+  Services (#14 ff.). Domänentypen statt Drizzle-Zeilen; Datum
+  `YYYY-MM-DD`, Beträge in Cent, Zeitstempel als `toISOString()`.
+- **Uhr:** `created_at`/`updated_at` setzt das Buchungs-Repository über eine
+  injizierte `Clock` (`() => Date`); Tests geben eine feste Uhr vor.
+- **Constraint-Verletzungen** (Unique-Index, Fremdschlüssel) kommen als
+  `ConstraintViolationError` mit `kind: "unique" | "foreign_key"` aus
+  `src/business`. Services prüfen vorher selbst (bessere Meldungen); der Fehler
+  ist das Sicherheitsnetz. Erkannt wird die Art nur am Fehler der Datenbank
+  (`SqlError` bzw. SQLite-Code), nicht an Drizzles äußerem Fehler – dessen
+  Meldung enthält die gebundenen Parameter, also Nutzereingaben. Auch die
+  Meldung des `ConstraintViolationError` enthält keine Parameter.
+  CHECK-Verletzungen werden nicht übersetzt – sie bedeuten einen
+  Validierungsfehler im Service (z. B. „mindert Einnahmen“ bei einer
+  Einnahme-Kategorie).
+- **Erweiterung:** Die Suche (#21) kommt als eigene Methode mit Query-Objekt
+  (`search(query)`) an `BookingRepository`; EÜR-Summen (#25) ebenso.
+
+### Transaktionen: nur über `UnitOfWork.run`
+
+Zusammengehörige Schreibvorgänge laufen in `unitOfWork.run(async (repos) =>
+…)`: `COMMIT`, wenn der Callback erfüllt, sonst `ROLLBACK` und der Fehler wird
+weitergeworfen.
+
+**Regel: Im Callback nur die übergebenen `repos` verwenden.** Die Datenbank
+hat genau eine, serialisierte Verbindung ([Datenmodell](data-model.md)). Ein
+Aufruf über die äußeren Repositories (oder ein verschachteltes `run`) reiht
+sich hinter die laufende Transaktion ein – die aber erst endet, wenn der
+Callback fertig ist: **Deadlock**, die App hängt. Daher:
+
+- Services bekommen Repositories/Unit of Work injiziert und reichen innerhalb
+  von `run` die `repos` des Callbacks weiter (z. B. an Hilfsfunktionen), statt
+  auf eigene Felder zuzugreifen.
+- Die In-Memory-Fakes werfen in diesem Fall sofort einen Fehler; Business-Tests
+  fallen also auf.
+- In der App meldet `SqlConnection` per `console.error`, wenn ein Aufruf
+  länger als 10 s auf die Verbindung wartet (Hinweis auf diese Regel).
+
+Die Persistence-Implementierungen sind deshalb Fabriken über einen
+Drizzle-Parameter (`createBookingRepository(db, clock)`): `createUnitOfWork`
+erzeugt sie für jede Transaktion neu auf deren `tx`.
+
+### Vertragstests
+
+`describeRepositoryContract(name, setup)` beschreibt das Verhalten aller
+Implementierungen (IDs festgeschriebener Zeilen werden nie wiederverwendet,
+eine in einer zurückgerollten Unit of Work vergebene schon; Rückgabewerte,
+Constraint-Fehler, Rollback). Es läuft in `src/business/__tests__/in-memory-repositories.test.ts`
+gegen die Fakes und in `src/persistence/repositories/repositories.test.ts`
+gegen Drizzle auf `better-sqlite3` – so können die Fakes nicht vom echten
+Verhalten abweichen, und jede Repository-Abfrage läuft durch den Test-Client,
+der doppelte Ergebnis-Spaltennamen ablehnt. Neue Repository-Methoden bekommen
+ihre Fälle im Vertrag. Von den CHECK-Constraints der DB bilden die Fakes nur
+„mindert Einnahmen nur bei Ausgabe-Kategorien“ nach (einfacher `Error`); die
+übrigen (Beträge, Datum, Enum-Werte) prüfen die Services.
+
+**Joins:** kein `select().from(a).innerJoin(b)` – Spalten gleichen Namens
+(`id`, `type`, …) fielen im Plugin zu einem Wert zusammen. Stattdessen ein
+explizites Select-Objekt mit eindeutigen Namen
+([Datenmodell](data-model.md#drizzle-sqlite-proxy)).
+
 ### Plattformzugriffe
 
 Business ist frei von Tauri. Braucht Logik Plattformfunktionen (HTTP für
@@ -125,7 +201,9 @@ Business verboten – Drizzle gibt es nur in `src/persistence`.
 (`src/app/app-services.tsx`). Dieser ruft in einem Effekt einmalig
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Repositories und Services
-erzeugen (`createAppServices`, `src/app/services.ts`). Bis dahin zeigt er einen
+erzeugen (`createAppServices`, `src/app/services.ts`). Bis es Services gibt
+(#14 ff.), stellt `AppServices` `repositories` und `unitOfWork` als
+Business-Interfaces bereit. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
 
@@ -134,6 +212,12 @@ Ladebildschirm, danach die App; Komponenten holen die Services mit
 - **Fehler** zeigt ein deutscher Fehlerbildschirm
   (`src/ui/layout/startup-screen.tsx`) mit den technischen Details (Fehler
   samt `cause`-Kette) und „Erneut versuchen“ (lädt die Seite neu).
+- **Datenbank nicht geöffnet:** Kann der Host die Datei nicht öffnen
+  (`src-tauri/src/lib.rs`), protokolliert er nur die Ursache; jede Abfrage
+  scheitert dann mit „database sqlite:belegwerk.db not loaded“. Der
+  Fehlerbildschirm erkennt das (`isDatabaseNotLoaded`) und verweist auf das
+  Protokoll in `%LOCALAPPDATA%\de.belegwerk.desktop\logs` (Standardziel
+  `LogDir` von `tauri-plugin-log`, Tauri `app_log_dir`).
 - **Browser ohne Tauri** (`pnpm dev` direkt im Browser): Es gibt keine
   Datenbank; der Fehlerbildschirm weist darauf hin, die App mit
   `pnpm tauri dev` zu starten.

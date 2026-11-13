@@ -57,27 +57,45 @@ export function migrate(
   const now = options.now ?? (() => new Date());
   return connection.exclusive(async (client) => {
     await client.execute("PRAGMA foreign_keys = OFF");
+    let result: MigrateResult;
     try {
-      await client.execute("BEGIN IMMEDIATE");
+      result = await migrateInTransaction(client, migrations, now);
+    } catch (error) {
+      // Re-enable foreign keys, but never let a failure doing so mask the
+      // error that made the migration fail.
       try {
-        const applied = await applyPending(client, migrations, now);
-        const violations = await client.select("PRAGMA foreign_key_check");
-        if (violations.length > 0) {
-          throw new MigrationError(
-            "foreign_key_violation",
-            `Foreign key violations after migration: ${JSON.stringify(violations)}`,
-          );
-        }
-        await client.execute("COMMIT");
-        return { applied };
-      } catch (error) {
-        await rollbackQuietly(client);
-        throw error;
+        await client.execute("PRAGMA foreign_keys = ON");
+      } catch {
+        // The original error below is what matters; the start fails anyway.
       }
-    } finally {
-      await client.execute("PRAGMA foreign_keys = ON");
+      throw error;
     }
+    await client.execute("PRAGMA foreign_keys = ON");
+    return result;
   });
+}
+
+async function migrateInTransaction(
+  client: SqlClient,
+  migrations: readonly Migration[],
+  now: () => Date,
+): Promise<MigrateResult> {
+  await client.execute("BEGIN IMMEDIATE");
+  try {
+    const applied = await applyPending(client, migrations, now);
+    const violations = await client.select("PRAGMA foreign_key_check");
+    if (violations.length > 0) {
+      throw new MigrationError(
+        "foreign_key_violation",
+        `Foreign key violations after migration: ${JSON.stringify(violations)}`,
+      );
+    }
+    await client.execute("COMMIT");
+    return { applied };
+  } catch (error) {
+    await rollbackQuietly(client);
+    throw error;
+  }
 }
 
 async function applyPending(

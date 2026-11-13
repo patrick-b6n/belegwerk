@@ -5,8 +5,11 @@ import { createTauriSqlClient } from "@/persistence/tauri-sql-client";
 
 import { type AppServices, createAppServices } from "./services";
 
-/** Why the start failed: no Tauri host (plain browser), or any other error. */
-export type StartupFailureReason = "no-tauri" | "error";
+/**
+ * Why the start failed: no Tauri host (plain browser), the host could not
+ * open the database file (cause in the host's log), or any other error.
+ */
+export type StartupFailureReason = "no-tauri" | "database-unavailable" | "error";
 
 export class StartupError extends Error {
   readonly reason: StartupFailureReason;
@@ -42,8 +45,23 @@ async function start(): Promise<AppServices> {
     }
     return createAppServices(database);
   } catch (error) {
-    throw new StartupError("error", "Could not open the database", { cause: error });
+    const reason = isDatabaseNotLoaded(error) ? "database-unavailable" : "error";
+    throw new StartupError(reason, "Could not open the database", { cause: error });
   }
+}
+
+/**
+ * The host registers the database at startup (src-tauri/src/lib.rs). If it
+ * cannot open the file, it only logs the cause, and every query fails with
+ * the plugin's "database sqlite:belegwerk.db not loaded".
+ */
+export function isDatabaseNotLoaded(error: unknown): boolean {
+  for (let current: unknown = error; current !== undefined;) {
+    const message = current instanceof Error ? current.message : String(current);
+    if (/\bdatabase \S+ not loaded\b/i.test(message)) return true;
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return false;
 }
 
 /** Error with all its causes, one per line – shown on the error screen. */
