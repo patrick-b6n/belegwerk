@@ -299,6 +299,48 @@ Datenbankzugriff, Texte getrimmt (`trimText`/`isId` aus
   ebenso zu `inUse` (`bookingCount` mindestens 1); `unique` beim Anlegen/Ändern zu `nameDuplicate`; alles
   andere wird weitergeworfen.
 
+## Steuerjahr-Service (#16)
+
+`src/business/tax-years` – `createTaxYearService({ unitOfWork })` mit
+`get(year)`, `list()`, `addYear(year)`, `setSmallBusiness(year, value,
+options?)`. Gleiche Konventionen wie Buchungs- und Kategorien-Service (eine
+Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes
+`TaxYearFieldErrorCodes`).
+
+- **Default regelbesteuert:** Ein Jahr ohne Datensatz in `tax_years` ist
+  regelbesteuert. `get` liefert `{ year, smallBusiness, explicit }`
+  (`explicit` = Datensatz vorhanden).
+- **`list()`** liefert alle Jahre mit Datensatz **oder** mit Buchungen
+  (`BookingRepository.listYears()`), aufsteigend; Jahre nur mit Buchungen
+  erscheinen mit dem Default (`explicit: false`). Die Einstellungsseite (#20)
+  zeigt so auch Jahre, die nie bewusst eingestellt wurden.
+- **`addYear(year)`** („Jahr hinzufügen“, #20) legt das Jahr regelbesteuert
+  an, z. B. um den Status vor der ersten Buchung zu setzen; existiert schon
+  ein Datensatz: `yearExists`. `setSmallBusiness` legt fehlende Datensätze
+  ebenfalls an.
+- **Validierung:** Jahr sichere Ganzzahl 1000–9999 (`invalidYear`, wie
+  Buchungsdatum und DB-CHECK; `get`/`addYear` ohne Datenbankzugriff), Wert
+  zur Laufzeit ein Boolean (`invalidValue`).
+- **Statuswechsel bei vorhandenen Buchungen:** Wechselt ein Jahr zu
+  Kleinunternehmer, passen dessen Buchungen **mit** USt-Satz nicht mehr; beim
+  Wechsel zu regelbesteuert die **ohne** Satz („unpassende Buchungen“). Ein
+  solcher Wechsel wird abgelehnt mit
+  `{ ok: false, reason: "conflicts", mismatchedBookings }` – nichts wird
+  geschrieben. Die UI fragt nach und wiederholt mit
+  `{ acknowledgeConflicts: true }` (nur `true` zählt); dann wird gespeichert,
+  das Ergebnis nennt `mismatchedBookings`. Prüfung und Schreiben laufen in
+  derselben Unit of Work. Bleibt der Status gleich, gibt es keinen Konflikt
+  (`mismatchedBookings` zählt trotzdem verbliebene unpassende Buchungen).
+- **Buchungen werden nie umgeschrieben:** Beim Wechsel zu regelbesteuert ist
+  nicht ableitbar, welcher Satz gilt. Eine unpassende Buchung bleibt ladbar
+  und löschbar; beim nächsten Speichern verlangt der Buchungs-Service einen
+  zum Jahr passenden Satz (`vatRateNotAllowed` bzw. `vatRateRequired`) – das
+  Formular (#18) zeigt das USt-Feld nach dem Status des Jahres.
+- **Warum nicht einfach blockieren:** Eine unpassende Buchung lässt sich
+  nicht vorab in den Zielzustand bringen, solange das Jahr den alten Status
+  hat (der Buchungs-Service prüft gegen den aktuellen Status). Ein hartes
+  Verbot ließe nur Löschen und Neuerfassen aller Buchungen des Jahres.
+
 ## EÜR-Positionen (#13)
 
 `src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
@@ -341,7 +383,7 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (derzeit `bookings`), keine Repositories und keine Unit of Work:
+nur Services (`bookings`, `categories`, `taxYears`), keine Repositories und keine Unit of Work:
 UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
