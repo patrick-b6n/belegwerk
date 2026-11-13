@@ -193,6 +193,15 @@ Gleitkommazahlen).
   `"vatRateRequired"`. Bei `ok: true` passen `netCents`, `vatCents`, `vatRate`
   direkt in `BookingInput`.
 
+## EÜR-Positionen (#13)
+
+`src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
+pro Steuerjahr (`describePosition(position, year)`), die Umleitung im
+Kleinunternehmer-Jahr (`positionForTaxStatus`) und die Prüfung der Position
+einer Kategorie (`validateCategoryPosition`). Die Standardkategorien legt die
+Migration `0001_default_categories` an. Details, Quellen und das Vorgehen für
+ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
+
 ## App-Shell & Routen
 
 | Route            | Bereich                                                             |
