@@ -60,10 +60,84 @@ src/persistence/migrations/
   `pnpm db:generate` darf sich nichts ändern.
 - Die Dateien sind generiert und von oxfmt ausgenommen.
 
-### Laden im WebView (#10)
+## Datenbank zur Laufzeit (#10)
 
-Der Migrator der App kann das Dateisystem nicht lesen. Die Migrationen werden
-daher von Vite gebündelt:
+| Datei                                            | Aufgabe                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------- |
+| `src-tauri/src/lib.rs`                           | Pool mit genau einer Verbindung, beim Plugin registriert          |
+| `src/persistence/tauri-sql-client.ts`            | `SqlClient` über `tauri-plugin-sql` (`Database.get`)              |
+| `src/persistence/connection.ts`                  | `SqlConnection`: serialisiert Zugriffe, `exclusive`/`transaction` |
+| `src/persistence/drizzle-proxy.ts`               | Callback für Drizzles `sqlite-proxy`                              |
+| `src/persistence/database.ts`                    | `Database` = `{ db, transaction }`, Basis der Repositories        |
+| `src/persistence/bundled-migrations.ts`          | Migrationen, von Vite gebündelt                                   |
+| `src/persistence/migrator.ts`                    | eigener Migrator                                                  |
+| `src/persistence/open-database.ts`               | `openDatabase(client)`: migrieren, `Database` erzeugen            |
+| `src/app/startup.ts`, `src/app/app-services.tsx` | Start, Lade-/Fehlerbildschirm, Services per Context               |
+
+### Datei und Verbindung
+
+- **Ort:** `%APPDATA%\de.belegwerk.desktop\belegwerk.db` (Tauri `app_data_dir`
+  des Identifiers; unter Windows identisch mit `app_config_dir`, das das
+  Plugin selbst verwendet). Name im Plugin: `sqlite:belegwerk.db`.
+- **Genau eine Verbindung.** `tauri-plugin-sql` öffnet über `Database.load`
+  einen sqlx-Pool mit bis zu zehn Verbindungen; einzelne `execute`-Aufrufe für
+  `PRAGMA`, `BEGIN`, Statements und `COMMIT` landeten dann auf verschiedenen
+  Verbindungen. Deshalb öffnet der Rust-Host die Datenbank selbst
+  (`SqlitePoolOptions` mit `max_connections(1)` und ohne Idle-/Lifetime-Ablauf,
+  damit eine offene Transaktion nicht mit der Verbindung verschwindet) und legt
+  den Pool in die `DbInstances` des Plugins. Das Frontend nutzt `Database.get`
+  (kein `load`); die Capability enthält nur `sql:allow-execute` und
+  `sql:allow-select` – `load` (ersetzte den Pool) und `close` sind nicht
+  erlaubt. Das ist reine Plugin-Konfiguration, keine Logik in Rust.
+- **Im JS serialisiert:** Eine Verbindung genügt nicht, wenn zwei async-Flows
+  sich abwechseln. `SqlConnection` reiht alle Aufrufe ein; `exclusive(fn)` gibt
+  einem Flow die Verbindung für eine ganze Folge, `transaction(fn)` darauf
+  aufbauend `BEGIN IMMEDIATE` … `COMMIT`/`ROLLBACK`.
+- **Fremdschlüssel:** sqlx setzt `PRAGMA foreign_keys = ON` beim Öffnen jeder
+  Verbindung (Default, im Host zusätzlich explizit); der Migrator schaltet es
+  am Ende wieder ein.
+- **Journal-Modus:** nicht gesetzt, also SQLite-Default `DELETE` (eine Datei,
+  kein `-wal`) – einfach für Backups (M7).
+- **WebView-Reload:** Die Verbindung lebt im Host weiter. `openDatabase` rollt
+  deshalb eine evtl. offen gebliebene Transaktion zurück.
+
+Geprüft in der laufenden App (#10): Eine `TEMP`-Tabelle ist nur auf der
+Verbindung sichtbar, die sie angelegt hat. 40 parallele Abfragen darauf
+gelingen mit dem eigenen Pool alle; mit einem per `load` geöffneten
+Standard-Pool schlugen 28 von 40 fehl (`no such table`). Ebenso bleibt
+`PRAGMA foreign_keys = OFF` über Aufrufe hinweg erhalten.
+
+### Drizzle (`sqlite-proxy`)
+
+`createProxyCallback` bildet Drizzles Methoden auf den Client ab: `run` →
+`execute`, `all`/`values` → `select` mit Zeilen als Wert-Arrays, `get` → erste
+Zeile oder `undefined`. Parameter: Booleans werden zu `1`/`0`, `undefined` zu
+`NULL`; BigInt, Objekte und Bytes werden abgelehnt.
+
+- **Eindeutige Spaltennamen.** Das Plugin liefert Zeilen als Objekte; Drizzle
+  liest Werte nach Position. Doppelte Namen (z. B. `id` aus zwei Tabellen in
+  einem Join) fielen zu einem Schlüssel zusammen – solche Spalten aliasieren
+  (``sql<number>`${categories.id}`.as("category_id")``). Der Test-Client
+  lehnt doppelte Namen ab, Persistence-Tests fallen also auf. Rein numerische
+  Spaltennamen (JS sortiert sie nach vorn) lehnt der Adapter ab.
+- **Zahlen** bindet das Plugin immer als `REAL` (wie `better-sqlite3`). In
+  `INTEGER`-Spalten wandelt SQLite verlustfrei zurück; in einer `TEXT`-Spalte
+  würde aus `2025` aber `'2025.0'` – Zahlen nicht an Text-Spalten binden.
+- **Transaktionen nur über `Database.transaction(async (tx) => …)`.** Drizzles
+  `db.transaction()` schickt `begin`/`commit` als einzelne Aufrufe, zwischen
+  die andere Flows geraten könnten; der Adapter lehnt Transaktions-Statements
+  deshalb ab. Im Callback nur `tx` verwenden – `db` wartet auf das Ende der
+  Transaktion (Deadlock).
+- **`db.batch([...])`** läuft atomar in einer Transaktion.
+- **Fehler:** Drizzle verpackt Datenbankfehler in `DrizzleQueryError`
+  („Failed query: …“); die SQLite-Meldung (z. B. `UNIQUE constraint failed`)
+  steht in `cause` (ein `SqlError`).
+
+### Laden im WebView
+
+Der Migrator der App kann das Dateisystem nicht lesen (Drizzles eigener
+`sqlite-proxy`-Migrator scheidet daher aus). Die Migrationen werden von Vite
+gebündelt (`bundled-migrations.ts`):
 
 ```ts
 import journal from "./migrations/meta/_journal.json";
@@ -80,36 +154,55 @@ const files = import.meta.glob<string>("./migrations/*.sql", {
 Die Snapshots (`meta/*_snapshot.json`) braucht nur drizzle-kit; sie werden
 nicht importiert und landen nicht im Bundle.
 
-### Hinweise für #10/#11
+### Migrator
 
-- **Fremdschlüssel** prüft SQLite nur mit `PRAGMA foreign_keys = ON`, und das
-  gilt pro Verbindung. `tauri-plugin-sql` (sqlx) aktiviert es standardmäßig;
-  der Migrator muss es trotzdem explizit setzen (siehe Protokoll).
-- **Migrator-Protokoll (#10).** Ändert eine Migration eine Tabelle, die
-  SQLite nicht per `ALTER TABLE` ändern kann, baut drizzle-kit sie neu auf
-  (`__new_<tabelle>` anlegen, kopieren, alte löschen, umbenennen) und schreibt
-  `PRAGMA foreign_keys=OFF` davor. **Innerhalb einer Transaktion ignoriert
-  SQLite dieses Pragma** – bei einer Elterntabelle wie `categories` schlüge das
-  `DROP TABLE` dann fehl bzw. würde kaskadieren. Deshalb:
-  1. `PRAGMA foreign_keys = OFF` (außerhalb jeder Transaktion),
-  2. `BEGIN`, alle ausstehenden Migrationen ausführen und protokollieren,
-  3. `PRAGMA foreign_key_check` – liefert es Zeilen: `ROLLBACK` und Fehler,
-  4. `COMMIT`,
-  5. `PRAGMA foreign_keys = ON` (auch nach einem Fehler).
-- **Verbindungs-Pool:** `tauri-plugin-sql` nutzt einen sqlx-Pool. Einzelne
-  `execute`-Aufrufe für `PRAGMA`, `BEGIN`, Migrationen und `COMMIT` können auf
-  verschiedenen Verbindungen landen – dann wirkt weder die Transaktion noch das
-  Pragma. #10 muss das lösen, z. B. Pool auf eine Verbindung begrenzen oder die
-  Migration in einem einzigen Aufruf ausführen; Gleiches gilt für
-  Transaktionen der Repositories.
+Tracking-Tabelle `__migrations`:
+
+| Spalte       | Inhalt                                            |
+| ------------ | ------------------------------------------------- |
+| `idx`        | Position im Journal (PK)                          |
+| `tag`        | Dateiname ohne `.sql`, eindeutig                  |
+| `hash`       | SHA-256 des SQL (Zeilenenden auf LF normalisiert) |
+| `applied_at` | Zeitpunkt der Anwendung (`toISOString()`)         |
+
+Beim Start werden die angewendeten Migrationen geprüft; der Start bricht mit
+`MigrationError` ab (Fehlerbildschirm), wenn
+
+- `hash_mismatch`: eine angewendete Migration nachträglich geändert wurde
+  (Migrationen werden nie geändert),
+- `unknown_migration`: die DB eine Migration enthält, die die App nicht kennt
+  (DB einer neueren Version),
+- `order_mismatch`: die angewendeten nicht genau die ersten des Journals sind,
+- `foreign_key_violation`: nach dem Migrieren Fremdschlüssel verletzt sind.
+
+**Protokoll.** Ändert eine Migration eine Tabelle, die SQLite nicht per
+`ALTER TABLE` ändern kann, baut drizzle-kit sie neu auf (`__new_<tabelle>`
+anlegen, kopieren, alte löschen, umbenennen) und schreibt
+`PRAGMA foreign_keys=OFF` davor. **Innerhalb einer Transaktion ignoriert
+SQLite dieses Pragma** – bei einer Elterntabelle wie `categories` schlüge das
+`DROP TABLE` fehl. Deshalb läuft alles in einem `exclusive`-Abschnitt der
+Verbindung:
+
+1. `PRAGMA foreign_keys = OFF` (außerhalb jeder Transaktion),
+2. `BEGIN IMMEDIATE`, Tracking-Tabelle anlegen und prüfen, alle ausstehenden
+   Migrationen ausführen und protokollieren,
+3. `PRAGMA foreign_key_check` – liefert es Zeilen: `ROLLBACK` und Fehler,
+4. `COMMIT` (bei jedem Fehler stattdessen `ROLLBACK`, auch für die
+   Tracking-Tabelle),
+5. `PRAGMA foreign_keys = ON` (auch nach einem Fehler).
+
+### Hinweise für #11 ff.
+
+- Repositories bauen auf `Database` (`db` für Abfragen, `transaction` für
+  zusammengehörige Schreibvorgänge) und werden in `createAppServices`
+  (`src/app/services.ts`) erzeugt; UI und Routen erhalten nur Services
+  (`useAppServices()`).
 - **`onConflictDoNothing` (Stripe-Import, #30):** Drizzle 0.45 erzeugt mit
   `onConflictDoNothing({ target, where })` für den partiellen Index
   ungültiges SQL. Stattdessen das nackte `.onConflictDoNothing()` verwenden
   (greift bei jedem Unique-Konflikt) oder vorhandene `external_id`s vorher
   abfragen.
-- Die Tests nutzen `createTestDb()` aus
+- Tests nutzen `createTestDb()` aus
   [`src/persistence/__tests__/test-db.ts`](../src/persistence/__tests__/test-db.ts):
-  `better-sqlite3` in-memory mit Drizzles Migrator auf denselben Dateien,
-  nach obigem Protokoll (Fremdschlüssel aus, migrieren, prüfen, an).
-  Sobald der eigene Migrator existiert (#10), sollte der Helfer ihn verwenden,
-  damit Tests genau den App-Pfad abdecken.
+  `better-sqlite3` in-memory hinter demselben `openDatabase` wie die App
+  (Migrator, Proxy-Adapter, `SqlConnection`) – nur das Plugin ist ersetzt.

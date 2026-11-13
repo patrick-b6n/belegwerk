@@ -35,9 +35,15 @@ Einzelne Dateien oder Testnamen: `pnpm test src/business/format` bzw.
   kein `better-sqlite3`, kein React/Tauri.
 - **Persistence** (`src/persistence`): Tests gegen **`better-sqlite3`** mit
   demselben Drizzle-Schema und denselben Migrationen wie die App (#11):
-  `createTestDb()` aus `src/persistence/__tests__/test-db.ts` liefert pro Test
-  eine frische In-Memory-Datenbank mit allen Migrationen
-  ([Datenmodell](data-model.md)).
+  `await createTestDb()` aus `src/persistence/__tests__/test-db.ts` liefert pro
+  Test eine frische In-Memory-Datenbank – über denselben Weg wie die App
+  (`openDatabase`: eigener Migrator, `sqlite-proxy`-Adapter), nur das Plugin
+  ist durch einen `better-sqlite3`-Client ersetzt
+  ([Datenmodell](data-model.md)). Abfragen sind daher asynchron.
+  `dbError(query)` liefert die Fehlermeldungen einer fehlschlagenden Abfrage
+  inkl. `cause` (Drizzle verpackt SQLite-Fehler). Der Test-Client lehnt
+  doppelte Ergebnis-Spaltennamen ab, die das Plugin stillschweigend
+  zusammenfassen würde.
 - **UI**: derzeit keine Tests. Bräuchten DOM-Tests später eine Umgebung wie
   `jsdom`, kann sie pro Datei per `// @vitest-environment jsdom` gesetzt
   werden.

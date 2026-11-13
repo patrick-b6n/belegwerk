@@ -23,7 +23,7 @@ Routen beziehen Services über `src/app`, nie direkt aus `src/persistence`.
 | `src/ui`          | Darstellung: Komponenten, Styles. `src/ui/components/ui` enthält die generierten shadcn/ui-Komponenten.                           |
 | `src/business`    | Fachlogik: Berechnungen, Validierung, Services, Formatierung – und die **Repository-Interfaces (Ports)**. Kein React, kein Tauri. |
 | `src/persistence` | Drizzle-Schema, Migrationen und die Implementierungen der Repository-Interfaces aus `src/business`.                               |
-| `src/app`         | Composition Root: erzeugt DB, Repositories und Services und stellt sie der UI bereit (#10).                                       |
+| `src/app`         | Composition Root: erzeugt DB, Repositories und Services und stellt sie der UI bereit (App-Start).                                 |
 
 Generiert und von Lint/Format ausgenommen: `src/routeTree.gen.ts` (TanStack
 Router) und `src/paraglide/` (Paraglide, git-ignoriert). Ebenfalls generiert,
@@ -118,6 +118,27 @@ Business verboten – Drizzle gibt es nur in `src/persistence`.
 - Tests liegen nicht als Routen vor: `routeFileIgnorePattern` in
   `vite.config.ts` schließt `*.test.ts[x]` und `__tests__/` in `src/routes`
   aus.
+
+### App-Start (Composition Root)
+
+`src/routes/__root.tsx` umschließt die Shell mit `AppServicesProvider`
+(`src/app/app-services.tsx`). Dieser ruft in einem Effekt einmalig
+`startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
+Migrationen anwenden ([Datenmodell](data-model.md)), Repositories und Services
+erzeugen (`createAppServices`, `src/app/services.ts`). Bis dahin zeigt er einen
+Ladebildschirm, danach die App; Komponenten holen die Services mit
+`useAppServices()`.
+
+- **Nur im WebView:** Der Start läuft im Effekt. Beim Vorrendern der
+  SPA-Shell (Node) gibt es kein Tauri; die Shell enthält den Ladebildschirm.
+- **Fehler** zeigt ein deutscher Fehlerbildschirm
+  (`src/ui/layout/startup-screen.tsx`) mit den technischen Details (Fehler
+  samt `cause`-Kette) und „Erneut versuchen“ (lädt die Seite neu).
+- **Browser ohne Tauri** (`pnpm dev` direkt im Browser): Es gibt keine
+  Datenbank; der Fehlerbildschirm weist darauf hin, die App mit
+  `pnpm tauri dev` zu starten.
+- Services werden (noch) nicht als Router-Context an Loader gegeben; braucht
+  ein Loader sie, kommt das mit der ersten Route, die Daten lädt.
 
 ### TanStack Query
 
