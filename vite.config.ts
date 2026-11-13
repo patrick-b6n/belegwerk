@@ -9,7 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   resolve: {
-    // Native path alias support (Vite 8); mirrors `paths` in tsconfig.json.
+    // Native path alias support (Vite 8); mirrors `paths` in tsconfig.app.json.
     tsconfigPaths: true,
   },
   // Prevent Vite from obscuring Rust errors.

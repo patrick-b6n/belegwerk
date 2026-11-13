@@ -1,0 +1,119 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "import", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "ignorePatterns": [
+    "dist/**",
+    ".tanstack/**",
+    "src-tauri/target/**",
+    "src-tauri/gen/**",
+    "src/paraglide/**",
+    "src/routeTree.gen.ts",
+    "project.inlang/cache/**"
+  ],
+  "rules": {
+    // New JSX transform (react-jsx): no React import needed.
+    "react/react-in-jsx-scope": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    // Side-effect imports of stylesheets are intended.
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }]
+  },
+  // Layer boundaries (docs/architecture.md). Each layer has exactly one
+  // override: when several overrides set `no-restricted-imports` for the same
+  // file, the last one wins instead of merging.
+  //
+  // Regexes catch both the `@/` alias and relative imports
+  // (`@/persistence/x`, `../persistence/x`, `../../persistence`).
+  "overrides": [
+    {
+      "files": ["src/ui/**", "src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@/|(\\.\\./)+)persistence(/|$)",
+                "message": "UI/Routes dürfen nicht aus src/persistence importieren – Zugriff nur über Business-Services aus dem Composition Root (src/app)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/business/**"],
+      "rules": {
+        // No JSX in business: no extension is allowed to contain JSX.
+        "react/jsx-filename-extension": ["error", { "extensions": [] }],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@/|(\\.\\./)+)persistence(/|$)",
+                "message": "Business darf nicht aus src/persistence importieren. Repository-Interfaces (Ports) liegen in src/business; Persistence implementiert sie."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(ui|routes|app)(/|$)",
+                "message": "Business darf nicht aus src/ui, src/routes oder src/app importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(router|routeTree\\.gen)(\\.[cm]?[jt]sx?)?$",
+                "message": "Business darf nicht aus src/router.tsx oder src/routeTree.gen.ts importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)paraglide(/|$)",
+                "message": "Business gibt Codes statt UI-Texten zurück; übersetzt wird in src/ui bzw. src/routes (docs/i18n.md)."
+              },
+              {
+                "regex": "^(drizzle-orm|drizzle-kit|better-sqlite3)(/|$)",
+                "message": "Drizzle/SQLite nur in src/persistence."
+              },
+              {
+                "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
+                "message": "Business muss frei von React sein (auch react-dom, @tanstack/react-*, @base-ui/react, …)."
+              },
+              {
+                "regex": "^@tauri-apps/",
+                "message": "Business muss frei von Tauri sein. Plattformzugriffe gehören hinter ein Interface, implementiert außerhalb von src/business."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/persistence/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@/|(\\.\\./)+)(ui|routes|app)(/|$)",
+                "message": "Persistence darf nicht aus src/ui, src/routes oder src/app importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(router|routeTree\\.gen)(\\.[cm]?[jt]sx?)?$",
+                "message": "Persistence darf nicht aus src/router.tsx oder src/routeTree.gen.ts importieren."
+              },
+              {
+                "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
+                "message": "Persistence muss frei von React sein."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
