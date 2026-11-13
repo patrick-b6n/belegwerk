@@ -38,6 +38,11 @@ export default defineConfig({
     paraglideVitePlugin({ project: "./project.inlang" }),
     tailwindcss(),
     tanstackStart({
+      router: {
+        // Tests next to route files are not routes (docs/testing.md).
+        // Matched against each file/folder name in src/routes.
+        routeFileIgnorePattern: String.raw`\.test\.tsx?$|^__tests__$`,
+      },
       // SPA mode: static build, no server functions. The prerendered shell
       // is written as index.html so Tauri can serve dist/client directly.
       spa: {

@@ -91,6 +91,59 @@ mit `@tauri-apps/*` liegt außerhalb von `src/business` und wird in `src/app`
 verdrahtet. Ebenso sind `drizzle-orm`, `drizzle-kit` und `better-sqlite3` in
 Business verboten – Drizzle gibt es nur in `src/persistence`.
 
+## App-Shell & Routen
+
+| Route            | Bereich                                                             |
+| ---------------- | ------------------------------------------------------------------- |
+| `/`              | Weiterleitung auf `/buchungen` (Startseite)                         |
+| `/buchungen`     | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
+| `/euer`          | EÜR-Jahresansicht                                                   |
+| `/kategorien`    | Kategorienverwaltung                                                |
+| `/einstellungen` | Einstellungen (Steuerjahre, später Stripe)                          |
+| alles andere     | `notFoundComponent` der Root-Route, innerhalb der Shell             |
+
+- **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
+  Code-Bezeichner bleiben englisch (`BookingsPage`, `bookings_title`).
+- `/` leitet weiter, statt die Buchungen selbst zu rendern: So gibt es genau
+  eine URL für die Liste samt Search-Params, und die Navigation markiert sie
+  eindeutig als aktiv.
+- Das Layout (`src/ui/layout/app-shell.tsx`) rendert die Root-Route um das
+  `<Outlet />`. Seiten nutzen `Page` aus `src/ui/layout/page.tsx` und setzen
+  den Dokumenttitel über `head` (`m.page_title({ page })`).
+- Gescrollt wird der Inhaltsbereich (`#app-content`), nicht das Fenster;
+  der Router setzt ihn bei Navigation zurück (`scrollToTopSelectors`).
+  Ein Skip-Link springt dorthin.
+- Tests liegen nicht als Routen vor: `routeFileIgnorePattern` in
+  `vite.config.ts` schließt `*.test.ts[x]` und `__tests__/` in `src/routes`
+  aus.
+
+### TanStack Query
+
+`src/app/query-client.ts` erzeugt den `QueryClient` (Composition Root:
+Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
+`src/router.tsx` legt pro Router-Instanz einen Client an, stellt ihn über
+`Wrap` per `QueryClientProvider` bereit und gibt ihn als Router-Context
+(`context.queryClient`) an Loader weiter.
+
+## Content Security Policy
+
+`src-tauri/tauri.conf.json` setzt eine CSP: nur eigene Skripte, Styles
+(inkl. Inline-Styles), Bilder/Fonts auch als `data:`, Netzwerk nur zu eigenen Assets und zur
+Tauri-IPC. Tauri ergänzt beim Build `script-src` um Hashes der Inline-Skripte
+der vorgerenderten Shell; `dangerousDisableAssetCspModification` bleibt aus.
+`base-uri` und `form-action` sind auf `'self'` beschränkt.
+
+**Achtung bei Styles:** Enthält das gebaute HTML ein `<style>`-Element, ergänzt
+Tauri auch `style-src` um Hashes/Nonces. Dann ignorieren Browser
+`'unsafe-inline'`, und zur Laufzeit eingefügte Styles würden blockiert. Derzeit
+enthält die Shell kein `<style>` (CSS kommt als Datei).
+
+Im Dev-Modus (`pnpm tauri dev`, Seite vom Vite-Server) greift die CSP nicht –
+CSP-Probleme zeigen sich nur im gebauten Programm
+(`pnpm tauri build --no-bundle`). Braucht ein späteres Plugin weitere Ziele
+(z. B. `connect-src https://api.stripe.com` für den Stripe-Import (M6) über
+`tauri-plugin-http`), wird die CSP gezielt erweitert.
+
 ## Lint & Format
 
 | Script              | Zweck                            |

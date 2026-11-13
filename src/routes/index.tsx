@@ -1,27 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { m } from "@/paraglide/messages.js";
-import { Button } from "@/ui/components/ui/button";
-import { toast } from "@/ui/components/ui/toast";
-
+// The bookings list is the start page. Redirecting (instead of rendering it at
+// "/") keeps one canonical URL for it, so its search params (filters, #22) and
+// the active state in the navigation only exist under /buchungen.
 export const Route = createFileRoute("/")({
-  component: Home,
+  beforeLoad: () => {
+    throw redirect({ replace: true, to: "/buchungen" });
+  },
 });
-
-// Placeholder until the app shell lands (#8).
-function Home() {
-  return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-8">
-      <h1 className="font-heading text-2xl font-semibold">{m.app_title()}</h1>
-      <div>
-        <Button
-          onClick={() =>
-            toast.add({ title: m.app_title(), description: m.home_toast_description() })
-          }
-        >
-          {m.home_toast_button()}
-        </Button>
-      </div>
-    </main>
-  );
-}

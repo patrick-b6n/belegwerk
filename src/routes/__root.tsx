@@ -1,28 +1,69 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+} from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { getLocale } from "@/paraglide/runtime.js";
+import { buttonVariants } from "@/ui/components/ui/button";
 import { Toaster } from "@/ui/components/ui/toast";
+import { AppShell } from "@/ui/layout/app-shell";
+import { Page, PagePlaceholder } from "@/ui/layout/page";
 import appCss from "@/ui/styles/globals.css?url";
 
-export const Route = createRootRoute({
-  head: () => ({
+export type RouterContext = {
+  queryClient: QueryClient;
+};
+
+export const Route = createRootRouteWithContext<RouterContext>()({
+  component: RootComponent,
+  head: ({ match }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: m.app_title() },
+      // Child routes override the title. For unknown paths (also below an
+      // existing route, e.g. /buchungen/x) the router renders the root's
+      // notFoundComponent and flags the root match with `_notFound` (public
+      // field of RouteMatch, despite the underscore).
+      {
+        // oxlint-disable-next-line no-underscore-dangle
+        title: match._notFound ? m.page_title({ page: m.not_found_title() }) : m.app_title(),
+      },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico" },
+    ],
   }),
-  component: RootComponent,
+  // Rendered inside the shell (in place of <Outlet />) for unknown paths.
+  notFoundComponent: NotFound,
 });
 
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <AppShell>
+        <Outlet />
+      </AppShell>
     </RootDocument>
+  );
+}
+
+function NotFound() {
+  return (
+    <Page title={m.not_found_title()}>
+      <PagePlaceholder>{m.not_found_description()}</PagePlaceholder>
+      <div>
+        <Link to="/buchungen" className={buttonVariants({ variant: "outline" })}>
+          {m.not_found_back()}
+        </Link>
+      </div>
+    </Page>
   );
 }
 
