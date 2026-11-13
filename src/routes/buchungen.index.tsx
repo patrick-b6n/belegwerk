@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 
 import { m } from "@/paraglide/messages.js";
-import { Button } from "@/ui/components/ui/button";
+import { Button, buttonVariants } from "@/ui/components/ui/button";
 import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingTable } from "@/ui/bookings/booking-table";
 import { Page, PagePlaceholder } from "@/ui/layout/page";
@@ -18,7 +19,15 @@ export const Route = createFileRoute("/buchungen/")({
 
 function BookingsPage() {
   return (
-    <Page title={m.bookings_title()}>
+    <Page
+      title={m.bookings_title()}
+      actions={
+        <Link to="/buchungen/neu" className={buttonVariants()}>
+          <Plus aria-hidden />
+          {m.bookings_new()}
+        </Link>
+      }
+    >
       <BookingList />
     </Page>
   );
