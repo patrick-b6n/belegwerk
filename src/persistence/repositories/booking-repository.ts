@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import type { Booking, BookingInput } from "@/business/model";
 import type { BookingRepository, Clock } from "@/business/repositories";
@@ -115,6 +115,11 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
         .from(bookings)
         .orderBy(year);
       return rows.map((row) => row.year);
+    },
+
+    list: async () => {
+      const rows = await db.select().from(bookings).orderBy(desc(bookings.date), desc(bookings.id));
+      return rows.map(toBooking);
     },
   };
 }

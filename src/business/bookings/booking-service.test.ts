@@ -533,6 +533,60 @@ describe("BookingService.get and delete", () => {
   });
 });
 
+describe("BookingService.list", () => {
+  it("returns an empty list without bookings", async () => {
+    const { service } = await setup();
+    expect(await service.list()).toEqual({ items: [] });
+  });
+
+  it("lists all bookings newest first with their category", async () => {
+    const { service, create, income, expense } = await setup();
+    const older = await create({ date: "2025-01-15" });
+    const firstOfDay = await create({
+      date: "2025-03-01",
+      type: "expense",
+      categoryId: expense.id,
+      grossCents: 1070,
+      vatRate: "7",
+    });
+    const secondOfDay = await create({ date: "2025-03-01" });
+    const smallBusiness = await create({ date: "2024-12-31", vatRate: null });
+
+    const { items } = await service.list();
+    expect(items).toEqual([
+      { ...secondOfDay, category: { id: income.id, name: income.name, archived: false } },
+      { ...firstOfDay, category: { id: expense.id, name: expense.name, archived: false } },
+      { ...older, category: { id: income.id, name: income.name, archived: false } },
+      { ...smallBusiness, category: { id: income.id, name: income.name, archived: false } },
+    ]);
+    expect(items[1]).toMatchObject({ netCents: 1000, vatCents: 70, grossCents: 1070 });
+  });
+
+  it("marks archived categories and shows current category names", async () => {
+    const { service, create, income, repositories } = await setup();
+    const booking = await create();
+    await repositories.categories.update(income.id, { name: "Erlöse" });
+    await repositories.categories.setArchived(income.id, true);
+
+    expect((await service.list()).items).toEqual([
+      { ...booking, category: { id: income.id, name: "Erlöse", archived: true } },
+    ]);
+  });
+
+  it("reads bookings and categories in one unit of work", async () => {
+    const { unitOfWork } = createInMemoryDatabase();
+    let runs = 0;
+    const counting: UnitOfWork = {
+      run: (fn) => {
+        runs += 1;
+        return unitOfWork.run(fn);
+      },
+    };
+    await createBookingService({ unitOfWork: counting }).list();
+    expect(runs).toBe(1);
+  });
+});
+
 /** Unit of work whose booking writes fail like a concurrent write would make them fail. */
 function failingUnitOfWork(inner: UnitOfWork, error: Error): UnitOfWork {
   return {

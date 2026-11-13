@@ -229,6 +229,11 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
       for (const { date } of state().bookings.values()) years.add(Number(date.slice(0, 4)));
       return [...years].toSorted((a, b) => a - b);
     }),
+    list: op(() =>
+      [...state().bookings.values()]
+        .toSorted((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1))
+        .map((booking) => ({ ...booking })),
+    ),
   };
 }
 
