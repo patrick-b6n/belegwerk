@@ -141,17 +141,18 @@ function BookingList({
 }>) {
   const paginationId = useId();
   // An invalid query is not run (the filter bar shows the errors).
-  const { data, error, isPending, isPlaceholderData, refetch } = useBookingList(query, {
+  const { data, error, isPending, isPlaceholderData, isFetching, refetch } = useBookingList(query, {
     enabled: !invalid,
   });
 
   // A page after the last (old link, last booking of the page deleted) shows
   // the last page (#21); the URL follows, replacing its entry so "back" does
-  // not return to the empty page. Only for the result of this query (not a
-  // placeholder of the previous one): the next result has the requested
-  // page, so this runs once.
+  // not return to the empty page. Only for a fresh result of this query: not
+  // a placeholder of the previous one, and not a cached one being refetched
+  // (it may be clamped by data that changed since). The next result has the
+  // requested page, so this runs once.
   const requestedPage = query.page ?? 1;
-  const shownPage = data?.ok && !isPlaceholderData ? data.page : undefined;
+  const shownPage = data?.ok && !isPlaceholderData && !isFetching ? data.page : undefined;
   useEffect(() => {
     if (shownPage !== undefined && shownPage !== requestedPage) {
       onSearchChange({ seite: pageSearchParam(shownPage) }, { replace: true });

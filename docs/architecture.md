@@ -631,7 +631,7 @@ optional; Standardwerte stehen nie in der URL):
 - **Seite hinter der letzten** (alter Link, letzte Buchung einer Seite
   gelöscht): Die Suche liefert die letzte Seite (#21); die Liste gleicht
   `seite` an die gelieferte an, per `replace` (Zurück führt nicht auf die
-  leere Seite). Nur für ein echtes Ergebnis, nie für Platzhalterdaten – das
+  leere Seite). Nur für ein frisches Ergebnis (nie Platzhalterdaten, nie ein gecachtes, das gerade neu lädt) – das
   nächste Ergebnis hat die angefragte Seite, es gibt keine Schleife.
 - **Spaltenköpfe** sind Buttons (Tab, Enter/Leertaste): die sortierte
   Spalte wechselt die Richtung, eine andere beginnt mit ihrer
@@ -642,7 +642,7 @@ optional; Standardwerte stehen nie in der URL):
   die Zeilen kommen sortiert aus SQL.
 - **Pagination** (`booking-pagination.tsx`, `<nav>`) unter der Tabelle:
   „51–100 von 120“, „Pro Seite“, Erste/Vorherige/Nächste/Letzte (Icons mit
-  `aria-label`, deaktiviert am Rand), „Seite X von Y“ (`aria-live`).
+  `aria-label`, deaktiviert am Rand, aber fokussierbar – der Fokus bleibt nach „Letzte Seite“ stehen), „Seite X von Y“ (`aria-live`).
 - **Summenzeilen** im `tfoot`: Einnahmen, Ausgaben, Saldo (brutto) des
   **gesamten** gefilterten Bestands (`sums`), unter der Brutto-Spalte; der
   Text daneben sagt „nicht nur dieser Seite“. Der Saldo hat Vorzeichen und

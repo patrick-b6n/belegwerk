@@ -34,8 +34,12 @@ import {
 import { nextBookingSort } from "./booking-filter-model";
 import { BOOKING_SOURCE_LABELS, BOOKING_TYPE_LABELS } from "./booking-messages";
 
-/** Classes per column, applied to header and cells (e.g. right-aligned amounts). */
-type BookingColumnMeta = { className?: string };
+/**
+ * Per column: classes for header and cells (e.g. right-aligned amounts) and
+ * the search field the column sorts by (#23); without one the header is
+ * plain text.
+ */
+type BookingColumnMeta = { className?: string; sortField?: BookingSortField };
 
 const features = tableFeatures({ columnMeta: metaHelper<BookingColumnMeta>() });
 const column = createColumnHelper<typeof features, BookingListItem>();
@@ -51,7 +55,7 @@ const TYPE_AMOUNT_CLASS: Record<BookingType, string> = {
   expense: "text-rose-700 dark:text-rose-400",
 };
 
-/** Column names; every column sorts by the search field of its id (#23). */
+/** Column names by sort field: headers, the caption and the sort buttons' tooltips. */
 const COLUMN_LABELS: Readonly<Record<BookingSortField, () => string>> = {
   date: m.bookings_column_date,
   type: m.bookings_column_type,
@@ -71,16 +75,17 @@ const DIRECTION_LABELS: Readonly<Record<SortDirection, () => string>> = {
 
 const columns = column.columns([
   column.accessor("date", {
-    header: () => m.bookings_column_date(),
+    header: () => COLUMN_LABELS.date(),
     cell: ({ getValue }) => <time dateTime={getValue()}>{formatDate(getValue())}</time>,
-    meta: { className: "tabular-nums" },
+    meta: { className: "tabular-nums", sortField: "date" },
   }),
   column.accessor("type", {
-    header: () => m.bookings_column_type(),
+    header: () => COLUMN_LABELS.type(),
     cell: ({ getValue }) => <BookingTypeBadge type={getValue()} />,
+    meta: { sortField: "type" },
   }),
   column.accessor("description", {
-    header: () => m.bookings_column_description(),
+    header: () => COLUMN_LABELS.description(),
     // The description is the row's link: focusable, opens the booking with Enter.
     cell: ({ row }) => (
       <Link
@@ -92,19 +97,20 @@ const columns = column.columns([
         {row.original.description}
       </Link>
     ),
-    meta: { className: "w-full max-w-0 min-w-36" },
+    meta: { className: "w-full max-w-0 min-w-36", sortField: "description" },
   }),
   column.accessor("counterparty", {
-    header: () => m.bookings_column_counterparty(),
+    header: () => COLUMN_LABELS.counterparty(),
     cell: ({ getValue }) => (
       <span title={getValue()} className="block max-w-36 truncate">
         {getValue()}
       </span>
     ),
+    meta: { sortField: "counterparty" },
   }),
   column.accessor((booking) => booking.category.name, {
     id: "category",
-    header: () => m.bookings_column_category(),
+    header: () => COLUMN_LABELS.category(),
     cell: ({ row }) => (
       <span title={row.original.category.name} className="flex max-w-40 items-center gap-1.5">
         <span className="truncate">{row.original.category.name}</span>
@@ -115,29 +121,31 @@ const columns = column.columns([
         )}
       </span>
     ),
+    meta: { sortField: "category" },
   }),
   column.accessor("netCents", {
-    header: () => m.bookings_column_net(),
+    header: () => COLUMN_LABELS.netCents(),
     cell: ({ getValue }) => formatCurrency(getValue()),
-    meta: { className: AMOUNT },
+    meta: { className: AMOUNT, sortField: "netCents" },
   }),
   column.accessor("vatCents", {
-    header: () => m.bookings_column_vat(),
+    header: () => COLUMN_LABELS.vatCents(),
     cell: ({ getValue }) => formatCurrency(getValue()),
-    meta: { className: AMOUNT },
+    meta: { className: AMOUNT, sortField: "vatCents" },
   }),
   column.accessor("grossCents", {
-    header: () => m.bookings_column_gross(),
+    header: () => COLUMN_LABELS.grossCents(),
     cell: ({ row }) => (
       <span className={cn("font-medium", TYPE_AMOUNT_CLASS[row.original.type])}>
         {formatCurrency(row.original.grossCents)}
       </span>
     ),
-    meta: { className: AMOUNT },
+    meta: { className: AMOUNT, sortField: "grossCents" },
   }),
   column.accessor("source", {
-    header: () => m.bookings_column_source(),
+    header: () => COLUMN_LABELS.source(),
     cell: ({ getValue }) => BOOKING_SOURCE_LABELS[getValue()](),
+    meta: { sortField: "source" },
   }),
 ]);
 
@@ -160,9 +168,9 @@ export interface BookingTableProps {
  *
  * Sorting, pagination and the sums (#23) come from the search query (#21),
  * not from the table: the table gets the rows of one page, the sort order
- * and the sums of all matching bookings. Every column header is a button
- * that sorts by that column ({@link nextBookingSort}); the sorted column has
- * `aria-sort`.
+ * and the sums of all matching bookings. The header of a column with a
+ * `sortField` is a button that sorts by it ({@link nextBookingSort}); the
+ * sorted column has `aria-sort`.
  */
 export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: BookingTableProps) {
   // A copy: the table only reads the rows but types them as a mutable array.
@@ -186,12 +194,14 @@ export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: B
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
             {group.headers.map((header) => {
-              const field = header.column.id as BookingSortField;
-              const direction = sort.field === field ? sort.direction : undefined;
+              const { className, sortField } = header.column.columnDef.meta ?? {};
+              const direction =
+                sortField !== undefined && sort.field === sortField ? sort.direction : undefined;
+              const label = header.isPlaceholder ? null : <table.FlexRender header={header} />;
               return (
                 <TableHead
                   key={header.id}
-                  className={header.column.columnDef.meta?.className}
+                  className={className}
                   aria-sort={
                     direction === undefined
                       ? undefined
@@ -200,7 +210,13 @@ export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: B
                         : "descending"
                   }
                 >
-                  <SortButton sort={sort} field={field} onSortChange={onSortChange} />
+                  {sortField === undefined ? (
+                    label
+                  ) : (
+                    <SortButton sort={sort} field={sortField} onSortChange={onSortChange}>
+                      {label}
+                    </SortButton>
+                  )}
                 </TableHead>
               );
             })}
@@ -224,10 +240,12 @@ export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: B
 }
 
 function SortButton({
+  children,
   sort,
   field,
   onSortChange,
 }: Readonly<{
+  children: ReactNode;
   sort: BookingSort;
   field: BookingSortField;
   onSortChange: (sort: BookingSort) => void;
@@ -247,7 +265,7 @@ function SortButton({
       })}
       className="-mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {COLUMN_LABELS[field]()}
+      {children}
       <Icon
         aria-hidden
         className={cn("size-3.5 shrink-0", direction === undefined && "text-muted-foreground/60")}

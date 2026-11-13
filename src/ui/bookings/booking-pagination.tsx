@@ -131,6 +131,10 @@ function PageButton({
       aria-label={label}
       title={label}
       disabled={disabled}
+      // Stays focusable: after "Letzte Seite" the focused button becomes
+      // disabled, and the focus must not fall back to the page.
+      focusableWhenDisabled
+      className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-transparent"
       onClick={onClick}
     >
       <Icon aria-hidden />
