@@ -231,6 +231,16 @@ describe("BookingService.create", () => {
         { counterparty: " \u200B" },
         { field: "counterparty", code: "required" },
       ],
+      [
+        "invisible-only description (word joiner, soft hyphen, Mongolian vowel separator)",
+        { description: "\u2060\u00AD\u180E\u00A0" },
+        { field: "description", code: "required" },
+      ],
+      [
+        "invisible-only counterparty (directional marks)",
+        { counterparty: "\u200E\u200F\u2061" },
+        { field: "counterparty", code: "required" },
+      ],
       ["blank description", { description: " \n " }, { field: "description", code: "required" }],
       ["blank counterparty", { counterparty: "" }, { field: "counterparty", code: "required" }],
       [
@@ -255,12 +265,14 @@ describe("BookingService.create", () => {
         description: "\u200BBeratung\uFEFF",
         counterparty: "Team \u{1F468}\u200D\u{1F4BB}",
         reference: "\u200B",
+        note: "\u00AD\u2060",
         externalId: "\uFEFF\u200B",
       });
       expect(booking).toMatchObject({
         description: "Beratung",
         counterparty: "Team \u{1F468}\u200D\u{1F4BB}",
         reference: null,
+        note: null,
         externalId: null,
       });
     });

@@ -123,3 +123,91 @@ describe("createAppServices – bookings on SQLite", () => {
     });
   });
 });
+
+// The category service against SQLite with the seeded default categories.
+describe("createAppServices – categories on SQLite", () => {
+  it("lists the seeded categories with usage and protects the system categories", async () => {
+    const { services, incomeId } = await setup();
+    await services.bookings.create({
+      date: "2025-03-01",
+      type: "income",
+      grossCents: 100,
+      vatRate: "19",
+      categoryId: incomeId,
+      description: "x",
+      counterparty: "y",
+      reference: null,
+      note: null,
+    });
+    const list = await services.categories.list();
+    expect(list.find((c) => c.id === incomeId)?.bookingCount).toBe(1);
+    const system = list.filter((c) => c.isSystem);
+    expect(system.map((c) => c.name).toSorted()).toEqual([
+      "Erlösminderung / Rückerstattung",
+      "USt-Erstattung",
+      "USt-Vorauszahlung",
+    ]);
+    for (const { id } of system) {
+      expect(await services.categories.delete(id)).toEqual({ ok: false, reason: "systemCategory" });
+      expect(await services.categories.archive(id)).toEqual({
+        ok: false,
+        reason: "systemCategory",
+      });
+      expect(await services.categories.update(id, { euerPosition: "SONSTIGE_AUSGABEN" })).toEqual({
+        ok: false,
+        reason: "invalid",
+        errors: [{ field: "euerPosition", code: "systemCategoryFixed" }],
+      });
+    }
+    expect(await services.categories.delete(incomeId)).toEqual({
+      ok: false,
+      reason: "inUse",
+      bookingCount: 1,
+    });
+  });
+
+  it("creates, edits, archives, reactivates and deletes a category", async () => {
+    const { services, sqlite } = await setup();
+    expect(
+      await services.categories.create({
+        name: "TELEFON / INTERNET",
+        type: "expense",
+        euerPosition: "TELEKOMMUNIKATION",
+        reducesIncome: false,
+      }),
+    ).toEqual({ ok: false, reason: "invalid", errors: [{ field: "name", code: "nameDuplicate" }] });
+
+    const created = await services.categories.create({
+      name: " Gutschriften ",
+      type: "expense",
+      euerPosition: "BETRIEBSEINNAHMEN_UST_FREI",
+      reducesIncome: true,
+    });
+    expect(created).toMatchObject({
+      ok: true,
+      category: { name: "Gutschriften", isSystem: false },
+    });
+    if (!created.ok) return;
+    const { id } = created.category;
+
+    expect(
+      await services.categories.update(id, {
+        name: "Software-Abos",
+        euerPosition: "EDV_KOSTEN",
+        reducesIncome: false,
+      }),
+    ).toMatchObject({ ok: true, category: { name: "Software-Abos", reducesIncome: false } });
+    expect(await services.categories.archive(id)).toMatchObject({
+      ok: true,
+      category: { archived: true },
+    });
+    expect(await services.categories.reactivate(id)).toMatchObject({
+      ok: true,
+      category: { archived: false },
+    });
+    expect(await services.categories.delete(id)).toEqual({ ok: true });
+    expect(sqlite.prepare("SELECT count(*) AS n FROM categories WHERE id = ?").get(id)).toEqual({
+      n: 0,
+    });
+  });
+});

@@ -44,6 +44,11 @@ export interface BookingRepository {
   /** Number of bookings using the category (archive or delete, #15). */
   countByCategory(categoryId: number): Promise<number>;
   /**
+   * Number of bookings per category id in one query (category list, #15).
+   * Categories without bookings are missing from the map.
+   */
+  countByCategories(): Promise<Map<number, number>>;
+  /**
    * Bookings dated in `year`, split by whether a VAT rate is recorded – to
    * decide about changing the year's tax status (#16).
    */

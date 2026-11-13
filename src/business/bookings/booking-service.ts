@@ -17,6 +17,7 @@ import { calculateBookingAmounts, isVatRate, MAX_AMOUNT_CENTS } from "../money";
 import { parseIsoDate } from "../format";
 import type { Booking, BookingInput, BookingSource, BookingType, VatRate } from "../model";
 import { ConstraintViolationError, type Repositories, type UnitOfWork } from "../repositories";
+import { isId, trimText } from "../validation";
 
 /**
  * What the booking form submits. Amounts are integer cents (gross, #1);
@@ -30,8 +31,9 @@ import { ConstraintViolationError, type Repositories, type UnitOfWork } from "..
  * editing a Stripe booking does not turn it into a manual one. `null` (or a
  * blank string) clears `externalId`.
  *
- * Texts are trimmed (also zero-width characters U+200B–U+200D and U+FEFF at
- * the ends); a text consisting only of such characters counts as blank.
+ * Texts are trimmed (also invisible format characters like U+200B–U+200D,
+ * U+2060, U+00AD and U+FEFF at the ends, see `trimText`); a text without any
+ * visible character counts as blank.
  */
 export interface BookingFormInput {
   /** Payment date `YYYY-MM-DD`. */
@@ -211,19 +213,6 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
 }
 
 const NOT_FOUND: BookingNotFound = { ok: false, reason: "notFound" };
-
-/** Ids are positive integers; anything else (e.g. `NaN` from a route param) cannot exist. */
-function isId(value: number): boolean {
-  return Number.isSafeInteger(value) && value > 0;
-}
-
-// Zero-width space, non-joiner, joiner and BOM (`String#trim` only removes the BOM).
-const EDGE_BLANKS = /^[\s\u200B-\u200D\uFEFF]+|[\s\u200B-\u200D\uFEFF]+$/g;
-
-/** Trims whitespace and zero-width characters at the ends; inner ones stay (e.g. ZWJ in emoji). */
-function trimText(value: string): string {
-  return value.replaceAll(EDGE_BLANKS, "");
-}
 
 function invalid(errors: readonly BookingFieldError[]): BookingInvalid {
   return { ok: false, reason: "invalid", errors };

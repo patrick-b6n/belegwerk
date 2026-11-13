@@ -85,6 +85,14 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
       return row?.count ?? 0;
     },
 
+    countByCategories: async () => {
+      const rows = await db
+        .select({ categoryId: bookings.categoryId, count: count().as("booking_count") })
+        .from(bookings)
+        .groupBy(bookings.categoryId);
+      return new Map(rows.map((row) => [row.categoryId, row.count]));
+    },
+
     countVatRateUsage: async (year) => {
       // Range on the indexed date column (bookings_date_idx) instead of substr().
       const row = await db

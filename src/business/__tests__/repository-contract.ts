@@ -237,6 +237,25 @@ export function describeRepositoryContract(
         expect(await repos.bookings.countByCategory(4711)).toBe(0);
       });
 
+      it("counts bookings of all categories at once", async () => {
+        expect(await repos.bookings.countByCategories()).toEqual(new Map());
+        const a = await insertCategory({ name: "A" });
+        const b = await insertCategory({ name: "B" });
+        const unused = await insertCategory({ name: "C" });
+        await insertBooking({ categoryId: a.id });
+        await insertBooking({ categoryId: a.id });
+        await insertBooking({ categoryId: b.id });
+
+        const counts = await repos.bookings.countByCategories();
+        expect(counts).toEqual(
+          new Map([
+            [a.id, 2],
+            [b.id, 1],
+          ]),
+        );
+        expect(counts.has(unused.id)).toBe(false);
+      });
+
       it("counts bookings of a year with and without VAT rate", async () => {
         const noRate = { vatRate: null, netCents: 11900, vatCents: 0 } as const;
         await insertBooking({ date: "2024-12-31" });
