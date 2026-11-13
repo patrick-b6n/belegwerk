@@ -65,6 +65,7 @@ jobs:
       # Schema (src/persistence/schema.ts) und committete Migrationen müssen
       # übereinstimmen: drizzle-kit darf keine neue Migration erzeugen.
       - name: Migrationen aktuell
+        timeout-minutes: 5
         shell: bash
         run: |
           pnpm db:generate

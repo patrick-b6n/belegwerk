@@ -20,11 +20,12 @@ CREATE TABLE `bookings` (
 	CONSTRAINT "bookings_type_check" CHECK("type" IN ('income', 'expense')),
 	CONSTRAINT "bookings_vat_rate_check" CHECK("vat_rate" IN ('0', '7', '19', 'reverse_charge')),
 	CONSTRAINT "bookings_source_check" CHECK("source" IN ('manual', 'stripe')),
-	CONSTRAINT "bookings_gross_cents_check" CHECK("gross_cents" > 0),
-	CONSTRAINT "bookings_net_cents_check" CHECK("net_cents" >= 0),
-	CONSTRAINT "bookings_vat_cents_check" CHECK("vat_cents" >= 0),
+	CONSTRAINT "bookings_external_id_check" CHECK("external_id" IS NULL OR "external_id" <> ''),
+	CONSTRAINT "bookings_gross_cents_check" CHECK(typeof("gross_cents") = 'integer' AND "gross_cents" > 0),
+	CONSTRAINT "bookings_net_cents_check" CHECK(typeof("net_cents") = 'integer' AND "net_cents" >= 0),
+	CONSTRAINT "bookings_vat_cents_check" CHECK(typeof("vat_cents") = 'integer' AND "vat_cents" >= 0),
 	CONSTRAINT "bookings_amounts_check" CHECK("net_cents" + "vat_cents" = "gross_cents"),
-	CONSTRAINT "bookings_no_vat_rate_check" CHECK("vat_rate" IS NOT NULL OR "vat_cents" = 0)
+	CONSTRAINT "bookings_vat_cents_rate_check" CHECK("vat_cents" = 0 OR coalesce("vat_rate", '') IN ('7', '19'))
 );
 --> statement-breakpoint
 CREATE INDEX `bookings_date_idx` ON `bookings` (`date`);--> statement-breakpoint

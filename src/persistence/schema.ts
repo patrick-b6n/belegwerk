@@ -23,9 +23,9 @@ function sqlList(values: readonly string[]) {
 
 /**
  * Unqualified column reference for CHECK constraints and index WHERE clauses.
- * Drizzle would otherwise emit `"bookings"."date"`, which breaks when
- * drizzle-kit recreates a table as `__new_bookings` in a later migration, and
- * SQLite rejects table-qualified columns in partial index conditions.
+ * Drizzle would otherwise emit `"bookings"."date"`. When a later migration
+ * makes drizzle-kit rebuild the table, it creates `__new_bookings` with the
+ * same constraint text, and a reference to `"bookings"` there fails.
  */
 function col(column: { name: string }) {
   return sql.identifier(column.name);
@@ -96,6 +96,8 @@ export const bookings = sqliteTable(
     index("bookings_date_idx").on(t.date),
     index("bookings_category_id_idx").on(t.categoryId),
     // Partial index: manual bookings without external ID never collide.
+    // Note: Drizzle 0.45 renders `onConflictDoNothing({ target, where })`
+    // against this index as invalid SQL (docs/data-model.md).
     uniqueIndex("bookings_source_external_id_unique")
       .on(t.source, t.externalId)
       .where(sql`${col(t.externalId)} IS NOT NULL`),
@@ -108,17 +110,35 @@ export const bookings = sqliteTable(
     check("bookings_type_check", sql`${col(t.type)} IN (${sqlList(BOOKING_TYPES)})`),
     check("bookings_vat_rate_check", sql`${col(t.vatRate)} IN (${sqlList(VAT_RATES)})`),
     check("bookings_source_check", sql`${col(t.source)} IN (${sqlList(BOOKING_SOURCES)})`),
-    check("bookings_gross_cents_check", sql`${col(t.grossCents)} > 0`),
-    check("bookings_net_cents_check", sql`${col(t.netCents)} >= 0`),
-    check("bookings_vat_cents_check", sql`${col(t.vatCents)} >= 0`),
+    // Empty string would act as a real ID in the unique index above.
+    check(
+      "bookings_external_id_check",
+      sql`${col(t.externalId)} IS NULL OR ${col(t.externalId)} <> ''`,
+    ),
+    // No STRICT tables in drizzle-kit: without typeof() SQLite would store 1.5
+    // in an INTEGER column. Text like '100' is still converted to 100 by type
+    // affinity before the check runs and is accepted.
+    check(
+      "bookings_gross_cents_check",
+      sql`typeof(${col(t.grossCents)}) = 'integer' AND ${col(t.grossCents)} > 0`,
+    ),
+    check(
+      "bookings_net_cents_check",
+      sql`typeof(${col(t.netCents)}) = 'integer' AND ${col(t.netCents)} >= 0`,
+    ),
+    check(
+      "bookings_vat_cents_check",
+      sql`typeof(${col(t.vatCents)}) = 'integer' AND ${col(t.vatCents)} >= 0`,
+    ),
     check(
       "bookings_amounts_check",
       sql`${col(t.netCents)} + ${col(t.vatCents)} = ${col(t.grossCents)}`,
     ),
-    // Without a VAT rate there is no VAT.
+    // Only 7 % and 19 % carry VAT; 0 %, reverse charge and "no rate" (NULL)
+    // don't. coalesce: `NULL IN (...)` is NULL, which would pass the check.
     check(
-      "bookings_no_vat_rate_check",
-      sql`${col(t.vatRate)} IS NOT NULL OR ${col(t.vatCents)} = 0`,
+      "bookings_vat_cents_rate_check",
+      sql`${col(t.vatCents)} = 0 OR coalesce(${col(t.vatRate)}, '') IN ('7', '19')`,
     ),
   ],
 );

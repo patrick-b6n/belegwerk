@@ -130,10 +130,27 @@ describe("schema migrations", () => {
       ["negative VAT", { grossCents: 100, netCents: 200, vatCents: -100 }],
       ["net + VAT != gross", { netCents: 10000, vatCents: 1000 }],
       ["VAT without VAT rate", { vatRate: null }],
+      ["VAT at 0 %", { vatRate: "0" }],
+      ["VAT with reverse charge", { vatRate: "reverse_charge" }],
+      ["fractional gross cents", { grossCents: 11900.5, netCents: 10000.5 }],
+      ["fractional net/VAT cents", { netCents: 9999.5, vatCents: 1900.5 }],
+      ["non-numeric cents", { grossCents: "viel", netCents: "viel", vatCents: 0 }],
+      ["empty external ID", { source: "stripe", externalId: "" }],
     ])("rejects %s", (_, overrides) => {
       expect(() => insertBooking(overrides as Partial<typeof bookings.$inferInsert>)).toThrow(
         /CHECK constraint failed/,
       );
+    });
+
+    it("stores numeric text as integer cents (SQLite type affinity)", () => {
+      // INTEGER affinity converts '11900' to 11900 before the CHECKs run.
+      const booking = insertBooking({ grossCents: "11900" } as unknown as Partial<
+        typeof bookings.$inferInsert
+      >);
+      const row = sqlite
+        .prepare("SELECT typeof(gross_cents) AS type, gross_cents FROM bookings WHERE id = ?")
+        .get(booking.id);
+      expect(row).toEqual({ type: "integer", gross_cents: 11900 });
     });
 
     it("requires description and counterparty", () => {

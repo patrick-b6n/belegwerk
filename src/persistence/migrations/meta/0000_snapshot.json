@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0d1fd57d-3a80-47f3-92b3-8713be7e3f7d",
+  "id": "902b7136-897b-4606-94e2-00cc42984458",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bookings": {
@@ -180,25 +180,29 @@
           "name": "bookings_source_check",
           "value": "\"source\" IN ('manual', 'stripe')"
         },
+        "bookings_external_id_check": {
+          "name": "bookings_external_id_check",
+          "value": "\"external_id\" IS NULL OR \"external_id\" <> ''"
+        },
         "bookings_gross_cents_check": {
           "name": "bookings_gross_cents_check",
-          "value": "\"gross_cents\" > 0"
+          "value": "typeof(\"gross_cents\") = 'integer' AND \"gross_cents\" > 0"
         },
         "bookings_net_cents_check": {
           "name": "bookings_net_cents_check",
-          "value": "\"net_cents\" >= 0"
+          "value": "typeof(\"net_cents\") = 'integer' AND \"net_cents\" >= 0"
         },
         "bookings_vat_cents_check": {
           "name": "bookings_vat_cents_check",
-          "value": "\"vat_cents\" >= 0"
+          "value": "typeof(\"vat_cents\") = 'integer' AND \"vat_cents\" >= 0"
         },
         "bookings_amounts_check": {
           "name": "bookings_amounts_check",
           "value": "\"net_cents\" + \"vat_cents\" = \"gross_cents\""
         },
-        "bookings_no_vat_rate_check": {
-          "name": "bookings_no_vat_rate_check",
-          "value": "\"vat_rate\" IS NOT NULL OR \"vat_cents\" = 0"
+        "bookings_vat_cents_rate_check": {
+          "name": "bookings_vat_cents_rate_check",
+          "value": "\"vat_cents\" = 0 OR coalesce(\"vat_rate\", '') IN ('7', '19')"
         }
       }
     },
