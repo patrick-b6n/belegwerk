@@ -1,6 +1,6 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { BOOKING_TEXT_MAX_LENGTH, type BookingFieldError } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
@@ -18,13 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/ui/components/ui/alert-dialog";
 import { Button } from "@/ui/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  FieldTitle,
-} from "@/ui/components/ui/field";
+import { Field, FieldError } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
 import { Label } from "@/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/ui/components/ui/radio-group";
@@ -37,6 +31,7 @@ import {
 } from "@/ui/components/ui/select";
 import { Textarea } from "@/ui/components/ui/textarea";
 import { toast } from "@/ui/components/ui/toast";
+import { fieldErrors, focusFirstInvalid, FormField } from "@/ui/forms/form-field";
 import { noValidation, revalidateKeepingServerErrorsOnBlur } from "@/ui/forms/validation-logic";
 import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
@@ -73,24 +68,6 @@ const BOOKING_TYPES: readonly BookingType[] = ["expense", "income"];
 /** Error text of a client-side check for TanStack Form (`undefined` = valid). */
 function message(error: ClientFieldError | undefined): string | undefined {
   return error ? clientErrorMessage(error) : undefined;
-}
-
-/** The (string) errors of a field, deduplicated, for `FieldError`. */
-function fieldErrors(errors: readonly unknown[]): { message: string }[] {
-  return [...new Set(errors.filter((error): error is string => typeof error === "string"))].map(
-    (text) => ({ message: text }),
-  );
-}
-
-/**
- * Moves the focus to the first invalid control once React has rendered the
- * errors – or to `fallback` (e.g. the summary of errors without a field).
- */
-function focusFirstInvalid(form: HTMLFormElement | null, fallback?: HTMLElement | null) {
-  requestAnimationFrame(() => {
-    const invalid = form?.querySelector<HTMLElement>('[aria-invalid="true"]');
-    (invalid ?? fallback)?.focus();
-  });
 }
 
 export interface BookingFormProps {
@@ -587,56 +564,6 @@ function SmallBusinessNote({
         {m.booking_form_small_business_note({ year: String(year) })}
       </p>
       <FieldError id={`${id}-error`} role={undefined} errors={errors} />
-    </Field>
-  );
-}
-
-/** Props a form control gets from {@link FormField}. */
-interface ControlProps {
-  id: string;
-  "aria-invalid": true | undefined;
-  "aria-describedby": string | undefined;
-}
-
-/**
- * Label, control, description and error of one form field (shadcn `Field`).
- * The control gets `id`, `aria-invalid` and `aria-describedby` (description
- * and error), so screen readers announce the error with the field.
- */
-function FormField({
-  id,
-  label,
-  labelAs = "label",
-  description,
-  errors,
-  className,
-  children,
-}: Readonly<{
-  id: string;
-  label: string;
-  /** `"group"`: a group of controls (radio buttons) labelled via `aria-labelledby`. */
-  labelAs?: "label" | "group";
-  description?: string;
-  errors: readonly unknown[];
-  className?: string;
-  children: (control: ControlProps) => ReactNode;
-}>) {
-  const shown = fieldErrors(errors);
-  const invalid = shown.length > 0;
-  const descriptionId = description ? `${id}-description` : undefined;
-  const errorId = invalid ? `${id}-error` : undefined;
-  const describedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
-  return (
-    <Field data-invalid={invalid || undefined} className={className}>
-      {labelAs === "label" ? (
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      ) : (
-        <FieldTitle id={`${id}-label`}>{label}</FieldTitle>
-      )}
-      {children({ id, "aria-invalid": invalid || undefined, "aria-describedby": describedBy })}
-      {description && <FieldDescription id={descriptionId}>{description}</FieldDescription>}
-      {/* No live region: the error is linked to the control and focused on submit. */}
-      <FieldError id={errorId} role={undefined} errors={shown} />
     </Field>
   );
 }

@@ -508,6 +508,43 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   ebenso, mit Hinweis. Löschen fragt in einem Alert-Dialog nach (Fokus auf
   „Abbrechen“, Escape schließt).
 
+### Kategorienverwaltung (#19)
+
+`src/routes/kategorien.tsx` (`/kategorien`) lädt mit `useCategoryList()` und
+rendert `src/ui/categories/category-list.tsx`. Reine Logik (Gruppierung,
+Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
+`category-model.ts`, die Texte zu Fehlercodes und die Positionsanzeige in
+`category-messages.ts`, die Mutationen in `category-mutations.ts`.
+
+- **Liste:** je eine Tabelle für Einnahmen und Ausgaben, nach Name sortiert.
+  EÜR-Position als „Zeile N · Anzeigename“ für das **aktuelle Kalenderjahr**
+  (`describePosition`; ohne Mapping nur der Anzeigename, die amtliche
+  Bezeichnung im `title`). Markierungen „mindert Einnahmen“, „System“,
+  „archiviert“; Spalte Buchungen (`bookingCount`).
+- **Archivierte** sind standardmäßig ausgeblendet; „Archivierte Kategorien
+  anzeigen (n)“ zeigt sie gedämpft am Ende ihrer Gruppe.
+- **Anlegen/Bearbeiten** im Dialog (`category-form.tsx`, gleiche
+  Validierungsmuster wie das Buchungsformular; `FormField`,
+  `focusFirstInvalid` und `fieldErrors` liegen gemeinsam in
+  `src/ui/forms/form-field.tsx`). Die Art wird nur beim Anlegen gewählt.
+  „Mindert Einnahmen“ gibt es nur bei Ausgaben. Die Positionsauswahl
+  (`positionOptions`) ist genau die Menge, die `validateCategoryPosition` für
+  Art und Flag akzeptiert (Erlösminderung: nur die Umsatz-Positionen 15/16);
+  ändern sich Art oder Flag, wird eine unpassende Position geleert. Bei
+  Systemkategorien sind Position und Flag gesperrt (nur der Name wird
+  gesendet). Hat die Kategorie Buchungen, weist das Formular darauf hin, dass
+  eine Positionsänderung rückwirkend wirkt.
+- **Archivieren/Reaktivieren** sofort mit Toast (umkehrbar, keine
+  Rückfrage); nicht für Systemkategorien.
+- **Löschen** nur bei `bookingCount === 0` und nicht System (sonst
+  deaktiviert, Hinweis im `title`), mit Alert-Dialog (Fokus auf „Abbrechen“).
+  Meldet der Service trotzdem `inUse`/`systemCategory` (Wettlauf), erscheint
+  ein Toast mit dem Hinweis, stattdessen zu archivieren.
+- **Invalidierung:** Kategorie-Mutationen invalidieren
+  `categoryQueryKeys.all` und `bookingQueryKeys.all` (Buchungsliste zeigt
+  Kategoriename und „archiviert“; das Buchungsformular bezieht seine Optionen
+  aus der Kategorienliste).
+
 ## Content Security Policy
 
 `src-tauri/tauri.conf.json` setzt eine CSP: nur eigene Skripte, Styles
