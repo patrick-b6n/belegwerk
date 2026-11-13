@@ -65,45 +65,55 @@ Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB):
   S 2142/00023/010/001 (BStBl I 2025 S. 1652). Genutzte Kopie:
   <https://www.steuerschroeder.de/blog/wp-content/uploads/2025/09/2025-08-29-anlage-EUER-2025.pdf>.
   Alle Zeilen im Mapping sind gegen den Vordruck geprüft.
-- **2026** nutzt vorläufig das Mapping 2025 (#13). Das BMF hat die Anlage EÜR
-  2026 im September 2026 bekanntgegeben; sie ist noch nicht abgeglichen.
+- **Quelle 2026:** amtlicher Vordruck Anlage EÜR 2026 (2026AnlEÜR801–803,
+  „August 2026“) und „Anleitung zur Anlage EÜR – August 2026 – Version
+  2.5.1.1“, bekanntgegeben mit BMF-Schreiben vom 01.09.2026, GZ IV C 6 -
+  S 2142/00024/010/001:
+  <https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Einkommensteuer/2026-09-01-anlage-EUER-2026.pdf?__blob=publicationFile&v=2>.
+  Alle Zeilen geprüft. Gegenüber 2025 ist Zeile 27 („Bildung Rücklage
+  Tierbewertung bei Land- und Forstwirten“) neu: Die Einnahmenzeilen 12–18
+  bleiben, `WAREN` rückt von 27 auf 29, alle übrigen Ausgabenzeilen ab
+  Fremdleistungen um eins nach hinten. Die Bezeichnungen sind in beiden
+  Jahren gleich (`LABELS_2025_2026`).
 - **Bezeichnungen** sind Formulardaten (wie Zeilennummern), keine UI-Texte:
   Sie stehen im Code statt in Paraglide. Reine Ausfüllhinweise im Vordruck
-  (Verweise auf andere Zeilen, 10-Tage-Regel) sind weggelassen, Beispiele in
-  Klammern bleiben. Die **Anzeigenamen** der Positionen (z. B. im
+  (Verweise auf andere Zeilen, 10-Tage-Regel) sind weggelassen; Klammern,
+  die den Inhalt beschreiben (Beispiele, „auch zurückgezahlte
+  Hilfen/Zuschüsse aufgrund der Corona-Pandemie“), bleiben. Die **Anzeigenamen** der Positionen (z. B. im
   Kategorie-Formular, ohne Jahresbezug) sind UI-Texte:
   `euer_position_<schlüssel>` in `messages/de.json`, abgebildet in
   `src/ui/euer/position-name.ts` (`euerPositionName`).
 
-### Positionen und Zeilen 2025
+### Positionen und Zeilen 2025/2026
 
-| Position                             | Seite    | Zeile | Hinweis                                                       |
-| ------------------------------------ | -------- | ----- | ------------------------------------------------------------- |
-| `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER` | Einnahme | 12    | nur berechnet, nicht zuweisbar (s. u.)                        |
-| `BETRIEBSEINNAHMEN_UST_PFLICHTIG`    | Einnahme | 15    | netto                                                         |
-| `BETRIEBSEINNAHMEN_UST_FREI`         | Einnahme | 16    | steuerfrei, nicht steuerbar, 0 %, Reverse Charge (§ 13b UStG) |
-| `UST_VEREINNAHMT`                    | Einnahme | 17    | berechnet aus dem USt-Anteil der Einnahmen, nicht zuweisbar   |
-| `UST_ERSTATTUNG`                     | Einnahme | 18    | Kategorie „USt-Erstattung“                                    |
-| `WAREN`                              | Ausgabe  | 27    |                                                               |
-| `FREMDLEISTUNGEN`                    | Ausgabe  | 29    |                                                               |
-| `GWG`                                | Ausgabe  | 36    |                                                               |
-| `MIETE_GESCHAEFTSRAEUME`             | Ausgabe  | 39    |                                                               |
-| `TELEKOMMUNIKATION`                  | Ausgabe  | 43    |                                                               |
-| `REISENEBENKOSTEN`                   | Ausgabe  | 44    | Übernachtung, Reisenebenkosten                                |
-| `FORTBILDUNG`                        | Ausgabe  | 45    |                                                               |
-| `RECHTS_STEUERBERATUNG`              | Ausgabe  | 46    |                                                               |
-| `MIETE_LEASING_BEWEGLICH`            | Ausgabe  | 47    |                                                               |
-| `BEITRAEGE_VERSICHERUNGEN`           | Ausgabe  | 49    |                                                               |
-| `EDV_KOSTEN`                         | Ausgabe  | 50    |                                                               |
-| `ARBEITSMITTEL`                      | Ausgabe  | 51    | Bürobedarf, Porto, Fachliteratur                              |
-| `WERBUNG`                            | Ausgabe  | 54    |                                                               |
-| `VORSTEUER`                          | Ausgabe  | 57    | berechnet aus dem USt-Anteil der Ausgaben, nicht zuweisbar    |
-| `UST_AN_FA`                          | Ausgabe  | 58    | Kategorie „USt-Vorauszahlung“                                 |
-| `SONSTIGE_AUSGABEN`                  | Ausgabe  | 60    | übrige unbeschränkt abziehbare Betriebsausgaben               |
-| `BEWIRTUNG`                          | Ausgabe  | 63    | Spalten „nicht abziehbar“/„abziehbar“ (s. u.)                 |
-| `VERPFLEGUNGSMEHRAUFWAND`            | Ausgabe  | 64    |                                                               |
-| `FAHRTKOSTEN`                        | Ausgabe  | 70    | sonstige tatsächliche Fahrtkosten (z. B. Bahn, Flug, ÖPNV)    |
-| `FAHRTKOSTEN_PRIVATFAHRZEUG`         | Ausgabe  | 71    | Fahrzeug nicht im Betriebsvermögen (Nutzungseinlage)          |
+| Position                                             | Seite    | Zeile 2025 | Zeile 2026 | Hinweis                                                             |
+| ---------------------------------------------------- | -------- | ---------- | ---------- | ------------------------------------------------------------------- |
+| `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER`                 | Einnahme | 12         | 12         | nur berechnet, nicht zuweisbar (s. u.)                              |
+| `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR` | Einnahme | 13         | 13         | „davon“-Zeile, nur nachrichtlich (`informational`), nicht zuweisbar |
+| `BETRIEBSEINNAHMEN_UST_PFLICHTIG`                    | Einnahme | 15         | 15         | netto                                                               |
+| `BETRIEBSEINNAHMEN_UST_FREI`                         | Einnahme | 16         | 16         | steuerfrei, nicht steuerbar, 0 %, Reverse Charge (§ 13b UStG)       |
+| `UST_VEREINNAHMT`                                    | Einnahme | 17         | 17         | berechnet aus dem USt-Anteil der Einnahmen, nicht zuweisbar         |
+| `UST_ERSTATTUNG`                                     | Einnahme | 18         | 18         | Kategorie „USt-Erstattung“                                          |
+| `WAREN`                                              | Ausgabe  | 27         | 29         |                                                                     |
+| `FREMDLEISTUNGEN`                                    | Ausgabe  | 29         | 30         |                                                                     |
+| `GWG`                                                | Ausgabe  | 36         | 37         |                                                                     |
+| `MIETE_GESCHAEFTSRAEUME`                             | Ausgabe  | 39         | 40         |                                                                     |
+| `TELEKOMMUNIKATION`                                  | Ausgabe  | 43         | 44         |                                                                     |
+| `REISENEBENKOSTEN`                                   | Ausgabe  | 44         | 45         | Übernachtung, Reisenebenkosten                                      |
+| `FORTBILDUNG`                                        | Ausgabe  | 45         | 46         |                                                                     |
+| `RECHTS_STEUERBERATUNG`                              | Ausgabe  | 46         | 47         |                                                                     |
+| `MIETE_LEASING_BEWEGLICH`                            | Ausgabe  | 47         | 48         |                                                                     |
+| `BEITRAEGE_VERSICHERUNGEN`                           | Ausgabe  | 49         | 50         |                                                                     |
+| `EDV_KOSTEN`                                         | Ausgabe  | 50         | 51         |                                                                     |
+| `ARBEITSMITTEL`                                      | Ausgabe  | 51         | 52         | Bürobedarf, Porto, Fachliteratur                                    |
+| `WERBUNG`                                            | Ausgabe  | 54         | 55         |                                                                     |
+| `VORSTEUER`                                          | Ausgabe  | 57         | 58         | berechnet aus dem USt-Anteil der Ausgaben, nicht zuweisbar          |
+| `UST_AN_FA`                                          | Ausgabe  | 58         | 59         | Kategorie „USt-Vorauszahlung“                                       |
+| `SONSTIGE_AUSGABEN`                                  | Ausgabe  | 60         | 61         | übrige unbeschränkt abziehbare Betriebsausgaben                     |
+| `BEWIRTUNG`                                          | Ausgabe  | 63         | 64         | Spalten „nicht abziehbar“/„abziehbar“ (s. u.)                       |
+| `VERPFLEGUNGSMEHRAUFWAND`                            | Ausgabe  | 64         | 65         |                                                                     |
+| `FAHRTKOSTEN`                                        | Ausgabe  | 70         | 71         | sonstige tatsächliche Fahrtkosten (z. B. Bahn, Flug, ÖPNV)          |
+| `FAHRTKOSTEN_PRIVATFAHRZEUG`                         | Ausgabe  | 71         | 72         | Fahrzeug nicht im Betriebsvermögen (Nutzungseinlage)                |
 
 ### Kleinunternehmer
 
@@ -116,8 +126,18 @@ EÜR-Berechnung (#25) bildet sie im Kleinunternehmer-Jahr mit
 `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER` ab. Ein Wechsel des Steuerstatus eines
 Jahres braucht so keine Änderung an Kategorien. `UST_ERSTATTUNG` und alle
 Ausgaben bleiben unverändert. `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER`,
-`UST_VEREINNAHMT` und `VORSTEUER` sind **nicht zuweisbar** – sie entstehen
-nur in der Berechnung.
+`BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR`, `UST_VEREINNAHMT` und
+`VORSTEUER` sind **nicht zuweisbar** – sie entstehen nur in der Berechnung.
+
+Zeile 13 („davon nicht steuerbare Umsätze sowie Umsätze nach § 19 Abs. 2 …“)
+ist eine nachrichtliche „davon“-Zeile: Ihr Betrag ist schon in Zeile 12
+enthalten und zählt nicht zur Summe der Betriebseinnahmen
+(`informational: true`).
+
+Schuldet ein Kleinunternehmer als Leistungsempfänger die USt nach § 13b UStG
+(z. B. für Werbeanzeigen oder Zahlungsgebühren ausländischer Anbieter), zahlt
+er sie an das Finanzamt: Diese Zahlungen gehören zu `UST_AN_FA` (Kategorie
+„USt-Vorauszahlung“); ein Vorsteuerabzug entfällt.
 
 ### Erlösminderung (`reduces_income`)
 
@@ -126,13 +146,14 @@ Eine Erlösminderungs-Kategorie ist eine **Ausgabe**-Kategorie, deren
 „Erlösminderung / Rückerstattung“ → `BETRIEBSEINNAHMEN_UST_PFLICHTIG`).
 `validateCategoryPosition` liefert dafür Fehlercodes:
 
-| Fall                                   | Erlaubte Position     | Fehlercode sonst                           |
-| -------------------------------------- | --------------------- | ------------------------------------------ |
-| jede Kategorie                         | bekannt und zuweisbar | `unknownPosition`, `positionNotAssignable` |
-| Einnahme-Kategorie                     | Einnahmen-Position    | `positionKindMismatch`                     |
-| Ausgabe-Kategorie                      | Ausgaben-Position     | `positionKindMismatch`                     |
-| Ausgabe-Kategorie mit `reducesIncome`  | Einnahmen-Position    | `reducesIncomeNeedsIncomePosition`         |
-| Einnahme-Kategorie mit `reducesIncome` | –                     | `reducesIncomeNotExpense` (DB: CHECK)      |
+| Fall                                   | Erlaubte Position                                                                | Fehlercode sonst                           |
+| -------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| jede Kategorie                         | bekannt und zuweisbar                                                            | `unknownPosition`, `positionNotAssignable` |
+| Einnahme-Kategorie                     | Einnahmen-Position                                                               | `positionKindMismatch`                     |
+| Ausgabe-Kategorie                      | Ausgaben-Position                                                                | `positionKindMismatch`                     |
+| Ausgabe-Kategorie mit `reducesIncome`  | Einnahmen-Position                                                               | `reducesIncomeNeedsIncomePosition`         |
+| Ausgabe-Kategorie mit `reducesIncome`  | Umsatz-Position (15/16, mit Kleinunternehmer-Ziel), nicht z. B. `UST_ERSTATTUNG` | `reducesIncomeNeedsTurnoverPosition`       |
+| Einnahme-Kategorie mit `reducesIncome` | –                                                                                | `reducesIncomeNotExpense` (DB: CHECK)      |
 
 Für #25 heißt das: Beträge solcher Buchungen werden von ihrer Position
 abgezogen statt als Ausgabe gezählt (im Kleinunternehmer-Jahr nach
@@ -193,11 +214,21 @@ einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
 
 ### Offene Punkte für #25
 
-- **Bewirtung (Zeile 63)** hat zwei Spalten: nicht abziehbar (30 %) und
-  abziehbar (70 %, § 4 Abs. 5 Satz 1 Nr. 2 EStG). Die Position liefert nur
-  die Zeile; Aufteilung und Wirkung auf den Gewinn entscheidet #25.
-- **Verpflegungsmehraufwand (Zeile 64)** ist nur in Höhe der Pauschalen
-  abziehbar; die App erfasst gezahlte Beträge.
+- **Zeile 15 vs. 16 bei Einnahmen:** Die Kategorie bestimmt die Position,
+  aber eine Einnahme mit USt-Satz `"0"` oder `"reverse_charge"` gehört in
+  Zeile 16, auch wenn ihre Kategorie z. B. „Umsatzerlöse“ ist. #25 ordnet
+  im regelbesteuerten Jahr Einnahmen mit diesen Sätzen
+  `BETRIEBSEINNAHMEN_UST_FREI` zu (bei Erlösminderungen entsprechend).
+- **Kleinunternehmer-Zeile 13:** #25 leitet sie vor der Umleitung aus
+  `BETRIEBSEINNAHMEN_UST_FREI` ab (nur nachrichtlich, nicht in der Summe).
+  Das ist eine Näherung: Zeile 16 umfasst auch steuerfreie Umsätze nach § 4
+  UStG, die nicht unter § 19 Abs. 2 Satz 1 Nr. 1 und 2 UStG fallen.
+- **Bewirtung (Zeile 63 bzw. 64 in 2026)** hat zwei Spalten: nicht
+  abziehbar (30 %) und abziehbar (70 %, § 4 Abs. 5 Satz 1 Nr. 2 EStG). Die
+  Position liefert nur die Zeile; Aufteilung und Wirkung auf den Gewinn
+  entscheidet #25.
+- **Verpflegungsmehraufwand (Zeile 64 bzw. 65 in 2026)** ist nur in Höhe der
+  Pauschalen abziehbar; die App erfasst gezahlte Beträge.
 
 ## Migrationen
 
