@@ -1,10 +1,16 @@
 /**
  * UI texts of the booking area: labels of types, sources and VAT rates, and
- * the booking form's error codes (docs/i18n.md: business
+ * the booking form's and the list filters' error codes (docs/i18n.md: business
  * returns codes, the UI translates them).
  */
-import { BOOKING_TEXT_MAX_LENGTH, type BookingFieldError } from "@/business/bookings";
-import { formatCurrency } from "@/business/format";
+import {
+  BOOKING_SEARCH_TEXT_MAX_LENGTH,
+  BOOKING_TEXT_MAX_LENGTH,
+  type BookingFieldError,
+  type BookingQueryError,
+  MAX_BOOKING_QUERY_CATEGORY_IDS,
+} from "@/business/bookings";
+import { formatCurrency, type ParseAmountError } from "@/business/format";
 import { MAX_AMOUNT_CENTS } from "@/business/money";
 import type { BookingSource, BookingType, VatRate } from "@/business/model";
 import { m } from "@/paraglide/messages.js";
@@ -122,5 +128,57 @@ export function clientErrorMessage(error: ClientFieldError): string {
       return m.booking_error_description_required();
     case "counterparty":
       return m.booking_error_counterparty_required();
+  }
+}
+
+const amountFilterTooLarge = () =>
+  m.bookings_filter_error_amount_too_large({ max: formatCurrency(MAX_AMOUNT_CENTS) });
+
+/** Message of an amount filter input that `parseAmount` rejects. */
+export function amountFilterErrorMessage(error: Exclude<ParseAmountError, "empty">): string {
+  switch (error) {
+    case "negative":
+      return m.bookings_filter_error_amount_negative();
+    case "tooManyDecimals":
+      return m.bookings_filter_error_amount_too_many_decimals();
+    case "tooLarge":
+      return amountFilterTooLarge();
+    case "invalid":
+      return m.bookings_filter_error_amount_format();
+  }
+}
+
+/** Message of an error `normalizeBookingQuery` reports for the list's filters (#22). */
+export function bookingQueryErrorMessage(error: BookingQueryError): string {
+  switch (error.code) {
+    case "tooLong":
+      return m.bookings_filter_error_text_too_long({
+        max: String(BOOKING_SEARCH_TEXT_MAX_LENGTH),
+      });
+    case "invalidText":
+      return m.bookings_filter_error_text_invalid();
+    case "invalidDate":
+      return m.bookings_filter_error_date_invalid();
+    case "dateRangeInverted":
+      return m.bookings_filter_error_date_range_inverted();
+    case "invalidType":
+      return m.bookings_filter_error_type_invalid();
+    case "invalidCategoryId":
+      return m.bookings_filter_error_category_invalid();
+    case "tooMany":
+      return m.bookings_filter_error_category_too_many({
+        max: String(MAX_BOOKING_QUERY_CATEGORY_IDS),
+      });
+    case "invalidSource":
+      return m.bookings_filter_error_source_invalid();
+    case "invalidAmount":
+      return m.bookings_filter_error_amount_invalid();
+    case "amountRangeInverted":
+      return m.bookings_filter_error_amount_range_inverted();
+    // Sort order and page are not set by the filters (#23 shows them).
+    case "invalidSort":
+    case "invalidPage":
+    case "invalidPageSize":
+      return m.bookings_filter_error_other();
   }
 }

@@ -1,30 +1,74 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
+import { useCallback, useId, useMemo, useState } from "react";
 
-import type { BookingQuery } from "@/business/bookings";
+import { type BookingQuery, normalizeBookingQuery } from "@/business/bookings";
 import { m } from "@/paraglide/messages.js";
 import { Button, buttonVariants } from "@/ui/components/ui/button";
+import {
+  BookingFilterBar,
+  type BookingSearchPatch,
+  type SearchChangeOptions,
+} from "@/ui/bookings/booking-filter-bar";
+import {
+  bookingSearchToQuery,
+  countActiveFilters,
+  resetBookingFilters,
+  updateBookingSearch,
+  validateBookingSearch,
+} from "@/ui/bookings/booking-filter-model";
 import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingTable } from "@/ui/bookings/booking-table";
+import { useCategoryList } from "@/ui/categories/category-queries";
 import { Page, PagePlaceholder } from "@/ui/layout/page";
+import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
 /**
- * Until pagination and sorting arrive (#23), the list shows every booking
- * in the default order (newest first).
- */
-const LIST_QUERY: BookingQuery = { pageSize: "all" };
-
-/**
- * The booking list (#17). Filters, sorting and page follow as validated
- * search params on this route (`validateSearch`, #22/#23) and go into the
- * list query (`BookingService.list(query)`, #21).
+ * The booking list (#17) with search and filters (#22). The filters are
+ * validated search params of this route (`validateBookingSearch`, schema in
+ * `booking-filter-model.ts`) and go into the list query
+ * (`BookingService.list(query)`, #21). Until pagination and sorting arrive
+ * (#23, further params of the same schema), the list shows every matching
+ * booking in the default order (newest first).
  */
 export const Route = createFileRoute("/buchungen/")({
+  validateSearch: validateBookingSearch,
   component: BookingsPage,
   head: () => ({ meta: [{ title: m.page_title({ page: m.bookings_title() }) }] }),
 });
 
 function BookingsPage() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const searchInputId = useId();
+  // Mounting the filter bar anew on reset drops pending typed values and
+  // the "Frei" period mode.
+  const [resetCount, setResetCount] = useState(0);
+
+  const filterQuery = useMemo(() => bookingSearchToQuery(search), [search]);
+  const normalized = normalizeBookingQuery(filterQuery);
+  const errors = normalized.ok ? [] : normalized.errors;
+  const filtered = countActiveFilters(search) > 0;
+
+  const changeSearch = useCallback(
+    (patch: BookingSearchPatch, options?: SearchChangeOptions) => {
+      const next = updateBookingSearch(search, patch);
+      if (JSON.stringify(next) === JSON.stringify(search)) return;
+      void navigate({ search: next, replace: options?.replace ?? false });
+    },
+    [navigate, search],
+  );
+  const reset = useCallback(() => {
+    void navigate({ search: resetBookingFilters(search) });
+    setResetCount((count) => count + 1);
+    // The reset button is disabled now: continue in the search field.
+    requestAnimationFrame(() => document.getElementById(searchInputId)?.focus());
+  }, [navigate, search, searchInputId]);
+
+  const categories = useCategoryList();
+  const taxYears = useTaxYearList();
+  const years = useMemo(() => taxYears.data?.map((taxYear) => taxYear.year) ?? [], [taxYears.data]);
+
   return (
     <Page
       title={m.bookings_title()}
@@ -35,14 +79,38 @@ function BookingsPage() {
         </Link>
       }
     >
-      <BookingList />
+      <BookingFilterBar
+        key={resetCount}
+        search={search}
+        errors={errors}
+        categories={categories.data ?? []}
+        years={years}
+        searchInputId={searchInputId}
+        onSearchChange={changeSearch}
+        onReset={reset}
+      />
+      <BookingList
+        query={{ ...filterQuery, pageSize: "all" }}
+        invalid={!normalized.ok}
+        filtered={filtered}
+        onReset={reset}
+      />
     </Page>
   );
 }
 
-function BookingList() {
-  const { data, error, isPending, refetch } = useBookingList(LIST_QUERY);
+function BookingList({
+  query,
+  invalid,
+  filtered,
+  onReset,
+}: Readonly<{ query: BookingQuery; invalid: boolean; filtered: boolean; onReset: () => void }>) {
+  const { data, error, isPending, isPlaceholderData, refetch } = useBookingList(query);
 
+  if (invalid) {
+    // The filter bar shows the errors at the controls.
+    return <p className="text-muted-foreground">{m.bookings_filter_invalid()}</p>;
+  }
   if (isPending) {
     return (
       <p role="status" className="text-muted-foreground">
@@ -50,7 +118,7 @@ function BookingList() {
       </p>
     );
   }
-  // The fixed query is valid; an invalid result would be a programmer error.
+  // The query was checked above; an invalid result would be a programmer error.
   if (error || !data.ok) {
     return (
       <div className="flex flex-col items-start gap-3">
@@ -61,8 +129,30 @@ function BookingList() {
       </div>
     );
   }
-  if (data.items.length === 0) {
+  if (data.total === 0 && !filtered && !isPlaceholderData) {
     return <PagePlaceholder>{m.bookings_empty()}</PagePlaceholder>;
   }
-  return <BookingTable bookings={data.items} />;
+  return (
+    <div
+      className="flex flex-col gap-3 transition-opacity aria-busy:opacity-60"
+      aria-busy={isPlaceholderData || undefined}
+    >
+      <p role="status" className="text-sm text-muted-foreground">
+        {data.total === 1
+          ? m.bookings_found_one()
+          : m.bookings_found_other({ count: String(data.total) })}
+      </p>
+      {data.total === 0 ? (
+        <div className="flex flex-col items-start gap-3">
+          <PagePlaceholder>{m.bookings_filter_no_results()}</PagePlaceholder>
+          <Button variant="outline" onClick={onReset}>
+            <RotateCcw aria-hidden />
+            {m.bookings_filter_reset()}
+          </Button>
+        </div>
+      ) : (
+        <BookingTable bookings={data.items} />
+      )}
+    </div>
+  );
 }

@@ -1,4 +1,10 @@
-import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
 import type { BookingFormInput, BookingQuery } from "@/business/bookings";
@@ -24,12 +30,17 @@ export const bookingQueryKeys = {
  * One page of the booking search with total count and sums
  * (`BookingService.list`, #21). An invalid query is a result
  * (`{ ok: false, reason: "invalid", errors }`), not a query error.
+ *
+ * While another search loads (a filter changed, #22), the previous result
+ * stays (`keepPreviousData`, `isPlaceholderData`), so the list does not
+ * flash a loading state on every keystroke.
  */
 export function useBookingList(query: BookingQuery) {
   const { bookings } = useAppServices();
   return useQuery({
     queryKey: bookingQueryKeys.list(query),
     queryFn: () => bookings.list(query),
+    placeholderData: keepPreviousData,
   });
 }
 
