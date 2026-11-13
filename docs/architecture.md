@@ -115,8 +115,12 @@ gibt es nur in `src/persistence`.
   CHECK-Verletzungen werden nicht übersetzt – sie bedeuten einen
   Validierungsfehler im Service (z. B. „mindert Einnahmen“ bei einer
   Einnahme-Kategorie).
-- **Erweiterung:** Die Suche (#21) kommt als eigene Methode mit Query-Objekt
-  (`search(query)`) an `BookingRepository`; EÜR-Summen (#25) ebenso.
+- **Suche (#21):** `BookingRepository.search({ filter, sort, limit?, offset? })`
+  liefert die passenden Buchungen sortiert (optional ein Fenster),
+  `summarize(filter)` Anzahl und Bruttosummen je Art aller passenden
+  Buchungen – Filtern, Sortieren, Blättern und Summieren per SQL. Details
+  unter [Buchungssuche](#buchungssuche-21). EÜR-Summen (#25) kommen ebenso als
+  eigene Methode.
 
 ### Transaktionen: nur über `UnitOfWork.run`
 
@@ -196,7 +200,7 @@ Gleitkommazahlen).
 ## Buchungs-Service (#14)
 
 `src/business/bookings` – `createBookingService({ unitOfWork })` mit
-`list()`, `get(id)`, `create(input)`, `update(id, input)`, `delete(id)`. Eingabe ist
+`list(query?)`, `get(id)`, `create(input)`, `update(id, input)`, `delete(id)`. Eingabe ist
 `BookingFormInput` (was das Formular abschickt): Datum, Art, Brutto in Cent,
 USt-Satz, Kategorie, Beschreibung, Gegenpartei, Referenz, Notiz, optional
 Quelle und externe ID. Netto/USt nimmt der Service nie entgegen, er berechnet
@@ -245,16 +249,74 @@ sie (`calculateBookingAmounts`).
   abgebildet: `unique` → `externalIdDuplicate`, `foreign_key` →
   `categoryNotFound`; alles andere wird weitergeworfen.
 
-- **`list()`** (Buchungsliste, #17) liefert `{ items }`: alle Buchungen,
-  neueste zuerst (Datum absteigend, dann `id` absteigend), jeweils mit
-  `category: { id, name, archived }`. Zwei Abfragen in einer Unit of Work
-  (`BookingRepository.list()` und `CategoryRepository.list()`), verknüpft im
-  Service – kein N+1 und kein SQL-Join mit doppelten Spaltennamen.
-  **Erweiterung (#21):** `list(query?)` bekommt das Query-Objekt (Freitext,
-  Zeitraum, Art, Kategorien, Quelle, Betrag, Sortierung, Seite) als optionalen
-  Parameter, das Repository dafür `search(query)`; das Ergebnis bekommt
-  Gesamtanzahl und Summen dazu. Bestehende Aufrufer ohne Query bleiben gültig
-  (deshalb ein Ergebnisobjekt statt eines Arrays).
+- **`list(query?)`** (Buchungsliste #17, Suche #21) liefert eine Seite der
+  passenden Buchungen, jeweils mit `category: { id, name, archived }`, dazu
+  Gesamtanzahl und Summen – siehe [Buchungssuche](#buchungssuche-21).
+  Kategorien kommen per `CategoryRepository.list()` in derselben Unit of
+  Work und werden im Service verknüpft – kein N+1 und kein SQL-Join mit
+  doppelten Spaltennamen.
+
+### Buchungssuche (#21)
+
+`BookingQuery` (`src/business/bookings/booking-query.ts`), alle Felder
+optional und per UND verknüpft:
+
+| Feld                     | Bedeutung                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `text`                   | Teilstring in Beschreibung, Gegenpartei, Referenz oder Notiz; ohne Groß-/Kleinschreibung, auch Umlaute |
+| `dateFrom`, `dateTo`     | Zahlungsdatum `YYYY-MM-DD`, jeweils inklusive                                                          |
+| `type`, `source`         | Art bzw. Quelle                                                                                        |
+| `categoryIds`            | eine der Kategorien (leer = alle; Duplikate egal; höchstens 500)                                       |
+| `amountFrom`, `amountTo` | **Brutto** in Cent, jeweils inklusive                                                                  |
+| `sort`                   | `{ field, direction }`, Felder `BOOKING_SORT_FIELDS`; Standard Datum absteigend                        |
+| `page`, `pageSize`       | Seite ab 1 (Standard 1); Größe 1–500 (Standard 50) oder `"all"`                                        |
+
+Ergebnis von `BookingService.list(query)`: `{ ok: true, items, total, page,
+pageSize, pageCount, sums: { incomeCents, expenseCents, balanceCents } }`
+oder `{ ok: false, reason: "invalid", errors }`.
+
+- **Validierung** (`normalizeBookingQuery`, auch einzeln nutzbar, z. B. für
+  das URL-Schema #22): Fehler als Codes pro Feld (`BookingQueryErrorCodes`),
+  nichts wird stillschweigend korrigiert – ungültige Daten (`invalidDate`),
+  `dateTo` vor `dateFrom` (`dateRangeInverted`, kein Tauschen), Beträge keine
+  Ganzzahl ≥ 0 (`invalidAmount`) oder `amountTo` < `amountFrom`
+  (`amountRangeInverted`), unbekannte Sortierung (`invalidSort`), Seite bzw.
+  Seitengröße ungültig. Ein ungültiges Query fragt die Datenbank nicht ab.
+  Text wird getrimmt (`trimText`) und NFC-normalisiert, max. 200 Zeichen;
+  leere Texte/Daten und leere `categoryIds` filtern nicht.
+- **Seite hinter der letzten** → die letzte Seite; `page` im Ergebnis ist
+  die tatsächlich gelieferte (z. B. nach dem Löschen der letzten Buchung
+  einer Seite). Die UI (#23) kann ihre URL daran angleichen. `pageCount` ist
+  mindestens 1 (leeres Ergebnis = eine leere Seite).
+- **`pageSize: "all"`** liefert alle passenden Buchungen auf einer Seite –
+  für den CSV-Export (#24), der denselben Filter und dieselbe Sortierung wie
+  die Liste nutzt.
+- **Summen** über **alle** passenden Buchungen (nicht nur die Seite), auf
+  **Bruttobasis**: Einnahmen, Ausgaben, Saldo = Einnahmen − Ausgaben (wie ein
+  Kontoauszug; die steuerliche Sicht mit Netto/USt und Erlösminderung ist
+  die EÜR, #25). `MAX_AMOUNT_CENTS` hält sie exakt.
+- **Sortierung:** Texte (Beschreibung, Gegenpartei, Kategoriename) mit
+  SQLite `NOCASE` – Groß-/Kleinschreibung nur bei ASCII egal, sonst nach
+  Codepunkt (Umlaute nach `z`; echte deutsche Kollation gibt es in SQLite
+  ohne ICU nicht). `type`/`source` nach gespeichertem Wert. Gleichstand: bei
+  `date` nach `id` in derselben Richtung, sonst Datum absteigend, dann `id`
+  absteigend – eine totale Ordnung, stabil über Seiten hinweg.
+- **Ablauf:** eine Unit of Work mit `summarize` (Anzahl + Summen, eine
+  Aggregat-Abfrage), dann `search` mit `LIMIT/OFFSET` der (ggf. auf die
+  letzte begrenzten) Seite, dann die Kategorien.
+- **Groß-/Kleinschreibung im Freitext:** SQLite `LIKE`/`lower()` falten nur
+  ASCII („müller“ fände „MÜLLER“ nicht), eigene SQL-Funktionen lassen sich
+  über `tauri-plugin-sql` nicht registrieren, und eine abgeleitete
+  Suchspalte bräuchte ein fragiles Backfill. Stattdessen wird jedes Zeichen
+  des Suchtexts in JS zur Menge seiner Schreibvarianten
+  (`textSearchCharClasses`: `toLowerCase`/`toUpperCase`, plus ß/ẞ), und die
+  Datenbank vergleicht per `GLOB` zeichenweise gegen diese Menge:
+  `"Mü"` → `*[Mm][üÜ]*`. Wildcards im Suchtext (`*`, `?`, `[`) stehen in
+  eigenen Mengen und gelten wörtlich; `%` und `_` sind in `GLOB` ohnehin
+  normale Zeichen. Grenzen: Abbildungen auf mehrere Zeichen fehlen (`ß`
+  findet nicht `SS`), und gespeicherte Texte in zerlegter Form (NFD) findet
+  ein NFC-Suchtext nicht. Der In-Memory-Fake baut aus denselben Mengen einen
+  RegExp; der Vertragstest prüft beide gleich.
 
 ## Kategorien-Service (#15)
 
@@ -432,8 +494,8 @@ Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
 
 **Query-Keys** liegen pro Bereich mit den Hooks in `src/ui/<bereich>/*-queries.ts`,
 z. B. `bookingQueryKeys` in `src/ui/bookings/booking-queries.ts`:
-`["bookings"]` (alles), `["bookings", "list"]` (Liste; die Suche #21/#22
-hängt ihr Query-Objekt an) und `["bookings", "detail", id]` (nur für
+`["bookings"]` (alles), `["bookings", "list", query]` (Suche mit ihrem
+`BookingQuery`, #21; Präfix `bookingQueryKeys.lists()`) und `["bookings", "detail", id]` (nur für
 ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
 `categoryQueryKeys` (`src/ui/categories/category-queries.ts`,
 `useCategoryList()`) und `taxYearQueryKeys`
@@ -448,8 +510,10 @@ Buchung kurz als „nicht gefunden“.
 
 ### Buchungsliste (#17)
 
-- `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit `useBookingList()`
-  und zeigt Lade-, Fehler- (mit „Erneut versuchen“) und Leerzustand.
+- `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit
+  `useBookingList(query)` und zeigt Lade-, Fehler- (mit „Erneut versuchen“)
+  und Leerzustand. Bis Pagination und Sortierung kommen (#23), fragt sie
+  `{ pageSize: "all" }` ab (alle Buchungen, neueste zuerst).
   Search-Params (#22/#23) kommen als `validateSearch` an diese Route.
 - `src/ui/bookings/booking-table.tsx` rendert die Zeilen mit TanStack Table
   (v9: `useTable`, `tableFeatures`, `columnMeta` für Spaltenklassen), ohne
