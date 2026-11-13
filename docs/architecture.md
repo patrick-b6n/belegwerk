@@ -169,6 +169,30 @@ mit `@tauri-apps/*` liegt außerhalb von `src/business` und wird in `src/app`
 verdrahtet. Ebenso sind `drizzle-orm`, `drizzle-kit` und `better-sqlite3` in
 Business verboten – Drizzle gibt es nur in `src/persistence`.
 
+## Geld und USt (#12)
+
+`src/business/money` rechnet aus Brutto und USt-Satz Netto und USt –
+ausschließlich mit Integer-Cent und exakter Ganzzahlarithmetik (BigInt, keine
+Gleitkommazahlen).
+
+- **Rundung:** Die enthaltene USt ist `brutto × satz / (100 + satz)`,
+  kaufmännisch gerundet (ab ½ Cent auf); Netto ist der Rest
+  (`netto = brutto − ust`). So weisen Kassenbelege und Rechnungen die
+  enthaltene USt aus, und `netto + ust = brutto` gilt per Konstruktion. Mit
+  7 % und 19 % sind die Nenner 107 und 119 ungerade – ein Quotient endet nie
+  auf genau ½ Cent, „USt zuerst“ und „Netto zuerst“ ergeben also immer dasselbe
+  (in den Tests bewiesen).
+- **`splitGross(grossCents, vatRate)`:** `'7'`/`'19'` mit USt; `'0'`,
+  `'reverse_charge'` und `null` (kein Satz, Kleinunternehmer) mit USt 0 und
+  Netto = Brutto. Ungültige Argumente (Brutto keine positive sichere Ganzzahl,
+  unbekannter Satz) sind Programmierfehler → `RangeError`; „Betrag > 0“ prüft
+  der Service vorher.
+- **`calculateBookingAmounts(grossCents, vatRate, smallBusiness)`:** zusätzlich
+  die Jahresregel (#14, #16) als Ergebnisobjekt: im Kleinunternehmer-Jahr ist
+  ein Satz `"vatRateNotAllowed"`, im regelbesteuerten Jahr fehlt er als
+  `"vatRateRequired"`. Bei `ok: true` passen `netCents`, `vatCents`, `vatRate`
+  direkt in `BookingInput`.
+
 ## App-Shell & Routen
 
 | Route            | Bereich                                                             |
