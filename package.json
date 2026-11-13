@@ -1,7 +1,7 @@
 {
   "name": "belegwerk",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -44,8 +44,8 @@
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
-  "packageManager": "pnpm@12.14.0",
   "engines": {
     "node": ">=26"
-  }
+  },
+  "packageManager": "pnpm@12.14.0"
 }
