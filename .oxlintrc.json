@@ -43,6 +43,10 @@
               {
                 "regex": "^(@/|(\\.\\./)+)persistence(/|$)",
                 "message": "UI/Routes dürfen nicht aus src/persistence importieren – Zugriff nur über Business-Services aus dem Composition Root (src/app)."
+              },
+              {
+                "regex": "^(drizzle-orm|drizzle-kit|better-sqlite3|@tauri-apps/plugin-sql)(/|$)",
+                "message": "Datenbankzugriff nur in src/persistence – UI/Routes nutzen Business-Services aus dem Composition Root (src/app)."
               }
             ]
           }
