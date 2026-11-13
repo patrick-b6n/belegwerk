@@ -7,7 +7,7 @@
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__"],
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
