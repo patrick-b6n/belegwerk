@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -6,6 +7,10 @@ import { defineConfig } from "vite";
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  resolve: {
+    // Native path alias support (Vite 8); mirrors `paths` in tsconfig.json.
+    tsconfigPaths: true,
+  },
   // Prevent Vite from obscuring Rust errors.
   clearScreen: false,
   server: {
@@ -26,6 +31,7 @@ export default defineConfig({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
   plugins: [
+    tailwindcss(),
     tanstackStart({
       // SPA mode: static build, no server functions. The prerendered shell
       // is written as index.html so Tauri can serve dist/client directly.
