@@ -1,10 +1,30 @@
-import { and, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  or,
+  type SQL,
+  type SQLWrapper,
+  sql,
+} from "drizzle-orm";
 
+import { textSearchCharClasses } from "@/business/bookings";
 import type { Booking, BookingInput } from "@/business/model";
-import type { BookingRepository, Clock } from "@/business/repositories";
+import type {
+  BookingFilter,
+  BookingRepository,
+  BookingSort,
+  BookingSortField,
+  Clock,
+} from "@/business/repositories";
 
 import type { Db } from "../database";
-import { bookings } from "../schema";
+import { bookings, categories } from "../schema";
 import { mapConstraintErrors } from "./constraint-errors";
 
 /**
@@ -117,11 +137,108 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
       return rows.map((row) => row.year);
     },
 
-    list: async () => {
-      const rows = await db.select().from(bookings).orderBy(desc(bookings.date), desc(bookings.id));
+    search: async ({ filter, sort, limit, offset }) => {
+      const query = db
+        .select()
+        .from(bookings)
+        .where(filterCondition(filter))
+        .orderBy(...orderBy(sort));
+      const rows = limit === undefined ? await query : await query.limit(limit).offset(offset ?? 0);
       return rows.map(toBooking);
     },
+
+    summarize: async (filter) => {
+      const row = await db
+        .select({
+          count: count(),
+          incomeCents: grossOf("income").as("income_cents"),
+          expenseCents: grossOf("expense").as("expense_cents"),
+        })
+        .from(bookings)
+        .where(filterCondition(filter))
+        .get();
+      return {
+        count: row?.count ?? 0,
+        incomeCents: row?.incomeCents ?? 0,
+        expenseCents: row?.expenseCents ?? 0,
+      };
+    },
   };
+}
+
+/** Sum of the gross amounts of the bookings of `type`; 0 if there are none. */
+function grossOf(type: "income" | "expense") {
+  return sql<number>`coalesce(sum(case when ${bookings.type} = ${type} then ${bookings.grossCents} end), 0)`.mapWith(
+    Number,
+  );
+}
+
+/** WHERE condition of a {@link BookingFilter}; `undefined` matches everything. */
+function filterCondition(filter: BookingFilter): SQL | undefined {
+  const conditions: (SQL | undefined)[] = [];
+  if (filter.text !== undefined) {
+    const pattern = containsGlob(filter.text);
+    // NULL reference/note: `NULL GLOB …` is NULL, which OR treats as false.
+    conditions.push(
+      or(
+        ...[bookings.description, bookings.counterparty, bookings.reference, bookings.note].map(
+          (column) => sql`${column} GLOB ${pattern}`,
+        ),
+      ),
+    );
+  }
+  if (filter.dateFrom !== undefined) conditions.push(gte(bookings.date, filter.dateFrom));
+  if (filter.dateTo !== undefined) conditions.push(lte(bookings.date, filter.dateTo));
+  if (filter.type !== undefined) conditions.push(eq(bookings.type, filter.type));
+  if (filter.categoryIds !== undefined) {
+    // At most MAX_BOOKING_QUERY_CATEGORY_IDS (500): below SQLite's parameter limit.
+    conditions.push(inArray(bookings.categoryId, [...filter.categoryIds]));
+  }
+  if (filter.source !== undefined) conditions.push(eq(bookings.source, filter.source));
+  if (filter.amountFrom !== undefined) conditions.push(gte(bookings.grossCents, filter.amountFrom));
+  if (filter.amountTo !== undefined) conditions.push(lte(bookings.grossCents, filter.amountTo));
+  return and(...conditions);
+}
+
+/**
+ * `GLOB` pattern matching texts that contain `text`, case-insensitively per
+ * character (`textSearchCharClasses`): `"Mü*"` → `*[Mm][üÜ][*]*`. GLOB
+ * (unlike LIKE) is case-sensitive and supports character sets, also with
+ * non-ASCII characters (UTF-8 aware). Its wildcards `*`, `?` and `[` are put
+ * into a set of their own, so they match literally; `%` and `_` are literal
+ * in GLOB anyway. Characters with case are never `]`, `^` or `-`, which
+ * would have a special meaning inside a set.
+ */
+function containsGlob(text: string): string {
+  const body = textSearchCharClasses(text)
+    .map((variants) =>
+      variants.length === 1 && !"*?[".includes(variants[0]!)
+        ? variants[0]
+        : `[${variants.join("")}]`,
+    )
+    .join("");
+  return `*${body}*`;
+}
+
+/** Text columns sort case-insensitively for ASCII letters (see `BookingSort`). */
+const SORT_EXPRESSIONS: Readonly<Record<BookingSortField, SQLWrapper>> = {
+  date: bookings.date,
+  description: sql`${bookings.description} COLLATE NOCASE`,
+  counterparty: sql`${bookings.counterparty} COLLATE NOCASE`,
+  // Subquery instead of a join: no duplicate column names (docs/data-model.md).
+  category: sql`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${bookings.categoryId}) COLLATE NOCASE`,
+  netCents: bookings.netCents,
+  vatCents: bookings.vatCents,
+  grossCents: bookings.grossCents,
+  type: bookings.type,
+  source: bookings.source,
+};
+
+/** ORDER BY with the tie-breakers of `BookingSort`: a total order, stable across pages. */
+function orderBy({ field, direction }: BookingSort): SQL[] {
+  const order = direction === "asc" ? asc : desc;
+  if (field === "date") return [order(bookings.date), order(bookings.id)];
+  return [order(SORT_EXPRESSIONS[field]), desc(bookings.date), desc(bookings.id)];
 }
 
 /**

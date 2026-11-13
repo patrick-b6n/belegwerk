@@ -25,6 +25,11 @@ import type {
 } from "../model";
 import { ConstraintViolationError, type Repositories, type UnitOfWork } from "../repositories";
 import { isId, trimText } from "../validation";
+import {
+  type BookingQuery,
+  type BookingQueryInvalid,
+  normalizeBookingQuery,
+} from "./booking-query";
 
 /**
  * What the booking form submits. Amounts are integer cents (gross, #1);
@@ -149,25 +154,44 @@ export interface BookingListItem extends Booking {
   readonly category: BookingListCategory;
 }
 
-/**
- * Result of {@link BookingService.list}. An object (not a bare array) so the
- * search (#21) can add the total count and the sums of the filtered bookings
- * without changing existing callers.
- */
-export interface BookingListResult {
-  /** Newest first: by date descending, then id descending. */
-  readonly items: readonly BookingListItem[];
+/** Sums of the gross amounts of all bookings matching the query (not just the page). */
+export interface BookingSums {
+  readonly incomeCents: number;
+  readonly expenseCents: number;
+  /** Income minus expense; negative for a loss. */
+  readonly balanceCents: number;
 }
+
+/** Result of {@link BookingService.list}. */
+export type BookingListResult =
+  | {
+      readonly ok: true;
+      /** The bookings of the page, in the query's sort order. */
+      readonly items: readonly BookingListItem[];
+      /** Number of all matching bookings. */
+      readonly total: number;
+      /**
+       * The page returned (1-based): the requested one, or the last page if
+       * the requested one is after it (e.g. after deleting its last booking).
+       */
+      readonly page: number;
+      readonly pageSize: number | "all";
+      /** At least 1 (an empty result is one empty page); 1 for `pageSize: "all"`. */
+      readonly pageCount: number;
+      readonly sums: BookingSums;
+    }
+  | BookingQueryInvalid;
 
 export interface BookingService {
   /**
-   * All bookings with their category, newest first (booking list, #17).
-   *
-   * Extension (#21): an optional query object (text, period, type,
-   * categories, source, amount range, sorting, page) as parameter – without
-   * it, all bookings in this order – and `total`/sums in the result.
+   * Booking search (#17, #21): one page of the bookings matching `query`,
+   * each with its category, plus the total count and the sums of **all**
+   * matching bookings. Without a query: the first
+   * DEFAULT_BOOKING_PAGE_SIZE bookings, newest first. Invalid input
+   * gives `{ ok: false, reason: "invalid", errors }` (see
+   * {@link normalizeBookingQuery}).
    */
-  list(): Promise<BookingListResult>;
+  list(query?: BookingQuery): Promise<BookingListResult>;
   get(id: number): Promise<GetBookingResult>;
   create(input: BookingFormInput): Promise<CreateBookingResult>;
   /** Replaces the booking's fields (see {@link BookingFormInput} for omitted optional ones). */
@@ -184,11 +208,25 @@ const BOOKING_SOURCES: readonly BookingSource[] = ["manual", "stripe"];
 
 export function createBookingService({ unitOfWork }: BookingServiceDependencies): BookingService {
   return {
-    list: () =>
-      unitOfWork.run(async (repos) => {
-        // Two queries, joined here: categories are few, and a SQL join would
-        // need an explicit select object (duplicate column names, docs/data-model.md).
-        const bookings = await repos.bookings.list();
+    list: async (query) => {
+      const normalized = normalizeBookingQuery(query);
+      if (!normalized.ok) return normalized;
+      const { filter, sort, pageSize } = normalized.query;
+      // One unit of work: count, sums and page see the same state.
+      return unitOfWork.run(async (repos) => {
+        const totals = await repos.bookings.summarize(filter);
+        const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(totals.count / pageSize));
+        const page = Math.min(normalized.query.page, pageCount);
+        const bookings =
+          totals.count === 0
+            ? []
+            : await repos.bookings.search(
+                pageSize === "all"
+                  ? { filter, sort }
+                  : { filter, sort, limit: pageSize, offset: (page - 1) * pageSize },
+              );
+        // Categories joined here: they are few, and a SQL join would need an
+        // explicit select object (duplicate column names, docs/data-model.md).
         const categories = new Map(
           (await repos.categories.list()).map((category) => [category.id, category]),
         );
@@ -201,8 +239,21 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
           const { id, name, archived } = category;
           return { ...booking, category: { id, name, archived } };
         });
-        return { items };
-      }),
+        return {
+          ok: true,
+          items,
+          total: totals.count,
+          page,
+          pageSize,
+          pageCount,
+          sums: {
+            incomeCents: totals.incomeCents,
+            expenseCents: totals.expenseCents,
+            balanceCents: totals.incomeCents - totals.expenseCents,
+          },
+        };
+      });
+    },
 
     get: async (id) => {
       if (!isId(id)) return NOT_FOUND;

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 
+import type { BookingQuery } from "@/business/bookings";
 import { m } from "@/paraglide/messages.js";
 import { Button, buttonVariants } from "@/ui/components/ui/button";
 import { useBookingList } from "@/ui/bookings/booking-queries";
@@ -8,9 +9,15 @@ import { BookingTable } from "@/ui/bookings/booking-table";
 import { Page, PagePlaceholder } from "@/ui/layout/page";
 
 /**
+ * Until pagination and sorting arrive (#23), the list shows every booking
+ * in the default order (newest first).
+ */
+const LIST_QUERY: BookingQuery = { pageSize: "all" };
+
+/**
  * The booking list (#17). Filters, sorting and page follow as validated
  * search params on this route (`validateSearch`, #22/#23) and go into the
- * list query (#21).
+ * list query (`BookingService.list(query)`, #21).
  */
 export const Route = createFileRoute("/buchungen/")({
   component: BookingsPage,
@@ -34,7 +41,7 @@ function BookingsPage() {
 }
 
 function BookingList() {
-  const { data, error, isPending, refetch } = useBookingList();
+  const { data, error, isPending, refetch } = useBookingList(LIST_QUERY);
 
   if (isPending) {
     return (
@@ -43,7 +50,8 @@ function BookingList() {
       </p>
     );
   }
-  if (error) {
+  // The fixed query is valid; an invalid result would be a programmer error.
+  if (error || !data.ok) {
     return (
       <div className="flex flex-col items-start gap-3">
         <p role="alert">{m.bookings_load_error()}</p>

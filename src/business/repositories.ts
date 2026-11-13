@@ -19,6 +19,7 @@ import type {
   Booking,
   BookingInput,
   BookingSource,
+  BookingType,
   Category,
   CategoryChanges,
   CategoryInput,
@@ -56,14 +57,90 @@ export interface BookingRepository {
   /** Distinct years of the booking dates, ascending (tax year list, #16/#20). */
   listYears(): Promise<number[]>;
   /**
-   * All bookings, newest first: by `date` descending, then `id` descending
-   * (several bookings of a day in reverse entry order) – the booking list
-   * (#17).
+   * The bookings matching `criteria.filter` in the order of `criteria.sort`,
+   * optionally one window of them (`offset`/`limit`) – the booking search
+   * (#21). Filtering, sorting and paging run in SQL. Semantics: see
+   * {@link BookingFilter} and {@link BookingSort}.
    */
-  list(): Promise<Booking[]>;
-  // Search, filter, sort, pagination and sums follow with #21 as a separate
-  // method taking a query object (`search(query)`); `list()` stays the
-  // unfiltered default.
+  search(criteria: BookingSearchCriteria): Promise<Booking[]>;
+  /**
+   * Number and gross sums of **all** bookings matching `filter` (not just a
+   * page) in one aggregate query (#21).
+   */
+  summarize(filter: BookingFilter): Promise<BookingTotals>;
+}
+
+/**
+ * Normalized search filter (#21); all conditions are combined with AND, an
+ * absent property does not filter. The service validates user input first
+ * (`normalizeBookingQuery`), so repositories may rely on these rules.
+ */
+export interface BookingFilter {
+  /**
+   * Non-blank, trimmed text (NFC). Matches when description, counterparty,
+   * reference or note contains it as a substring, case-insensitively per
+   * character (`textSearchCharClasses`: ASCII and Unicode letters like
+   * ä/Ä, ß/ẞ). No wildcards: `%`, `_`, `*`, `?`, `[` are literal.
+   */
+  readonly text?: string;
+  /** Inclusive lower bound of `date` (`YYYY-MM-DD`). */
+  readonly dateFrom?: string;
+  /** Inclusive upper bound of `date` (`YYYY-MM-DD`). */
+  readonly dateTo?: string;
+  readonly type?: BookingType;
+  /** Any of these categories; non-empty and without duplicates. */
+  readonly categoryIds?: readonly number[];
+  readonly source?: BookingSource;
+  /** Inclusive lower bound of `grossCents`. */
+  readonly amountFrom?: number;
+  /** Inclusive upper bound of `grossCents`. */
+  readonly amountTo?: number;
+}
+
+export type BookingSortField =
+  | "date"
+  | "description"
+  | "counterparty"
+  /** By category name. */
+  | "category"
+  | "netCents"
+  | "vatCents"
+  | "grossCents"
+  | "type"
+  | "source";
+
+export type SortDirection = "asc" | "desc";
+
+/**
+ * Sort order of the search. Texts (description, counterparty, category
+ * name) compare case-insensitively for ASCII letters only (SQLite `NOCASE`),
+ * otherwise by code point – umlauts sort after `z`. `type` and `source`
+ * compare their stored values (`expense` < `income`, `manual` < `stripe`).
+ *
+ * Ties: sorting by `date` breaks ties by `id` in the same direction (same
+ * day in entry order, or reversed); every other field by `date` descending,
+ * then `id` descending. The order is therefore total and stable across pages.
+ */
+export interface BookingSort {
+  readonly field: BookingSortField;
+  readonly direction: SortDirection;
+}
+
+export interface BookingSearchCriteria {
+  readonly filter: BookingFilter;
+  readonly sort: BookingSort;
+  /** Maximum number of rows (positive integer); absent = all. */
+  readonly limit?: number;
+  /** Rows to skip (non-negative integer); only together with `limit`. */
+  readonly offset?: number;
+}
+
+export interface BookingTotals {
+  readonly count: number;
+  /** Sum of `grossCents` of the matching income bookings. */
+  readonly incomeCents: number;
+  /** Sum of `grossCents` of the matching expense bookings. */
+  readonly expenseCents: number;
 }
 
 export interface VatRateUsage {

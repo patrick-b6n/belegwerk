@@ -9,8 +9,10 @@ import {
   BOOKING_TEXT_MAX_LENGTH,
   type BookingFieldError,
   type BookingFormInput,
+  type BookingService,
   createBookingService,
 } from "./booking-service";
+import { type BookingQuery, DEFAULT_BOOKING_PAGE_SIZE } from "./booking-query";
 
 const NOW = new Date("2025-03-07T12:34:56.789Z");
 
@@ -533,13 +535,30 @@ describe("BookingService.get and delete", () => {
   });
 });
 
+/** The ok result of `list`, or a failing test. */
+async function listed(service: BookingService, query?: BookingQuery) {
+  const result = await service.list(query);
+  if (!result.ok) throw new Error(`list failed: ${JSON.stringify(result)}`);
+  return result;
+}
+
 describe("BookingService.list", () => {
-  it("returns an empty list without bookings", async () => {
+  const EMPTY_SUMS = { incomeCents: 0, expenseCents: 0, balanceCents: 0 };
+
+  it("returns an empty first page without bookings", async () => {
     const { service } = await setup();
-    expect(await service.list()).toEqual({ items: [] });
+    expect(await service.list()).toEqual({
+      ok: true,
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: DEFAULT_BOOKING_PAGE_SIZE,
+      pageCount: 1,
+      sums: EMPTY_SUMS,
+    });
   });
 
-  it("lists all bookings newest first with their category", async () => {
+  it("lists bookings newest first with their category", async () => {
     const { service, create, income, expense } = await setup();
     const older = await create({ date: "2025-01-15" });
     const firstOfDay = await create({
@@ -552,7 +571,7 @@ describe("BookingService.list", () => {
     const secondOfDay = await create({ date: "2025-03-01" });
     const smallBusiness = await create({ date: "2024-12-31", vatRate: null });
 
-    const { items } = await service.list();
+    const { items } = await listed(service);
     expect(items).toEqual([
       { ...secondOfDay, category: { id: income.id, name: income.name, archived: false } },
       { ...firstOfDay, category: { id: expense.id, name: expense.name, archived: false } },
@@ -568,12 +587,96 @@ describe("BookingService.list", () => {
     await repositories.categories.update(income.id, { name: "Erlöse" });
     await repositories.categories.setArchived(income.id, true);
 
-    expect((await service.list()).items).toEqual([
+    expect((await listed(service)).items).toEqual([
       { ...booking, category: { id: income.id, name: "Erlöse", archived: true } },
     ]);
   });
 
-  it("reads bookings and categories in one unit of work", async () => {
+  it("filters, sorts and sums gross amounts over all matching bookings", async () => {
+    const { service, create, expense } = await setup();
+    const consulting = await create({ grossCents: 11900, counterparty: "Müller GmbH" });
+    await create({ grossCents: 5000, counterparty: "Schmidt AG" });
+    const phone = await create({
+      type: "expense",
+      categoryId: expense.id,
+      grossCents: 2380,
+      counterparty: "MÜLLER Telefon",
+      date: "2025-03-02",
+    });
+
+    const result = await listed(service, {
+      text: "  müller ",
+      sort: { field: "grossCents", direction: "asc" },
+    });
+    expect(result.items.map((item) => item.id)).toEqual([phone.id, consulting.id]);
+    expect(result.total).toBe(2);
+    expect(result.sums).toEqual({ incomeCents: 11900, expenseCents: 2380, balanceCents: 9520 });
+
+    // A negative balance for a loss.
+    expect((await listed(service, { type: "expense" })).sums).toEqual({
+      incomeCents: 0,
+      expenseCents: 2380,
+      balanceCents: -2380,
+    });
+  });
+
+  it("pages through the result; total and sums cover all pages", async () => {
+    const { service, create } = await setup();
+    const ids: number[] = [];
+    for (let day = 1; day <= 5; day += 1) {
+      ids.unshift((await create({ date: `2025-03-0${day}`, grossCents: day * 100 })).id);
+    }
+    const page = async (number: number) => {
+      const result = await listed(service, { page: number, pageSize: 2 });
+      return {
+        ids: result.items.map((item) => item.id),
+        page: result.page,
+        pageCount: result.pageCount,
+        total: result.total,
+        income: result.sums.incomeCents,
+      };
+    };
+
+    expect(await page(1)).toEqual({
+      ids: ids.slice(0, 2),
+      page: 1,
+      pageCount: 3,
+      total: 5,
+      income: 1500,
+    });
+    expect(await page(2)).toEqual({
+      ids: ids.slice(2, 4),
+      page: 2,
+      pageCount: 3,
+      total: 5,
+      income: 1500,
+    });
+    expect(await page(3)).toEqual({
+      ids: ids.slice(4),
+      page: 3,
+      pageCount: 3,
+      total: 5,
+      income: 1500,
+    });
+    // A page after the last gives the last page.
+    expect(await page(4)).toEqual(await page(3));
+    expect(await page(1000)).toEqual(await page(3));
+  });
+
+  it("returns every matching booking with pageSize 'all'", async () => {
+    const { service, create } = await setup();
+    for (let index = 0; index < DEFAULT_BOOKING_PAGE_SIZE + 5; index += 1) await create();
+
+    const page = await listed(service);
+    expect(page.items).toHaveLength(DEFAULT_BOOKING_PAGE_SIZE);
+    expect(page.pageCount).toBe(2);
+
+    const all = await listed(service, { pageSize: "all", page: 3 });
+    expect(all.items).toHaveLength(DEFAULT_BOOKING_PAGE_SIZE + 5);
+    expect(all).toMatchObject({ page: 1, pageCount: 1, pageSize: "all", total: 55 });
+  });
+
+  it("rejects an invalid query without touching the database", async () => {
     const { unitOfWork } = createInMemoryDatabase();
     let runs = 0;
     const counting: UnitOfWork = {
@@ -582,7 +685,54 @@ describe("BookingService.list", () => {
         return unitOfWork.run(fn);
       },
     };
-    await createBookingService({ unitOfWork: counting }).list();
+    const result = await createBookingService({ unitOfWork: counting }).list({
+      dateFrom: "2025-02-30",
+      page: 0,
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid",
+      errors: [
+        { field: "dateFrom", code: "invalidDate" },
+        { field: "page", code: "invalidPage" },
+      ],
+    });
+    expect(runs).toBe(0);
+  });
+
+  it("reads totals, bookings and categories in one unit of work", async () => {
+    const { unitOfWork, repositories } = createInMemoryDatabase();
+    const category = await repositories.categories.insert({
+      name: "Umsatzerlöse",
+      type: "income",
+      euerPosition: "BETRIEBSEINNAHMEN_UST_PFLICHTIG",
+      reducesIncome: false,
+      isSystem: false,
+    });
+    await repositories.bookings.insert({
+      date: "2025-03-01",
+      type: "income",
+      grossCents: 100,
+      vatRate: null,
+      netCents: 100,
+      vatCents: 0,
+      categoryId: category.id,
+      description: "x",
+      counterparty: "y",
+      reference: null,
+      note: null,
+      source: "manual",
+      externalId: null,
+    });
+    let runs = 0;
+    const counting: UnitOfWork = {
+      run: (fn) => {
+        runs += 1;
+        return unitOfWork.run(fn);
+      },
+    };
+    const result = await createBookingService({ unitOfWork: counting }).list();
+    expect(result).toMatchObject({ ok: true, total: 1 });
     expect(runs).toBe(1);
   });
 });
