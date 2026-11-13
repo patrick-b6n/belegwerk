@@ -25,6 +25,7 @@
   "startup_error_details": "Details",
   "startup_error_retry": "Erneut versuchen",
   "euer_position_betriebseinnahmen_kleinunternehmer": "Betriebseinnahmen als Kleinunternehmer",
+  "euer_position_betriebseinnahmen_kleinunternehmer_nicht_steuerbar": "Davon nicht steuerbare Umsätze (Kleinunternehmer)",
   "euer_position_betriebseinnahmen_ust_pflichtig": "Umsatzsteuerpflichtige Betriebseinnahmen",
   "euer_position_betriebseinnahmen_ust_frei": "Umsatzsteuerfreie / nicht steuerbare Betriebseinnahmen",
   "euer_position_ust_vereinnahmt": "Vereinnahmte Umsatzsteuer",

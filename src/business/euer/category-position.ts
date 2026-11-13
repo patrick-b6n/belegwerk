@@ -13,13 +13,17 @@ import { EUER_POSITION_DEFINITIONS, isEuerPosition } from "./positions";
  * - `reducesIncomeNotExpense`: only expense categories reduce income (#1).
  * - `reducesIncomeNeedsIncomePosition`: an Erlösminderung category points to
  *   the income position it reduces.
+ * - `reducesIncomeNeedsTurnoverPosition`: only turnover (positions with a
+ *   small-business counterpart, lines 15/16) can be reduced – not e.g. the
+ *   VAT refund from the tax office.
  */
 export type CategoryPositionError =
   | "unknownPosition"
   | "positionNotAssignable"
   | "positionKindMismatch"
   | "reducesIncomeNotExpense"
-  | "reducesIncomeNeedsIncomePosition";
+  | "reducesIncomeNeedsIncomePosition"
+  | "reducesIncomeNeedsTurnoverPosition";
 
 export type CategoryPositionResult =
   | { readonly ok: true }
@@ -44,6 +48,9 @@ export function validateCategoryPosition(
     if (type !== "expense") return { ok: false, error: "reducesIncomeNotExpense" };
     if (definition.kind !== "income") {
       return { ok: false, error: "reducesIncomeNeedsIncomePosition" };
+    }
+    if (definition.smallBusinessPosition === undefined) {
+      return { ok: false, error: "reducesIncomeNeedsTurnoverPosition" };
     }
     return { ok: true };
   }

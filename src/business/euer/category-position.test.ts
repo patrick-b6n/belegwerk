@@ -65,11 +65,7 @@ describe("validateCategoryPosition", () => {
   });
 
   it("accepts an Erlösminderung category pointing to the income position it reduces", () => {
-    for (const euerPosition of [
-      "BETRIEBSEINNAHMEN_UST_PFLICHTIG",
-      "BETRIEBSEINNAHMEN_UST_FREI",
-      "UST_ERSTATTUNG",
-    ]) {
+    for (const euerPosition of ["BETRIEBSEINNAHMEN_UST_PFLICHTIG", "BETRIEBSEINNAHMEN_UST_FREI"]) {
       expect(
         validateCategoryPosition({ type: "expense", euerPosition, reducesIncome: true }),
       ).toEqual({ ok: true });
@@ -87,6 +83,13 @@ describe("validateCategoryPosition", () => {
     expect(
       validateCategoryPosition({ type: "expense", euerPosition: "WERBUNG", reducesIncome: true }),
     ).toEqual({ ok: false, error: "reducesIncomeNeedsIncomePosition" });
+    expect(
+      validateCategoryPosition({
+        type: "expense",
+        euerPosition: "UST_ERSTATTUNG",
+        reducesIncome: true,
+      }),
+    ).toEqual({ ok: false, error: "reducesIncomeNeedsTurnoverPosition" });
     expect(
       validateCategoryPosition({
         type: "expense",

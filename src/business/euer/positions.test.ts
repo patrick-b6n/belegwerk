@@ -44,8 +44,15 @@ describe("EUER_POSITIONS", () => {
     const calculated = EUER_POSITIONS.filter((p) => !EUER_POSITION_DEFINITIONS[p].assignable);
     expect(calculated.toSorted()).toEqual([
       "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER",
+      "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR",
       "UST_VEREINNAHMT",
       "VORSTEUER",
+    ]);
+  });
+
+  it("marks only the small-business „davon“ line as informational", () => {
+    expect(EUER_POSITIONS.filter((p) => EUER_POSITION_DEFINITIONS[p].informational)).toEqual([
+      "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR",
     ]);
   });
 

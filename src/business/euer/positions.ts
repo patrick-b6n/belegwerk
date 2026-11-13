@@ -18,6 +18,7 @@ import type { BookingType } from "../model";
 export const EUER_POSITIONS = [
   // Betriebseinnahmen
   "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER",
+  "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR",
   "BETRIEBSEINNAHMEN_UST_PFLICHTIG",
   "BETRIEBSEINNAHMEN_UST_FREI",
   "UST_VEREINNAHMT",
@@ -53,9 +54,14 @@ export interface EuerPositionDefinition {
   /**
    * Whether a category may point to the position. `false` for positions the
    * EÜR calculation (#25) fills itself: the VAT shares (`UST_VEREINNAHMT`,
-   * `VORSTEUER`) and the small-business income line.
+   * `VORSTEUER`) and the small-business income lines.
    */
   readonly assignable: boolean;
+  /**
+   * A "davon" line: reported for information only, already contained in
+   * another line and not part of the sums (#25).
+   */
+  readonly informational?: boolean;
   /**
    * In a small-business year (§ 19 UStG) the amounts of this position go to
    * this position instead (#25, see {@link positionForTaxStatus}).
@@ -65,7 +71,7 @@ export interface EuerPositionDefinition {
 
 const income = { kind: "income", assignable: true } as const;
 const expense = { kind: "expense", assignable: true } as const;
-/** Ordinary turnover: a small business reports it in one line (Anlage EÜR 2025, line 12). */
+/** Ordinary turnover: a small business reports it in one line (Anlage EÜR 2025/2026, line 12). */
 const turnover = {
   ...income,
   smallBusinessPosition: "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER",
@@ -73,6 +79,11 @@ const turnover = {
 
 export const EUER_POSITION_DEFINITIONS: Readonly<Record<EuerPosition, EuerPositionDefinition>> = {
   BETRIEBSEINNAHMEN_KLEINUNTERNEHMER: { kind: "income", assignable: false },
+  BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR: {
+    kind: "income",
+    assignable: false,
+    informational: true,
+  },
   BETRIEBSEINNAHMEN_UST_PFLICHTIG: turnover,
   BETRIEBSEINNAHMEN_UST_FREI: turnover,
   UST_VEREINNAHMT: { kind: "income", assignable: false },

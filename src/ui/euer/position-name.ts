@@ -9,6 +9,8 @@ import { m } from "@/paraglide/messages.js";
  */
 const POSITION_NAMES: Readonly<Record<EuerPosition, () => string>> = {
   BETRIEBSEINNAHMEN_KLEINUNTERNEHMER: m.euer_position_betriebseinnahmen_kleinunternehmer,
+  BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR:
+    m.euer_position_betriebseinnahmen_kleinunternehmer_nicht_steuerbar,
   BETRIEBSEINNAHMEN_UST_PFLICHTIG: m.euer_position_betriebseinnahmen_ust_pflichtig,
   BETRIEBSEINNAHMEN_UST_FREI: m.euer_position_betriebseinnahmen_ust_frei,
   UST_VEREINNAHMT: m.euer_position_ust_vereinnahmt,
