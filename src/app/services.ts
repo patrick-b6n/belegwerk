@@ -1,9 +1,17 @@
-import { type BookingService, createBookingService } from "@/business/bookings";
+import {
+  type BookingExportService,
+  type BookingService,
+  createBookingExportService,
+  createBookingService,
+} from "@/business/bookings";
 import { type CategoryService, createCategoryService } from "@/business/categories";
+import type { FileSaver } from "@/business/files";
 import type { Clock } from "@/business/repositories";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
 import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
+
+import { createTauriFileSaver } from "./tauri-file-saver";
 
 /**
  * What UI and routes get from the composition root: services only – never
@@ -12,16 +20,24 @@ import { createUnitOfWork } from "@/persistence/repositories";
  */
 export interface AppServices {
   readonly bookings: BookingService;
+  /** CSV export of the booking list (#24): save dialog and file via `FileSaver`. */
+  readonly bookingExport: BookingExportService;
   readonly categories: CategoryService;
   readonly taxYears: TaxYearService;
 }
 
 const systemClock: Clock = () => new Date();
 
-export function createAppServices(database: Database, clock: Clock = systemClock): AppServices {
+export function createAppServices(
+  database: Database,
+  clock: Clock = systemClock,
+  fileSaver: FileSaver = createTauriFileSaver(),
+): AppServices {
   const unitOfWork = createUnitOfWork(database, clock);
+  const bookings = createBookingService({ unitOfWork });
   return {
-    bookings: createBookingService({ unitOfWork }),
+    bookings,
+    bookingExport: createBookingExportService({ bookings, fileSaver }),
     categories: createCategoryService({ unitOfWork }),
     taxYears: createTaxYearService({ unitOfWork }),
   };

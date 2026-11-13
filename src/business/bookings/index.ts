@@ -39,3 +39,12 @@ export type {
 } from "./booking-service";
 export type { BookingSort, BookingSortField, SortDirection } from "../repositories";
 export { textSearchCharClasses } from "./text-search";
+export { BOOKING_CSV_COLUMNS, bookingsToCsv } from "./booking-csv";
+export type { BookingCsvColumn, BookingCsvLabels } from "./booking-csv";
+export { createBookingExportService } from "./booking-export-service";
+export type {
+  BookingExportService,
+  BookingExportServiceDependencies,
+  ExportBookingsCsvRequest,
+  ExportBookingsCsvResult,
+} from "./booking-export-service";

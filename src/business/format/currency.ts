@@ -125,3 +125,21 @@ export function parseAmount(input: string): ParseAmountResult {
   }
   return { ok: true, cents: Number(cents) };
 }
+
+/**
+ * Formats integer cents as a plain decimal number with a decimal comma, for
+ * files that spreadsheets read as numbers (CSV export, #24): no thousands
+ * separator and no currency sign, e.g. `123456` → `"1234,56"`,
+ * `-5` → `"-0,05"` (ASCII hyphen-minus, as spreadsheets expect).
+ *
+ * Pure integer arithmetic, exact for every safe integer.
+ *
+ * @throws {RangeError} if `cents` is not a safe integer.
+ */
+export function formatAmountPlain(cents: number): string {
+  assertCents(cents);
+  const absolute = Math.abs(cents);
+  const remainder = absolute % 100;
+  const euros = (absolute - remainder) / 100;
+  return `${cents < 0 ? "-" : ""}${euros},${String(remainder).padStart(2, "0")}`;
+}

@@ -173,6 +173,27 @@ mit `@tauri-apps/*` liegt außerhalb von `src/business` und wird in `src/app`
 verdrahtet. Ebenso sind `drizzle-orm`, `drizzle-kit` und `better-sqlite3` in
 Business verboten – Drizzle gibt es nur in `src/persistence`.
 
+**Dateien speichern (#24):** Port `FileSaver` (`src/business/files.ts`,
+`saveTextFile({ defaultFileName, filter, content })` →
+`{ saved: true, path }` oder `{ saved: false }` bei Abbruch; Schreibfehler
+werfen). Implementierung `createTauriFileSaver()` in
+`src/app/tauri-file-saver.ts`: Speicherdialog `save()` aus
+`tauri-plugin-dialog`, dann `writeTextFile()` aus `tauri-plugin-fs` (UTF-8,
+unverändert). `createAppServices(database, clock, fileSaver)` verdrahtet ihn;
+Tests geben einen Fake.
+
+- **Capabilities** (`src-tauri/capabilities/default.json`), so knapp wie
+  möglich: `dialog:allow-save` und `fs:allow-write-text-file` – **ohne**
+  konfigurierten fs-Scope. Der Dialog trägt den gewählten Pfad zur Laufzeit in
+  den fs-Scope ein (`allow_file` in `tauri-plugin-dialog`); geschrieben werden
+  kann also genau die Datei, die der Nutzer gewählt hat, kein anderer Pfad
+  (auch nicht AppData). Kein `fs:default` (Lesezugriff auf App-Ordner) und
+  nicht `fs:allow-write-file` (erlaubt zusätzlich `open`/`write`).
+- Der eingetragene Pfad bleibt bis zum Programmende im Scope (Verhalten des
+  Plugins).
+- Die Plugins sprechen nur über die IPC (`ipc:`/`http://ipc.localhost`) – die
+  CSP braucht keine Erweiterung.
+
 ## Geld und USt (#12)
 
 `src/business/money` rechnet aus Brutto und USt-Satz Netto und USt –
@@ -468,7 +489,7 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `categories`, `taxYears`), keine Repositories und
+nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`), keine Repositories und
 keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
@@ -649,7 +670,60 @@ optional; Standardwerte stehen nie in der URL):
   Wort („Überschuss“/„Fehlbetrag“), nicht nur Farbe.
 - **CSV-Export (#24):** `bookingSearchToQuery(search)` plus
   `sort: bookingSearchSort(search)` und `pageSize: "all"` – derselbe Filter
-  und dieselbe Sortierung wie die Liste, alle Seiten.
+  und dieselbe Sortierung wie die Liste, alle Seiten (siehe
+  [CSV-Export](#csv-export-24)).
+
+### CSV-Export (#24)
+
+„CSV exportieren“ im Kopf der Buchungsliste
+(`src/ui/bookings/booking-export-button.tsx`) speichert **alle** Buchungen der
+aktuellen Filter in der Sortierung der Liste, nicht nur die Seite.
+
+**CSV-Format** (`src/business/csv`, `toCsv(rows)`; gilt für alle Exporte,
+auch die EÜR #27):
+
+| Punkt         | Festlegung                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------------- |
+| Trennzeichen  | `;` (Listentrennzeichen von Excel in de-DE)                                                        |
+| Zeilenende    | CRLF nach **jeder** Zeile, auch der letzten (RFC 4180, Excel unter Windows)                        |
+| Kodierung     | UTF-8 mit BOM: `toCsv` setzt U+FEFF an den Anfang (genau eine Stelle); geschrieben `EF BB BF`      |
+| Quoting       | Felder mit `;`, `"`, CR oder LF in `"…"`, innere `"` verdoppelt; sonst unverändert                 |
+| Datum         | `TT.MM.JJJJ` (`formatDate`)                                                                        |
+| Beträge       | `formatAmountPlain`: Dezimalkomma, kein Tausenderpunkt, kein `€`, ASCII-Minus (`1234,56`, `-0,05`) |
+| Leere Felder  | `null` → leeres Feld (z. B. USt-Satz im Kleinunternehmer-Jahr, Referenz/Notiz/externe ID)          |
+| Formel-Schutz | Text, der mit `=`, `+`, `-`, `@`, Tab oder CR beginnt, bekommt ein `'` davor (OWASP CSV Injection) |
+
+- **Formel-Schutz nur für Texte:** Zellen sind `string` (Nutzer- oder
+  Label-Text, geschützt), `csvLiteral(…)` (von der App formatiert: Beträge,
+  Daten – unverändert, damit z. B. ein negativer Saldo der EÜR eine Zahl
+  bleibt) oder `null`. Der Schutz ändert den sichtbaren Wert (`'-Rabatt`);
+  das betrifft nur Texte, die so beginnen, und ist der übliche Kompromiss.
+- **Spalten** (`BOOKING_CSV_COLUMNS`, `bookingsToCsv(items, labels)` in
+  `src/business/bookings/booking-csv.ts`): Datum, Art, Beschreibung,
+  Gegenpartei, Kategorie, Netto, USt-Satz, USt, Brutto, Referenz, Notiz,
+  Quelle, Externe ID. Kopfzeile und Werte-Labels (Einnahme/Ausgabe,
+  USt-Sätze, Manuell/Stripe) sind UI-Texte: die UI übergibt sie
+  (`bookingCsvLabels()` in `booking-messages.ts`), Business bleibt frei von
+  Paraglide und testbar.
+- **Dateiname** (`csvFileName`): nach dem Zeitraum des Filters,
+  `buchungen-2025-01-01_2025-12-31.csv`, offen `buchungen-ab-2025-01-01.csv`
+  bzw. `buchungen-bis-….csv`, ohne Zeitraum das Exportdatum
+  `buchungen-2026-11-14.csv`. Wörter aus Paraglide; unter Windows verbotene
+  Zeichen werden `_`. Dialogfilter „CSV-Datei“ (`*.csv`).
+- **Service** `createBookingExportService({ bookings, fileSaver })`,
+  `exportCsv({ query, labels, fileName, filterName })`: lädt per
+  `BookingService.list({ ...query, page: 1, pageSize: "all" })` (vor dem
+  Dialog – ungültige Filter öffnen ihn nie), baut die Datei und speichert sie
+  über den `FileSaver`. Ergebnis `{ ok: true, saved: true, fileName, count }`,
+  `{ ok: true, saved: false }` (Abbruch) oder `{ ok: false, reason:
+  "invalid", errors }`; Lade-/Schreibfehler werfen. Keine Obergrenze: der
+  Bestand einer lokalen EÜR-App passt in den Speicher.
+- **Button:** deaktiviert (fokussierbar, Grund im Tooltip), solange die Filter
+  ungültig sind, nichts geladen ist, nichts passt oder ein Export läuft
+  (dann mit Spinner und „Exportiere …“). Die Anzahl kommt aus derselben
+  Listen-Abfrage wie die Tabelle (gleicher Query-Key). Erfolg: Toast mit
+  Anzahl und Dateiname; Abbruch des Dialogs: kein Toast; Fehler (z. B. Datei
+  in Excel geöffnet): Fehler-Toast, Details in der Konsole.
 
 ### Buchungsformular (#18)
 

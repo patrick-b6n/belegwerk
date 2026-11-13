@@ -6,6 +6,7 @@
 import {
   BOOKING_SEARCH_TEXT_MAX_LENGTH,
   BOOKING_TEXT_MAX_LENGTH,
+  type BookingCsvLabels,
   type BookingFieldError,
   type BookingQueryError,
   MAX_BOOKING_QUERY_CATEGORY_IDS,
@@ -33,6 +34,38 @@ export const VAT_RATE_LABELS: Readonly<Record<VatRate, () => string>> = {
   "0": m.booking_vat_rate_0,
   reverse_charge: m.booking_vat_rate_reverse_charge,
 };
+
+/**
+ * Texts of the CSV export (#24): the column headers are those of the list
+ * and the form, the values the labels shown in the app.
+ */
+export function bookingCsvLabels(): BookingCsvLabels {
+  return {
+    columns: {
+      date: m.bookings_column_date(),
+      type: m.bookings_column_type(),
+      description: m.bookings_column_description(),
+      counterparty: m.bookings_column_counterparty(),
+      category: m.bookings_column_category(),
+      netCents: m.bookings_column_net(),
+      vatRate: m.booking_form_vat_rate_label(),
+      vatCents: m.bookings_column_vat(),
+      grossCents: m.bookings_column_gross(),
+      reference: m.booking_form_reference_label(),
+      note: m.booking_form_note_label(),
+      source: m.bookings_column_source(),
+      externalId: m.booking_form_external_id_label(),
+    },
+    types: { income: BOOKING_TYPE_LABELS.income(), expense: BOOKING_TYPE_LABELS.expense() },
+    vatRates: {
+      "19": VAT_RATE_LABELS["19"](),
+      "7": VAT_RATE_LABELS["7"](),
+      "0": VAT_RATE_LABELS["0"](),
+      reverse_charge: VAT_RATE_LABELS.reverse_charge(),
+    },
+    sources: { manual: BOOKING_SOURCE_LABELS.manual(), stripe: BOOKING_SOURCE_LABELS.stripe() },
+  };
+}
 
 const tooLarge = () => m.booking_error_amount_too_large({ max: formatCurrency(MAX_AMOUNT_CENTS) });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MAX_AMOUNT_CENTS } from "../money/limits";
-import { formatCurrency, parseAmount } from "./currency";
+import { formatAmountPlain, formatCurrency, parseAmount } from "./currency";
 
 // Intl (de-DE) separates amount and symbol with a no-break space (U+00A0).
 const NBSP = "\u00A0";
@@ -158,4 +158,44 @@ describe("parseAmount", () => {
     expect(parseAmount("90.071.992.547.409,92")).toEqual({ ok: false, error: "tooLarge" });
     expect(parseAmount("99999999999999999999")).toEqual({ ok: false, error: "tooLarge" });
   });
+});
+
+describe("formatAmountPlain", () => {
+  it.each([
+    [0, "0,00"],
+    [1, "0,01"],
+    [29, "0,29"],
+    [100, "1,00"],
+    [123456, "1234,56"],
+    [MAX_AMOUNT_CENTS, "100000000,00"],
+    [Number.MAX_SAFE_INTEGER, "90071992547409,91"],
+  ])("formats %i cents as %j (no thousands separator, no euro sign)", (cents, expected) => {
+    expect(formatAmountPlain(cents)).toBe(expected);
+  });
+
+  it.each([
+    [-5, "-0,05"],
+    [-100, "-1,00"],
+    [-123456, "-1234,56"],
+    [-Number.MAX_SAFE_INTEGER, "-90071992547409,91"],
+  ])("formats negative %i cents with an ASCII minus as %j", (cents, expected) => {
+    expect(formatAmountPlain(cents)).toBe(expected);
+  });
+
+  it("never prints -0", () => {
+    expect(formatAmountPlain(-0)).toBe("0,00");
+  });
+
+  it("round-trips through parseAmount", () => {
+    for (const cents of [0, 1, 29, 123456, MAX_AMOUNT_CENTS]) {
+      expect(parseAmount(formatAmountPlain(cents))).toEqual({ ok: true, cents });
+    }
+  });
+
+  it.each([0.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects non-integer or unsafe input %s",
+    (value) => {
+      expect(() => formatAmountPlain(value)).toThrow(RangeError);
+    },
+  );
 });
