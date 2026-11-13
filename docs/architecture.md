@@ -324,7 +324,10 @@ Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes
 - **`list()`** liefert alle Jahre mit Datensatz **oder** mit Buchungen
   (`BookingRepository.listYears()`), aufsteigend; Jahre nur mit Buchungen
   erscheinen mit dem Default (`explicit: false`). Die Einstellungsseite (#20)
-  zeigt so auch Jahre, die nie bewusst eingestellt wurden.
+  zeigt so auch Jahre, die nie bewusst eingestellt wurden. Jedes Jahr trägt
+  `mismatchedBookings` (`TaxYearOverview`): die Zahl der Buchungen, deren
+  USt-Satz nicht zum Status passt (gezählt nur für Jahre mit Buchungen, in
+  derselben Unit of Work).
 - **`addYear(year)`** („Jahr hinzufügen“, #20) legt das Jahr regelbesteuert
   an, z. B. um den Status vor der ersten Buchung zu setzen; existiert schon
   ein Datensatz: `yearExists`. `setSmallBusiness` legt fehlende Datensätze
@@ -434,7 +437,8 @@ hängt ihr Query-Objekt an) und `["bookings", "detail", id]` (nur für
 ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
 `categoryQueryKeys` (`src/ui/categories/category-queries.ts`,
 `useCategoryList()`) und `taxYearQueryKeys`
-(`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`).
+(`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`,
+`useTaxYearList()`).
 Buchungs-Mutationen (`useBookingMutations()`, #18) invalidieren
 `bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`) und
 `taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen). Verlässt das
@@ -544,6 +548,41 @@ Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
   `categoryQueryKeys.all` und `bookingQueryKeys.all` (Buchungsliste zeigt
   Kategoriename und „archiviert“; das Buchungsformular bezieht seine Optionen
   aus der Kategorienliste).
+
+### Einstellungen (#20)
+
+`src/routes/einstellungen.tsx` (`/einstellungen`) stapelt Abschnitte
+(`SettingsSection` aus `src/ui/settings/settings-section.tsx`: `<section>` mit
+Überschrift und Beschreibung per `aria-labelledby`/`aria-describedby`). Jeder
+Abschnitt lädt seine Daten selbst und zeigt eigene Lade-/Fehlerzustände; der
+Abschnitt „Stripe“ (#28) kommt als weiterer `SettingsSection` darunter.
+
+**Steuerjahre** (`src/ui/tax-years/tax-year-settings.tsx`; reine Logik
+getestet in `tax-year-model.ts`, Texte in `tax-year-messages.ts`, Mutationen
+in `tax-year-mutations.ts`):
+
+- **Liste** aus `useTaxYearList()`, neueste Jahre zuerst: Jahr, Status
+  (Regelbesteuerung / Kleinunternehmer § 19 UStG) und ein Schalter
+  „Kleinunternehmer“ (shadcn `Switch`). Jahre ohne Datensatz tragen
+  „Standard, nicht gespeichert“. Gibt es unpassende Buchungen
+  (`mismatchedBookings > 0`), steht ein Hinweis in der Zeile – dauerhaft,
+  weil er aus `list()` kommt, bis die Buchungen korrigiert sind.
+- **Schalter** speichert sofort (`setSmallBusiness`) und zeigt den neuen Wert,
+  solange gespeichert oder nachgefragt wird (dann `readOnly`, nicht
+  `disabled`: der Fokus bleibt). Bei `conflicts` erklärt ein Alert-Dialog,
+  dass N Buchungen nicht mehr passen, unverändert bleiben und beim nächsten
+  Bearbeiten korrigiert werden müssen; „Trotzdem ändern“ wiederholt mit
+  `acknowledgeConflicts: true`, „Abbrechen“ (Anfangsfokus) setzt den Schalter
+  zurück. Erfolg: Toast.
+- **Jahr hinzufügen:** kleines Formular (gleiches Validierungsmuster wie die
+  anderen Formulare; Client-Prüfung leer/kein Jahr 1000–9999, Service-Fehler
+  `invalidYear`/`yearExists` am Feld). Vorschlag: aktuelles Jahr, falls nicht
+  gelistet, sonst das nächste.
+- **Invalidierung:** nur `taxYearQueryKeys.all` (Liste und Status je Jahr,
+  von dem das USt-Feld des Buchungsformulars abhängt). Buchungen und
+  Kategorien ändern sich nicht; Buchungs-Mutationen invalidieren ihrerseits
+  `taxYearQueryKeys.all`, so aktualisiert sich der Hinweis nach dem
+  Korrigieren einer Buchung.
 
 ## Content Security Policy
 

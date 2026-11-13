@@ -10,6 +10,7 @@ import { useAppServices } from "@/app/app-services";
  */
 export const taxYearQueryKeys = {
   all: ["taxYears"] as const,
+  /** All years with a record or bookings (`TaxYearService.list`). */
   list: () => [...taxYearQueryKeys.all, "list"] as const,
   detail: (year: number) => [...taxYearQueryKeys.all, "detail", year] as const,
 };
@@ -27,5 +28,17 @@ export function useTaxYear(year: number | undefined) {
     queryFn: () => taxYears.get(year ?? 0),
     enabled: year !== undefined,
     placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * All years that have a record or bookings, ascending, each with its number
+ * of mismatched bookings (`TaxYearService.list`).
+ */
+export function useTaxYearList() {
+  const { taxYears } = useAppServices();
+  return useQuery({
+    queryKey: taxYearQueryKeys.list(),
+    queryFn: () => taxYears.list(),
   });
 }
