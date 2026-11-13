@@ -13,7 +13,7 @@
  * - Net and VAT are always computed here from gross amount, VAT rate and the
  *   tax status of the date's year; callers never pass them.
  */
-import { calculateBookingAmounts, isVatRate } from "../money";
+import { calculateBookingAmounts, isVatRate, MAX_AMOUNT_CENTS } from "../money";
 import { parseIsoDate } from "../format";
 import type { Booking, BookingInput, BookingSource, BookingType, VatRate } from "../model";
 import { ConstraintViolationError, type Repositories, type UnitOfWork } from "../repositories";
@@ -22,11 +22,16 @@ import { ConstraintViolationError, type Repositories, type UnitOfWork } from "..
  * What the booking form submits. Amounts are integer cents (gross, #1);
  * net and VAT are computed.
  *
- * Optional fields (`reference`, `note`, `source`, `externalId`): when
- * omitted (`undefined`), `create` uses the default (`null`, `"manual"`) and
- * `update` keeps the booking's current value – so editing a Stripe booking
- * in a form without these fields does not turn it into a manual one.
- * `null` (or a blank string) clears `reference`, `note` and `externalId`.
+ * All form fields are required properties; `reference` and `note` are
+ * cleared with `null` or a blank string, so an update always states them.
+ * Only `source` and `externalId` – which the form does not necessarily
+ * show – may be omitted (`undefined`): `create` then uses the default
+ * (`"manual"`, `null`), `update` keeps the booking's current value, so
+ * editing a Stripe booking does not turn it into a manual one. `null` (or a
+ * blank string) clears `externalId`.
+ *
+ * Texts are trimmed (also zero-width characters U+200B–U+200D and U+FEFF at
+ * the ends); a text consisting only of such characters counts as blank.
  */
 export interface BookingFormInput {
   /** Payment date `YYYY-MM-DD`. */
@@ -35,11 +40,14 @@ export interface BookingFormInput {
   readonly grossCents: number;
   /** Required in regularly taxed years, `null` in small business years. */
   readonly vatRate: VatRate | null;
+  /** Not yet chosen (e.g. `NaN` from an empty select) → `"required"`. */
   readonly categoryId: number;
   readonly description: string;
   readonly counterparty: string;
-  readonly reference?: string | null;
-  readonly note?: string | null;
+  /** `null` or blank clears it. */
+  readonly reference: string | null;
+  /** `null` or blank clears it. */
+  readonly note: string | null;
   /** Informational only (#1). */
   readonly source?: BookingSource;
   /** Informational only; unique per source (database index). */
@@ -65,19 +73,27 @@ export interface BookingFieldErrorCodes {
   /** `required`: empty; `invalidDate`: not an existing `YYYY-MM-DD` in 1000–9999. */
   readonly date: "required" | "invalidDate";
   readonly type: "invalidType";
-  /** `amountNotPositive`: ≤ 0; `amountNotInteger`: not a safe integer number of cents. */
-  readonly grossCents: "amountNotPositive" | "amountNotInteger";
+  /**
+   * `amountNotPositive`: ≤ 0; `amountNotInteger`: not an integer number of
+   * cents; `amountTooLarge`: above `MAX_AMOUNT_CENTS` (100.000.000,00 €).
+   */
+  readonly grossCents: "amountNotPositive" | "amountNotInteger" | "amountTooLarge";
   /**
    * `vatRateInvalid`: unknown value; `vatRateNotAllowed`: small business
    * year with a rate; `vatRateRequired`: regularly taxed year without one.
    */
   readonly vatRate: "vatRateInvalid" | "vatRateNotAllowed" | "vatRateRequired";
   /**
+   * `required`: no valid id (not a positive integer);
    * `categoryTypeMismatch`: category type ≠ booking type;
    * `categoryArchived`: archived category on a new booking, or switched to
    * on an update.
    */
-  readonly categoryId: "categoryNotFound" | "categoryTypeMismatch" | "categoryArchived";
+  readonly categoryId:
+    | "required"
+    | "categoryNotFound"
+    | "categoryTypeMismatch"
+    | "categoryArchived";
   readonly description: "required" | "tooLong";
   readonly counterparty: "required" | "tooLong";
   readonly reference: "tooLong";
@@ -133,11 +149,13 @@ const BOOKING_SOURCES: readonly BookingSource[] = ["manual", "stripe"];
 
 export function createBookingService({ unitOfWork }: BookingServiceDependencies): BookingService {
   return {
-    get: (id) =>
-      unitOfWork.run(async (repos) => {
+    get: async (id) => {
+      if (!isId(id)) return NOT_FOUND;
+      return unitOfWork.run(async (repos) => {
         const booking = await repos.bookings.findById(id);
         return booking ? { ok: true, booking } : NOT_FOUND;
-      }),
+      });
+    },
 
     create: (input) =>
       save(async (repos) => {
@@ -146,8 +164,9 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
         return { ok: true, booking: await repos.bookings.insert(validated.input) };
       }),
 
-    update: (id, input) =>
-      save(async (repos) => {
+    update: async (id, input) => {
+      if (!isId(id)) return NOT_FOUND;
+      return save(async (repos) => {
         const existing = await repos.bookings.findById(id);
         if (!existing) return NOT_FOUND;
         const validated = await validate(repos, input, existing);
@@ -156,12 +175,15 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
         // Cannot happen inside the transaction; a programmer error otherwise.
         if (!booking) throw new Error(`Booking ${id} vanished during the update`);
         return { ok: true, booking };
-      }),
+      });
+    },
 
-    delete: (id) =>
-      unitOfWork.run(async (repos) =>
+    delete: async (id) => {
+      if (!isId(id)) return NOT_FOUND;
+      return unitOfWork.run(async (repos) =>
         (await repos.bookings.delete(id)) ? { ok: true } : NOT_FOUND,
-      ),
+      );
+    },
   };
 
   /**
@@ -174,11 +196,14 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
       return await unitOfWork.run(fn);
     } catch (error) {
       if (error instanceof ConstraintViolationError) {
-        const fieldError: BookingFieldError =
-          error.kind === "unique"
-            ? { field: "externalId", code: "externalIdDuplicate" }
-            : { field: "categoryId", code: "categoryNotFound" };
-        return invalid([fieldError]);
+        switch (error.kind) {
+          case "unique":
+            return invalid([{ field: "externalId", code: "externalIdDuplicate" }]);
+          case "foreign_key":
+            return invalid([{ field: "categoryId", code: "categoryNotFound" }]);
+          default:
+            throw error;
+        }
       }
       throw error;
     }
@@ -186,6 +211,19 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
 }
 
 const NOT_FOUND: BookingNotFound = { ok: false, reason: "notFound" };
+
+/** Ids are positive integers; anything else (e.g. `NaN` from a route param) cannot exist. */
+function isId(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+// Zero-width space, non-joiner, joiner and BOM (`String#trim` only removes the BOM).
+const EDGE_BLANKS = /^[\s\u200B-\u200D\uFEFF]+|[\s\u200B-\u200D\uFEFF]+$/g;
+
+/** Trims whitespace and zero-width characters at the ends; inner ones stay (e.g. ZWJ in emoji). */
+function trimText(value: string): string {
+  return value.replaceAll(EDGE_BLANKS, "");
+}
 
 function invalid(errors: readonly BookingFieldError[]): BookingInvalid {
   return { ok: false, reason: "invalid", errors };
@@ -208,7 +246,7 @@ async function validate(
   const errors: BookingFieldError[] = [];
 
   // Date
-  const date = input.date.trim();
+  const date = trimText(input.date);
   const dateParts = date === "" ? undefined : parseIsoDate(date);
   if (date === "") errors.push({ field: "date", code: "required" });
   else if (!dateParts) errors.push({ field: "date", code: "invalidDate" });
@@ -219,11 +257,15 @@ async function validate(
 
   // Gross amount
   const { grossCents } = input;
-  const grossValid = Number.isSafeInteger(grossCents) && grossCents > 0;
+  const grossValid =
+    Number.isSafeInteger(grossCents) && grossCents > 0 && grossCents <= MAX_AMOUNT_CENTS;
   if (typeof grossCents !== "number" || Number.isNaN(grossCents)) {
     errors.push({ field: "grossCents", code: "amountNotInteger" });
   } else if (grossCents <= 0) {
     errors.push({ field: "grossCents", code: "amountNotPositive" });
+  } else if (grossCents > MAX_AMOUNT_CENTS) {
+    // Also covers Infinity and unsafe integers.
+    errors.push({ field: "grossCents", code: "amountTooLarge" });
   } else if (!grossValid) {
     errors.push({ field: "grossCents", code: "amountNotInteger" });
   }
@@ -251,8 +293,11 @@ async function validate(
   // Category: must exist and match the type. Archived categories are not
   // allowed for new bookings; an update may keep the booking's current
   // (meanwhile archived) category, but not switch to another archived one.
-  const category = await repos.categories.findById(input.categoryId);
-  if (!category) {
+  const categoryIdValid = isId(input.categoryId);
+  const category = categoryIdValid ? await repos.categories.findById(input.categoryId) : undefined;
+  if (!categoryIdValid) {
+    errors.push({ field: "categoryId", code: "required" });
+  } else if (!category) {
     errors.push({ field: "categoryId", code: "categoryNotFound" });
   } else if (typeValid && category.type !== input.type) {
     errors.push({ field: "categoryId", code: "categoryTypeMismatch" });
@@ -263,15 +308,18 @@ async function validate(
   // Texts
   const description = requiredText(input.description, "description", errors);
   const counterparty = requiredText(input.counterparty, "counterparty", errors);
-  const reference = optionalText(input.reference, existing?.reference, "reference", errors);
-  const note = optionalText(input.note, existing?.note, "note", errors);
+  const reference = optionalText(input.reference, "reference", errors);
+  const note = optionalText(input.note, "note", errors);
 
   // Source and external ID: informational only; the external ID is unique
   // per source (database index), checked here for a field error.
   const source = input.source ?? existing?.source ?? "manual";
   const sourceValid = BOOKING_SOURCES.includes(source);
   if (!sourceValid) errors.push({ field: "source", code: "invalidSource" });
-  const externalId = optionalText(input.externalId, existing?.externalId, "externalId", errors);
+  const externalId =
+    input.externalId === undefined
+      ? (existing?.externalId ?? null)
+      : optionalText(input.externalId, "externalId", errors);
   if (
     sourceValid &&
     externalId !== null &&
@@ -310,21 +358,19 @@ function requiredText(
   field: "description" | "counterparty",
   errors: BookingFieldError[],
 ): string {
-  const text = value.trim();
+  const text = trimText(value);
   if (text === "") errors.push({ field, code: "required" });
   else if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;
 }
 
-/** `undefined` keeps `current` (update) or gives `null` (create); blank gives `null`. */
+/** `null` and blank give `null`. */
 function optionalText(
-  value: string | null | undefined,
-  current: string | null | undefined,
+  value: string | null,
   field: "reference" | "note" | "externalId",
   errors: BookingFieldError[],
 ): string | null {
-  if (value === undefined) return current ?? null;
-  const text = value?.trim() ?? "";
+  const text = value === null ? "" : trimText(value);
   if (text === "") return null;
   if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;

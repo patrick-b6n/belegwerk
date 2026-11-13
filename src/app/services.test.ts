@@ -33,6 +33,8 @@ describe("createAppServices – bookings on SQLite", () => {
       categoryId: incomeId,
       description: " Beratung ",
       counterparty: "Kunde GmbH",
+      reference: "RE-1",
+      note: null,
       source: "stripe",
       externalId: "fee_1",
     });
@@ -46,14 +48,28 @@ describe("createAppServices – bookings on SQLite", () => {
 
     // Small business year: no rate, net = gross.
     sqlite.prepare("INSERT INTO tax_years (year, small_business) VALUES (2024, 1)").run();
+    // Only the form's fields: source and external ID are omitted and kept.
     const updated = await services.bookings.update(id, {
-      ...created.booking,
       date: "2024-12-31",
+      type: "income",
+      grossCents: 11900,
       vatRate: null,
+      categoryId: incomeId,
+      description: "Beratung",
+      counterparty: "Kunde GmbH",
+      reference: "RE-1",
+      note: "geändert",
     });
     expect(updated).toMatchObject({
       ok: true,
-      booking: { vatRate: null, netCents: 11900, vatCents: 0, externalId: "fee_1" },
+      booking: {
+        vatRate: null,
+        netCents: 11900,
+        vatCents: 0,
+        note: "geändert",
+        source: "stripe",
+        externalId: "fee_1",
+      },
     });
 
     expect(await services.bookings.delete(id)).toEqual({ ok: true });
@@ -70,6 +86,8 @@ describe("createAppServices – bookings on SQLite", () => {
       categoryId: expenseId,
       description: "x",
       counterparty: "y",
+      reference: null,
+      note: null,
     });
     expect(result).toEqual({
       ok: false,
@@ -92,6 +110,8 @@ describe("createAppServices – bookings on SQLite", () => {
       categoryId: incomeId,
       description: "x",
       counterparty: "y",
+      reference: null,
+      note: null,
       source: "stripe",
       externalId: "fee_1",
     } as const;

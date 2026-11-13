@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createInMemoryDatabase } from "../__tests__/in-memory-repositories";
+import { MAX_AMOUNT_CENTS } from "../money";
 import type { Booking, BookingType } from "../model";
-import type { Repositories, UnitOfWork } from "../repositories";
+import type { ConstraintKind, Repositories, UnitOfWork } from "../repositories";
 import { ConstraintViolationError } from "../repositories";
 import {
   BOOKING_TEXT_MAX_LENGTH,
@@ -44,6 +45,8 @@ async function setup() {
     categoryId: income.id,
     description: "Beratung",
     counterparty: "Kunde GmbH",
+    reference: null,
+    note: null,
     ...overrides,
   });
   const create = async (overrides: Partial<BookingFormInput> = {}): Promise<Booking> => {
@@ -195,14 +198,19 @@ describe("BookingService.create", () => {
       ],
       ["NaN", { grossCents: Number.NaN }, { field: "grossCents", code: "amountNotInteger" }],
       [
+        "amount above the maximum",
+        { grossCents: MAX_AMOUNT_CENTS + 1 },
+        { field: "grossCents", code: "amountTooLarge" },
+      ],
+      [
         "infinite amount",
         { grossCents: Number.POSITIVE_INFINITY },
-        { field: "grossCents", code: "amountNotInteger" },
+        { field: "grossCents", code: "amountTooLarge" },
       ],
       [
         "unsafe integer",
         { grossCents: Number.MAX_SAFE_INTEGER + 1 },
-        { field: "grossCents", code: "amountNotInteger" },
+        { field: "grossCents", code: "amountTooLarge" },
       ],
       [
         "unknown VAT rate",
@@ -210,6 +218,19 @@ describe("BookingService.create", () => {
         { field: "vatRate", code: "vatRateInvalid" },
       ],
       ["unknown category", { categoryId: 999 }, { field: "categoryId", code: "categoryNotFound" }],
+      ["no category (NaN)", { categoryId: Number.NaN }, { field: "categoryId", code: "required" }],
+      ["category id 0", { categoryId: 0 }, { field: "categoryId", code: "required" }],
+      ["fractional category id", { categoryId: 1.5 }, { field: "categoryId", code: "required" }],
+      [
+        "zero-width-only description",
+        { description: "\u200B\u200C\u200D\uFEFF " },
+        { field: "description", code: "required" },
+      ],
+      [
+        "zero-width-only counterparty",
+        { counterparty: " \u200B" },
+        { field: "counterparty", code: "required" },
+      ],
       ["blank description", { description: " \n " }, { field: "description", code: "required" }],
       ["blank counterparty", { counterparty: "" }, { field: "counterparty", code: "required" }],
       [
@@ -220,6 +241,28 @@ describe("BookingService.create", () => {
     ])("rejects %s", async (_name, overrides, error) => {
       const { service, input } = await setup();
       expect(errorsOf(await service.create(input(overrides)))).toEqual([error]);
+    });
+
+    it("accepts the maximum amount", async () => {
+      const { create } = await setup();
+      const booking = await create({ grossCents: MAX_AMOUNT_CENTS });
+      expect(booking.netCents + booking.vatCents).toBe(MAX_AMOUNT_CENTS);
+    });
+
+    it("strips zero-width characters at the ends, keeps inner ones and blanks optional texts", async () => {
+      const { create } = await setup();
+      const booking = await create({
+        description: "\u200BBeratung\uFEFF",
+        counterparty: "Team \u{1F468}\u200D\u{1F4BB}",
+        reference: "\u200B",
+        externalId: "\uFEFF\u200B",
+      });
+      expect(booking).toMatchObject({
+        description: "Beratung",
+        counterparty: "Team \u{1F468}\u200D\u{1F4BB}",
+        reference: null,
+        externalId: null,
+      });
     });
 
     it("rejects a category of the other type", async () => {
@@ -374,7 +417,7 @@ describe("BookingService.update", () => {
     ]);
   });
 
-  it("keeps omitted optional fields and clears them with null or blank strings", async () => {
+  it("keeps omitted source and external ID; clears texts with null or blank strings", async () => {
     const { service, input, create } = await setup();
     const booking = await create({
       source: "stripe",
@@ -382,10 +425,19 @@ describe("BookingService.update", () => {
       reference: "R-1",
       note: "Notiz",
     });
-    const kept = await service.update(booking.id, input({ description: "geändert" }));
+    const kept = await service.update(
+      booking.id,
+      input({ description: "geändert", reference: "R-1", note: "Notiz" }),
+    );
     expect(kept).toMatchObject({
       ok: true,
       booking: { source: "stripe", externalId: "fee_1", reference: "R-1", note: "Notiz" },
+    });
+    // reference and note are always stated: null clears them.
+    const nulls = await service.update(booking.id, input());
+    expect(nulls).toMatchObject({
+      ok: true,
+      booking: { source: "stripe", externalId: "fee_1", reference: null, note: null },
     });
     const cleared = await service.update(
       booking.id,
@@ -442,6 +494,16 @@ describe("BookingService.get and delete", () => {
     expect(await service.get(999)).toEqual({ ok: false, reason: "notFound" });
     expect(await service.delete(999)).toEqual({ ok: false, reason: "notFound" });
   });
+
+  it.each([Number.NaN, 0, -1, 1.5, Number.POSITIVE_INFINITY])(
+    "returns notFound for the invalid id %s without querying",
+    async (id) => {
+      const { service, input } = await setup();
+      expect(await service.get(id)).toEqual({ ok: false, reason: "notFound" });
+      expect(await service.update(id, input())).toEqual({ ok: false, reason: "notFound" });
+      expect(await service.delete(id)).toEqual({ ok: false, reason: "notFound" });
+    },
+  );
 
   it("deletes a booking", async () => {
     const { service, create } = await setup();
@@ -500,11 +562,19 @@ describe("BookingService and constraint errors", () => {
       categoryId: category.id,
       description: "x",
       counterparty: "y",
+      reference: null,
+      note: null,
     });
     expect(result).toEqual({ ok: false, reason: "invalid", errors: [fieldError] });
   });
 
-  it("rethrows other errors", async () => {
+  it.each([
+    ["a plain error", new Error("disk I/O error")],
+    [
+      "a constraint error of another kind",
+      new ConstraintViolationError("check" as ConstraintKind, "disk I/O error"),
+    ],
+  ])("rethrows %s", async (_name, error) => {
     const { unitOfWork, repositories } = createInMemoryDatabase();
     const category = await repositories.categories.insert({
       name: "Umsatzerlöse",
@@ -514,7 +584,7 @@ describe("BookingService and constraint errors", () => {
       isSystem: false,
     });
     const service = createBookingService({
-      unitOfWork: failingUnitOfWork(unitOfWork, new Error("disk I/O error")),
+      unitOfWork: failingUnitOfWork(unitOfWork, error),
     });
     await expect(
       service.create({
@@ -525,6 +595,8 @@ describe("BookingService and constraint errors", () => {
         categoryId: category.id,
         description: "x",
         counterparty: "y",
+        reference: null,
+        note: null,
       }),
     ).rejects.toThrow("disk I/O error");
   });
