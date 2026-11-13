@@ -61,7 +61,12 @@ export interface CategoryRepository {
   /** All categories including archived ones, ordered by id. */
   list(): Promise<Category[]>;
   findById(id: number): Promise<Category | undefined>;
-  /** New categories are not archived. Unique per `(type, name)`. */
+  /**
+   * New categories are not archived. Unique per `(type, name)`.
+   * `reducesIncome` is only allowed for expense categories – the service
+   * validates it; the database rejects it with a raw CHECK error (no
+   * {@link ConstraintViolationError}). Same for `update`.
+   */
   insert(input: CategoryInput): Promise<Category>;
   /** `undefined` if it does not exist. */
   update(id: number, changes: CategoryChanges): Promise<Category | undefined>;

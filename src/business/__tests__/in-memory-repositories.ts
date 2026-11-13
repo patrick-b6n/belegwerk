@@ -24,12 +24,15 @@ import {
  * They behave like the Drizzle implementations – the shared contract suite
  * (`repository-contract.ts`) runs against both:
  *
- * - ids count up and are never reused (`AUTOINCREMENT`),
+ * - ids count up; ids of committed rows are never reused (`AUTOINCREMENT`),
+ *   an id handed out in a rolled-back unit of work is,
  * - unique keys and foreign keys raise {@link ConstraintViolationError},
  * - {@link UnitOfWork.run} rolls back every write if the callback rejects.
  *
- * Not emulated: the database's CHECK constraints (amount consistency, date
- * format, enum values) – services validate before writing.
+ * Not emulated: most of the database's CHECK constraints (amount
+ * consistency, date format, enum values) – services validate before
+ * writing. Emulated (plain `Error`, like the raw CHECK error): "reduces
+ * income" only on expense categories.
  *
  * Stricter than the app: while a unit of work runs, the other repositories
  * and a nested `run` throw instead of waiting – in the app they would wait
@@ -218,7 +221,13 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
 }
 
 function createCategories(state: () => State, op: Op): CategoryRepository {
-  const checkUnique = (category: Category) => {
+  const check = (category: Category) => {
+    // CHECK categories_reduces_income_expense_check
+    if (category.reducesIncome && category.type !== "expense") {
+      throw new Error(
+        "CHECK constraint failed: categories_reduces_income_expense_check (only expense categories can reduce income)",
+      );
+    }
     for (const other of state().categories.values()) {
       if (
         other.id !== category.id &&
@@ -236,7 +245,7 @@ function createCategories(state: () => State, op: Op): CategoryRepository {
     const existing = state().categories.get(id);
     if (!existing) return undefined;
     const category = change(existing);
-    checkUnique(category);
+    check(category);
     state().categories.set(id, category);
     return { ...category };
   };
@@ -254,7 +263,7 @@ function createCategories(state: () => State, op: Op): CategoryRepository {
         archived: false,
         isSystem: input.isSystem,
       };
-      checkUnique(category);
+      check(category);
       s.lastCategoryId = category.id;
       s.categories.set(category.id, category);
       return { ...category };

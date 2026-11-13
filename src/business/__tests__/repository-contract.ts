@@ -150,6 +150,24 @@ export function describeRepositoryContract(
         expect(await repos.bookings.findById(inserted.id)).toEqual(inserted);
       });
 
+      it("classifies constraint errors by the database error, not by user input", async () => {
+        // The bound parameters appear in Drizzle's outer error message.
+        await expectConstraint(
+          insertBooking({ categoryId: 4711, note: "UNIQUE constraint failed" }),
+          "foreign_key",
+        );
+        await insertBooking({ source: "stripe", externalId: "fee_1" });
+        const error = await insertBooking({
+          source: "stripe",
+          externalId: "fee_1",
+          note: "FOREIGN KEY constraint failed geheim",
+        }).catch((rejection: unknown) => rejection);
+        expect(error).toBeInstanceOf(ConstraintViolationError);
+        expect((error as ConstraintViolationError).kind).toBe("unique");
+        // The message does not leak bound parameters.
+        expect((error as Error).message).not.toMatch(/geheim/);
+      });
+
       it("rejects a duplicate external ID per source", async () => {
         await insertBooking({ source: "stripe", externalId: "fee_1" });
         await expectConstraint(insertBooking({ source: "stripe", externalId: "fee_1" }), "unique");
@@ -238,6 +256,17 @@ export function describeRepositoryContract(
           withoutVatRate: 0,
         });
       });
+
+      it("counts bookings of the year 9999", async () => {
+        await insertBooking({ date: "9998-12-31" });
+        await insertBooking({ date: "9999-01-01" });
+        await insertBooking({ date: "9999-12-31", vatRate: null, ...amounts(11900) });
+
+        expect(await repos.bookings.countVatRateUsage(9999)).toEqual({
+          withVatRate: 1,
+          withoutVatRate: 1,
+        });
+      });
     });
 
     describe("categories", () => {
@@ -304,6 +333,17 @@ export function describeRepositoryContract(
         const b = await insertCategory({ name: "B" });
         await expectConstraint(repos.categories.update(b.id, { name: "A" }), "unique");
         expect(await repos.categories.findById(b.id)).toEqual(b);
+      });
+
+      it("rejects reducesIncome on income categories (raw CHECK error, services validate)", async () => {
+        expect(await errorChain(insertCategory({ type: "income", reducesIncome: true }))).toMatch(
+          /categories_reduces_income_expense_check/,
+        );
+        const income = await insertCategory({ type: "income" });
+        expect(
+          await errorChain(repos.categories.update(income.id, { reducesIncome: true })),
+        ).toMatch(/categories_reduces_income_expense_check/);
+        expect(await repos.categories.list()).toEqual([income]);
       });
 
       it("archives and reactivates", async () => {
@@ -407,6 +447,21 @@ export function describeRepositoryContract(
         expect(await repos.taxYears.list()).toEqual([]);
       });
 
+      it("reuses an id handed out in a rolled-back unit of work", async () => {
+        const committed = await insertBooking();
+        const category = (await repos.categories.list())[0]!;
+        let rolledBackId = 0;
+        await expect(
+          unitOfWork.run(async (tx) => {
+            rolledBackId = (await tx.bookings.insert(booking(category.id))).id;
+            throw new Error("abort");
+          }),
+        ).rejects.toThrow("abort");
+
+        expect(rolledBackId).toBeGreaterThan(committed.id);
+        expect((await insertBooking()).id).toBe(rolledBackId);
+      });
+
       it("rolls back earlier writes when a constraint fails", async () => {
         await insertBooking({ source: "stripe", externalId: "fee_1" });
         const category = (await repos.categories.list())[0]!;
@@ -442,6 +497,22 @@ async function expectConstraint(promise: Promise<unknown>, kind: ConstraintKind)
   );
   expect(error).toBeInstanceOf(ConstraintViolationError);
   expect((error as ConstraintViolationError).kind).toBe(kind);
+}
+
+/** Messages of the rejection and all its causes (Drizzle wraps database errors). */
+async function errorChain(promise: Promise<unknown>): Promise<string> {
+  const error = await promise.then(
+    () => {
+      throw new Error("Expected a rejection");
+    },
+    (rejection: unknown) => rejection,
+  );
+  const messages: string[] = [];
+  for (let current: unknown = error; current !== undefined;) {
+    messages.push(current instanceof Error ? current.message : String(current));
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return messages.join("\n");
 }
 
 const T1 = "2025-03-07T12:34:56.789Z";

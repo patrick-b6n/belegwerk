@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte } from "drizzle-orm";
 
 import type { Booking, BookingInput } from "@/business/model";
 import type { BookingRepository, Clock } from "@/business/repositories";
@@ -90,7 +90,9 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
       const row = await db
         .select({ total: count(), withVatRate: count(bookings.vatRate) })
         .from(bookings)
-        .where(and(gte(bookings.date, yearStart(year)), lt(bookings.date, yearStart(year + 1))))
+        .where(
+          and(gte(bookings.date, `${pad(year)}-01-01`), lte(bookings.date, `${pad(year)}-12-31`)),
+        )
         .get();
       const total = row?.total ?? 0;
       const withVatRate = row?.withVatRate ?? 0;
@@ -99,9 +101,13 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
   };
 }
 
-/** `YYYY-01-01` – ISO dates compare correctly as strings. */
-function yearStart(year: number) {
-  return `${String(year).padStart(4, "0")}-01-01`;
+/**
+ * Four-digit year. ISO dates compare correctly as strings; the range stays
+ * within the year (`year + 1` would give "10000-01-01" for 9999, which sorts
+ * before "9999-…").
+ */
+function pad(year: number) {
+  return String(year).padStart(4, "0");
 }
 
 function toColumns(input: BookingInput) {

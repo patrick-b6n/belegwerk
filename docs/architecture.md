@@ -108,8 +108,13 @@ gibt es nur in `src/persistence`.
 - **Constraint-Verletzungen** (Unique-Index, Fremdschlüssel) kommen als
   `ConstraintViolationError` mit `kind: "unique" | "foreign_key"` aus
   `src/business`. Services prüfen vorher selbst (bessere Meldungen); der Fehler
-  ist das Sicherheitsnetz. CHECK-Verletzungen werden nicht übersetzt – sie
-  bedeuten einen Validierungsfehler im Service.
+  ist das Sicherheitsnetz. Erkannt wird die Art nur am Fehler der Datenbank
+  (`SqlError` bzw. SQLite-Code), nicht an Drizzles äußerem Fehler – dessen
+  Meldung enthält die gebundenen Parameter, also Nutzereingaben. Auch die
+  Meldung des `ConstraintViolationError` enthält keine Parameter.
+  CHECK-Verletzungen werden nicht übersetzt – sie bedeuten einen
+  Validierungsfehler im Service (z. B. „mindert Einnahmen“ bei einer
+  Einnahme-Kategorie).
 - **Erweiterung:** Die Suche (#21) kommt als eigene Methode mit Query-Objekt
   (`search(query)`) an `BookingRepository`; EÜR-Summen (#25) ebenso.
 
@@ -140,14 +145,16 @@ erzeugt sie für jede Transaktion neu auf deren `tx`.
 ### Vertragstests
 
 `describeRepositoryContract(name, setup)` beschreibt das Verhalten aller
-Implementierungen (IDs ohne Wiederverwendung, Rückgabewerte, Constraint-Fehler,
-Rollback). Es läuft in `src/business/__tests__/in-memory-repositories.test.ts`
+Implementierungen (IDs festgeschriebener Zeilen werden nie wiederverwendet,
+eine in einer zurückgerollten Unit of Work vergebene schon; Rückgabewerte,
+Constraint-Fehler, Rollback). Es läuft in `src/business/__tests__/in-memory-repositories.test.ts`
 gegen die Fakes und in `src/persistence/repositories/repositories.test.ts`
 gegen Drizzle auf `better-sqlite3` – so können die Fakes nicht vom echten
 Verhalten abweichen, und jede Repository-Abfrage läuft durch den Test-Client,
 der doppelte Ergebnis-Spaltennamen ablehnt. Neue Repository-Methoden bekommen
-ihre Fälle im Vertrag. Nicht nachgebildet werden in den Fakes nur die
-CHECK-Constraints der DB.
+ihre Fälle im Vertrag. Von den CHECK-Constraints der DB bilden die Fakes nur
+„mindert Einnahmen nur bei Ausgabe-Kategorien“ nach (einfacher `Error`); die
+übrigen (Beträge, Datum, Enum-Werte) prüfen die Services.
 
 **Joins:** kein `select().from(a).innerJoin(b)` – Spalten gleichen Namens
 (`id`, `type`, …) fielen im Plugin zu einem Wert zusammen. Stattdessen ein
