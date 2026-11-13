@@ -5,6 +5,7 @@
     "pnpm-lock.yaml",
     "src/routeTree.gen.ts",
     "src/paraglide/**",
+    "src/persistence/migrations/**",
     "project.inlang/cache/**",
     "dist/**",
     ".tanstack/**",
