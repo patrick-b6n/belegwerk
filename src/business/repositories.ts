@@ -53,6 +53,8 @@ export interface BookingRepository {
    * decide about changing the year's tax status (#16).
    */
   countVatRateUsage(year: number): Promise<VatRateUsage>;
+  /** Distinct years of the booking dates, ascending (tax year list, #16/#20). */
+  listYears(): Promise<number[]>;
   // Search, filter, sort, pagination and sums follow with #21 as a separate
   // method taking a query object (`search(query)`).
 }

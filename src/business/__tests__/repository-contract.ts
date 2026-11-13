@@ -276,6 +276,17 @@ export function describeRepositoryContract(
         });
       });
 
+      it("lists the distinct years of the booking dates in ascending order", async () => {
+        expect(await repos.bookings.listYears()).toEqual([]);
+        await insertBooking({ date: "2025-12-31" });
+        await insertBooking({ date: "1000-01-01" });
+        await insertBooking({ date: "2025-01-01" });
+        await insertBooking({ date: "9999-12-31" });
+        await insertBooking({ date: "2024-06-15" });
+
+        expect(await repos.bookings.listYears()).toEqual([1000, 2024, 2025, 9999]);
+      });
+
       it("counts bookings of the year 9999", async () => {
         await insertBooking({ date: "9998-12-31" });
         await insertBooking({ date: "9999-01-01" });
