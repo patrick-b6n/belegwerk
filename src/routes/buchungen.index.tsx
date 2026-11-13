@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, RotateCcw } from "lucide-react";
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
-import { type BookingQuery, normalizeBookingQuery } from "@/business/bookings";
+import { type BookingQuery, type BookingSort, normalizeBookingQuery } from "@/business/bookings";
 import { m } from "@/paraglide/messages.js";
 import { Button, buttonVariants } from "@/ui/components/ui/button";
 import {
@@ -12,13 +12,19 @@ import {
 } from "@/ui/bookings/booking-filter-bar";
 import {
   type BookingSearch,
+  bookingSearchSort,
+  bookingSearchToListQuery,
   bookingSearchToQuery,
   cleanBookingSearch,
   countActiveFilters,
+  pageSearchParam,
+  pageSizeSearchParam,
   resetBookingFilters,
+  sortSearchParam,
   updateBookingSearch,
   validateBookingSearch,
 } from "@/ui/bookings/booking-filter-model";
+import { BookingPagination } from "@/ui/bookings/booking-pagination";
 import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingTable } from "@/ui/bookings/booking-table";
 import { useCategoryList } from "@/ui/categories/category-queries";
@@ -26,12 +32,11 @@ import { Page, PagePlaceholder } from "@/ui/layout/page";
 import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
 /**
- * The booking list (#17) with search and filters (#22). The filters are
- * validated search params of this route (`validateBookingSearch`, schema in
+ * The booking list (#17) with search and filters (#22), sorting, pages and
+ * sums (#23). Filters, sort order, page and page size are validated search
+ * params of this route (`validateBookingSearch`, schema in
  * `booking-filter-model.ts`) and go into the list query
- * (`BookingService.list(query)`, #21). Until pagination and sorting arrive
- * (#23, further params of the same schema), the list shows every matching
- * booking in the default order (newest first).
+ * (`BookingService.list(query)`, #21): sorting and paging happen in SQL.
  */
 export const Route = createFileRoute("/buchungen/")({
   validateSearch: validateBookingSearch,
@@ -48,6 +53,8 @@ function BookingsPage() {
   const [resetCount, setResetCount] = useState(0);
 
   const filterQuery = useMemo(() => bookingSearchToQuery(search), [search]);
+  const listQuery = useMemo(() => bookingSearchToListQuery(search), [search]);
+  // Sort order and page come from validated params; only filters can be invalid.
   const normalized = normalizeBookingQuery(filterQuery);
   const errors = normalized.ok ? [] : normalized.errors;
   const filtered = countActiveFilters(search) > 0;
@@ -55,7 +62,8 @@ function BookingsPage() {
   // Patches apply to the current search (`prev`), not to the one of the last
   // render: two changes in a row (e.g. a debounced commit right after a
   // select) must not undo each other. An unchanged search keeps the URL; the
-  // router then adds no history entry.
+  // router then adds no history entry. A change of filters, sort order or
+  // page size goes back to page 1 (`updateBookingSearch`).
   const changeSearch = useCallback(
     (patch: BookingSearchPatch, options?: SearchChangeOptions) => {
       void navigate({
@@ -100,9 +108,11 @@ function BookingsPage() {
         onReset={reset}
       />
       <BookingList
-        query={{ ...filterQuery, pageSize: "all" }}
+        query={listQuery}
+        sort={bookingSearchSort(search)}
         invalid={!normalized.ok}
         filtered={filtered}
+        onSearchChange={changeSearch}
         onReset={reset}
       />
     </Page>
@@ -116,14 +126,38 @@ function sameSearch(a: BookingSearch, b: BookingSearch): boolean {
 
 function BookingList({
   query,
+  sort,
   invalid,
   filtered,
+  onSearchChange,
   onReset,
-}: Readonly<{ query: BookingQuery; invalid: boolean; filtered: boolean; onReset: () => void }>) {
+}: Readonly<{
+  query: BookingQuery;
+  sort: BookingSort;
+  invalid: boolean;
+  filtered: boolean;
+  onSearchChange: (patch: BookingSearchPatch, options?: SearchChangeOptions) => void;
+  onReset: () => void;
+}>) {
+  const paginationId = useId();
   // An invalid query is not run (the filter bar shows the errors).
-  const { data, error, isPending, isPlaceholderData, refetch } = useBookingList(query, {
+  const { data, error, isPending, isPlaceholderData, isFetching, refetch } = useBookingList(query, {
     enabled: !invalid,
   });
+
+  // A page after the last (old link, last booking of the page deleted) shows
+  // the last page (#21); the URL follows, replacing its entry so "back" does
+  // not return to the empty page. Only for a fresh result of this query: not
+  // a placeholder of the previous one, and not a cached one being refetched
+  // (it may be clamped by data that changed since). The next result has the
+  // requested page, so this runs once.
+  const requestedPage = query.page ?? 1;
+  const shownPage = data?.ok && !isPlaceholderData && !isFetching ? data.page : undefined;
+  useEffect(() => {
+    if (shownPage !== undefined && shownPage !== requestedPage) {
+      onSearchChange({ seite: pageSearchParam(shownPage) }, { replace: true });
+    }
+  }, [shownPage, requestedPage, onSearchChange]);
 
   if (invalid) {
     // The filter bar shows the errors at the controls.
@@ -169,7 +203,24 @@ function BookingList({
           </Button>
         </div>
       ) : (
-        <BookingTable bookings={data.items} />
+        <>
+          <BookingTable
+            bookings={data.items}
+            sort={sort}
+            onSortChange={(next) => onSearchChange({ sortierung: sortSearchParam(next) })}
+            sums={data.sums}
+            filtered={filtered}
+          />
+          <BookingPagination
+            id={paginationId}
+            page={data.page}
+            pageCount={data.pageCount}
+            pageSize={data.pageSize === "all" ? data.total : data.pageSize}
+            total={data.total}
+            onPageChange={(page) => onSearchChange({ seite: pageSearchParam(page) })}
+            onPageSizeChange={(size) => onSearchChange({ proSeite: pageSizeSearchParam(size) })}
+          />
+        </>
       )}
     </div>
   );

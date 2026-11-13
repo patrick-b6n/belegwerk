@@ -519,12 +519,11 @@ Buchung kurz als „nicht gefunden“.
 
 - `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit
   `useBookingList(query)` und zeigt Lade-, Fehler- (mit „Erneut versuchen“)
-  und Leerzustand. Bis Pagination und Sortierung kommen (#23), fragt sie
-  die Filter (#22) mit `pageSize: "all"` ab (alle passenden Buchungen,
-  neueste zuerst).
+  und Leerzustand. Filter (#22), Sortierung, Seite und Seitengröße (#23)
+  kommen aus den URL-Parametern.
 - `src/ui/bookings/booking-table.tsx` rendert die Zeilen mit TanStack Table
   (v9: `useTable`, `tableFeatures`, `columnMeta` für Spaltenklassen), ohne
-  eigene Sortierung/Pagination – das macht später die Suche per SQL (#21, #23).
+  eigene Sortierung/Pagination – das macht die Suche per SQL (#21, #23).
 - **Art** als Text mit Pfeil-Icon und Farbe, Brutto in der Farbe der Art (nie
   nur Farbe). Beträge rechtsbündig mit `tabular-nums` und `formatCurrency`,
   Datum mit `formatDate`. Archivierte Kategorien sind markiert. Lange Texte
@@ -556,6 +555,9 @@ optional; Standardwerte stehen nie in der URL):
 | `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)  | `categoryIds`            |
 | `quelle`                 | `manuell` oder `stripe`               | `source`                 |
 | `betragVon`, `betragBis` | Brutto in **Cent**                    | `amountFrom`, `amountTo` |
+| `sortierung`             | `<spalte>-<auf\|ab>` (#23)            | `sort`                   |
+| `seite`                  | Seite ab 2 (#23)                      | `page`                   |
+| `proSeite`               | 25, 100 oder 200 (#23)                | `pageSize`               |
 
 - **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
   nötig). Strings, die wie JSON aussehen, werden gequotet (`?q=2025` wird
@@ -606,10 +608,48 @@ optional; Standardwerte stehen nie in der URL):
 - **Zurücksetzen** leert alle Filter (deaktiviert, wenn keiner aktiv ist;
   daneben „N Filter aktiv“), baut die Filterleiste neu auf und setzt den
   Fokus ins Suchfeld.
-- **#23** ergänzt Sortierung, Seite und Seitengröße als weitere optionale
-  Parameter desselben Schemas; Filteränderungen setzen dann die Seite
-  zurück (`updateBookingSearch`/`resetBookingFilters`). Der CSV-Export
-  (#24) nutzt dasselbe `bookingSearchToQuery` mit `pageSize: "all"`.
+- **Zurücksetzen** behält Sortierung und Seitengröße (#23), die Seite geht
+  auf 1.
+
+### Sortierung, Seiten und Summen (#23)
+
+- **`sortierung`:** Spalte und Richtung in einem Parameter, damit eine URL
+  nur eine Bedeutung hat: `datum`, `art`, `beschreibung`, `gegenpartei`,
+  `kategorie`, `netto`, `ust`, `brutto`, `quelle` (je ein
+  `BOOKING_SORT_FIELDS`), dazu `-auf` (aufsteigend) oder `-ab`
+  (absteigend), z. B. `?sortierung=brutto-auf`. Standard `datum-ab` steht
+  nicht in der URL. Abbildung in `booking-filter-model.ts` (`sortParam`,
+  `parseSortParam`, `sortSearchParam`, `bookingSearchSort`).
+- **`seite`** ab 1 (Seite 1 nicht in der URL), **`proSeite`** aus
+  `BOOKING_PAGE_SIZES` (25/50/100/200; 50 nicht in der URL). Andere Werte
+  werden wie bei den Filtern verworfen. `bookingSearchToListQuery` baut
+  daraus das Query der Liste.
+- **Seite zurück auf 1:** `updateBookingSearch` entfernt `seite`, sobald
+  sich etwas anderes ändert – Filter, Sortierung oder Seitengröße –, außer
+  der Patch setzt `seite` selbst. Seiten- und Sortierwechsel erzeugen je
+  einen Historieneintrag.
+- **Seite hinter der letzten** (alter Link, letzte Buchung einer Seite
+  gelöscht): Die Suche liefert die letzte Seite (#21); die Liste gleicht
+  `seite` an die gelieferte an, per `replace` (Zurück führt nicht auf die
+  leere Seite). Nur für ein frisches Ergebnis (nie Platzhalterdaten, nie ein gecachtes, das gerade neu lädt) – das
+  nächste Ergebnis hat die angefragte Seite, es gibt keine Schleife.
+- **Spaltenköpfe** sind Buttons (Tab, Enter/Leertaste): die sortierte
+  Spalte wechselt die Richtung, eine andere beginnt mit ihrer
+  Startrichtung (`initialSortDirection`: Datum und Beträge absteigend,
+  Texte, Art und Quelle aufsteigend). Die sortierte Spalte hat `aria-sort`
+  und einen Pfeil, der Tooltip nennt die Aktion („Nach Brutto aufsteigend
+  sortieren“), die Caption die aktuelle Sortierung. Keine TanStack-Sortierung:
+  die Zeilen kommen sortiert aus SQL.
+- **Pagination** (`booking-pagination.tsx`, `<nav>`) unter der Tabelle:
+  „51–100 von 120“, „Pro Seite“, Erste/Vorherige/Nächste/Letzte (Icons mit
+  `aria-label`, deaktiviert am Rand, aber fokussierbar – der Fokus bleibt nach „Letzte Seite“ stehen), „Seite X von Y“ (`aria-live`).
+- **Summenzeilen** im `tfoot`: Einnahmen, Ausgaben, Saldo (brutto) des
+  **gesamten** gefilterten Bestands (`sums`), unter der Brutto-Spalte; der
+  Text daneben sagt „nicht nur dieser Seite“. Der Saldo hat Vorzeichen und
+  Wort („Überschuss“/„Fehlbetrag“), nicht nur Farbe.
+- **CSV-Export (#24):** `bookingSearchToQuery(search)` plus
+  `sort: bookingSearchSort(search)` und `pageSize: "all"` – derselbe Filter
+  und dieselbe Sortierung wie die Liste, alle Seiten.
 
 ### Buchungsformular (#18)
 

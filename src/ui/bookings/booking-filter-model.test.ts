@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeBookingQuery } from "@/business/bookings";
+import { BOOKING_SORT_FIELDS, normalizeBookingQuery } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
 import { MAX_AMOUNT_CENTS } from "@/business/money";
 
 import {
+  BOOKING_PAGE_SIZES,
   type BookingSearch,
+  bookingSearchPage,
+  bookingSearchPageSize,
+  bookingSearchSort,
+  bookingSearchToListQuery,
   bookingSearchToQuery,
+  initialSortDirection,
+  nextBookingSort,
+  pageRange,
+  pageSearchParam,
+  pageSizeSearchParam,
+  parseSortParam,
+  sortParam,
+  sortSearchParam,
   categoriesAfterTypeChange,
   categoryFilterGroups,
   cleanBookingSearch,
@@ -90,7 +103,7 @@ describe("validateBookingSearch", () => {
   });
 
   it("drops unknown params", () => {
-    expect(validateBookingSearch({ foo: "bar", seite: 2 })).toEqual({});
+    expect(validateBookingSearch({ foo: "bar", page: 2 })).toEqual({});
   });
 
   it("reads a numeric search text as text", () => {
@@ -597,5 +610,162 @@ describe("categoriesAfterTypeChange", () => {
     expect(categoriesAfterTypeChange([1, 2], categories, undefined)).toEqual([1, 2]);
     expect(categoriesAfterTypeChange([99, 2], categories, "expense")).toEqual([99, 2]);
     expect(categoriesAfterTypeChange(undefined, categories, "income")).toBeUndefined();
+  });
+});
+
+describe("sort, page and page size params (#23)", () => {
+  it("maps every sort field and direction to a param and back", () => {
+    for (const field of BOOKING_SORT_FIELDS) {
+      for (const direction of ["asc", "desc"] as const) {
+        const param = sortParam({ field, direction });
+        expect(param).toMatch(/^[a-z]+-(auf|ab)$/);
+        expect(parseSortParam(param)).toEqual({ field, direction });
+      }
+    }
+    expect(sortParam({ field: "grossCents", direction: "asc" })).toBe("brutto-auf");
+    expect(sortParam({ field: "date", direction: "desc" })).toBe("datum-ab");
+  });
+
+  it("rejects unknown sort params", () => {
+    for (const value of [
+      "",
+      "brutto",
+      "-auf",
+      "brutto-",
+      "brutto-hoch",
+      "grossCents-asc",
+      5,
+      null,
+    ]) {
+      expect(parseSortParam(value)).toBeUndefined();
+    }
+  });
+
+  it("validates the params, dropping defaults and unreadable values", () => {
+    expect(validateBookingSearch({ sortierung: "brutto-auf", seite: 3, proSeite: 100 })).toEqual({
+      sortierung: "brutto-auf",
+      seite: 3,
+      proSeite: 100,
+    });
+    expect(validateBookingSearch({ seite: "4", proSeite: "25" })).toEqual({
+      seite: 4,
+      proSeite: 25,
+    });
+    const dropped = validateBookingSearch({ sortierung: "datum-ab", seite: 1, proSeite: 50 });
+    expect(cleanBookingSearch(dropped)).toEqual({});
+    for (const raw of [
+      { sortierung: "foo-auf" },
+      { seite: 0 },
+      { seite: -2 },
+      { seite: 2.5 },
+      { seite: "x" },
+      { proSeite: 30 },
+      { proSeite: 1000 },
+      { proSeite: "all" },
+    ]) {
+      expect(cleanBookingSearch(validateBookingSearch(raw))).toEqual({});
+    }
+    // Every key is present (root-search merge, see validateBookingSearch).
+    const result = validateBookingSearch({ seite: "x" });
+    expect(Object.hasOwn(result, "seite")).toBe(true);
+    expect(result.seite).toBeUndefined();
+  });
+
+  it("starts a new column in its initial direction and flips the sorted one", () => {
+    const byDate = { field: "date", direction: "desc" } as const;
+    expect(nextBookingSort(byDate, "date")).toEqual({ field: "date", direction: "asc" });
+    expect(nextBookingSort(byDate, "grossCents")).toEqual({
+      field: "grossCents",
+      direction: "desc",
+    });
+    expect(nextBookingSort(byDate, "description")).toEqual({
+      field: "description",
+      direction: "asc",
+    });
+    expect(nextBookingSort({ field: "source", direction: "asc" }, "source")).toEqual({
+      field: "source",
+      direction: "desc",
+    });
+    expect(initialSortDirection("netCents")).toBe("desc");
+    expect(initialSortDirection("type")).toBe("asc");
+  });
+
+  it("writes params only for non-default values", () => {
+    expect(sortSearchParam({ field: "date", direction: "desc" })).toBeUndefined();
+    expect(sortSearchParam({ field: "date", direction: "asc" })).toBe("datum-auf");
+    expect(pageSearchParam(1)).toBeUndefined();
+    expect(pageSearchParam(2)).toBe(2);
+    expect(pageSizeSearchParam(50)).toBeUndefined();
+    expect(pageSizeSearchParam(200)).toBe(200);
+  });
+
+  it("builds the list query with defaults", () => {
+    expect(bookingSearchToListQuery({})).toEqual({
+      sort: { field: "date", direction: "desc" },
+      page: 1,
+      pageSize: 50,
+    });
+    expect(
+      bookingSearchToListQuery({
+        art: "ausgaben",
+        sortierung: "kategorie-auf",
+        seite: 2,
+        proSeite: 25,
+      }),
+    ).toEqual({
+      type: "expense",
+      sort: { field: "category", direction: "asc" },
+      page: 2,
+      pageSize: 25,
+    });
+    expect(bookingSearchSort({})).toEqual({ field: "date", direction: "desc" });
+    expect(bookingSearchPage({ seite: 7 })).toBe(7);
+    expect(bookingSearchPageSize({ proSeite: 100 })).toBe(100);
+    for (const size of BOOKING_PAGE_SIZES) {
+      expect(normalizeBookingQuery({ pageSize: size }).ok).toBe(true);
+    }
+  });
+
+  it("goes back to page 1 when filters, sort order or page size change", () => {
+    const search: BookingSearch = { q: "a", sortierung: "brutto-auf", seite: 3 };
+    expect(updateBookingSearch(search, { art: "ausgaben" })).toEqual({
+      q: "a",
+      art: "ausgaben",
+      sortierung: "brutto-auf",
+    });
+    expect(updateBookingSearch(search, { sortierung: "netto-ab" })).toEqual({
+      q: "a",
+      sortierung: "netto-ab",
+    });
+    expect(updateBookingSearch(search, { proSeite: 100 })).toEqual({
+      q: "a",
+      sortierung: "brutto-auf",
+      proSeite: 100,
+    });
+    // Page changes and patches that change nothing keep the page.
+    expect(updateBookingSearch(search, { seite: 4 })).toEqual({ ...search, seite: 4 });
+    expect(updateBookingSearch(search, { q: "a" })).toEqual(search);
+    expect(updateBookingSearch(search, { seite: undefined })).toEqual({
+      q: "a",
+      sortierung: "brutto-auf",
+    });
+  });
+
+  it("keeps sort order and page size when resetting the filters", () => {
+    expect(
+      resetBookingFilters({
+        q: "a",
+        art: "ausgaben",
+        sortierung: "art-auf",
+        seite: 4,
+        proSeite: 25,
+      }),
+    ).toEqual({ sortierung: "art-auf", proSeite: 25 });
+  });
+
+  it("gives the shown rows of a page", () => {
+    expect(pageRange(1, 50, 120)).toEqual({ from: 1, to: 50 });
+    expect(pageRange(3, 50, 120)).toEqual({ from: 101, to: 120 });
+    expect(pageRange(1, 50, 0)).toEqual({ from: 0, to: 0 });
   });
 });
