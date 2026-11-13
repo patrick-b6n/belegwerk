@@ -383,8 +383,8 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `categories`, `taxYears`), keine Repositories und keine Unit of Work:
-UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
+nur Services (`bookings`, `categories`, `taxYears`), keine Repositories und
+keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
 

@@ -134,7 +134,7 @@ export interface TaxYearServiceDependencies {
 export function createTaxYearService({ unitOfWork }: TaxYearServiceDependencies): TaxYearService {
   return {
     get: async (year) => {
-      if (!isTaxYear(year)) return INVALID_YEAR;
+      if (!isTaxYear(year)) return invalidYear();
       return unitOfWork.run(async (repos) => ({ ok: true, taxYear: await status(repos, year) }));
     },
 
@@ -152,7 +152,7 @@ export function createTaxYearService({ unitOfWork }: TaxYearServiceDependencies)
       }),
 
     addYear: async (year) => {
-      if (!isTaxYear(year)) return INVALID_YEAR;
+      if (!isTaxYear(year)) return invalidYear();
       return unitOfWork.run(async (repos) => {
         if (await repos.taxYears.find(year)) {
           return invalid([{ field: "year", code: "yearExists" }]);
@@ -204,4 +204,7 @@ function invalid(errors: readonly TaxYearFieldError[]): TaxYearInvalid {
   return { ok: false, reason: "invalid", errors };
 }
 
-const INVALID_YEAR: TaxYearInvalid = invalid([{ field: "year", code: "invalidYear" }]);
+/** A fresh result per call, so callers cannot share (and mutate) one object. */
+function invalidYear(): TaxYearInvalid {
+  return invalid([{ field: "year", code: "invalidYear" }]);
+}
