@@ -520,8 +520,8 @@ Buchung kurz als „nicht gefunden“.
 - `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit
   `useBookingList(query)` und zeigt Lade-, Fehler- (mit „Erneut versuchen“)
   und Leerzustand. Bis Pagination und Sortierung kommen (#23), fragt sie
-  `{ pageSize: "all" }` ab (alle Buchungen, neueste zuerst).
-  Search-Params (#22/#23) kommen als `validateSearch` an diese Route.
+  die Filter (#22) mit `pageSize: "all"` ab (alle passenden Buchungen,
+  neueste zuerst).
 - `src/ui/bookings/booking-table.tsx` rendert die Zeilen mit TanStack Table
   (v9: `useTable`, `tableFeatures`, `columnMeta` für Spaltenklassen), ohne
   eigene Sortierung/Pagination – das macht später die Suche per SQL (#21, #23).
@@ -537,6 +537,79 @@ Buchung kurz als „nicht gefunden“.
   „nicht gefunden“ ohne Abfrage) und zeigt eine unbekannte Buchung auf der
   Seite an, ohne `notFound()` – den 404-Titel erkennt die Root-Route an
   `_notFound`, das gilt nur für unbekannte Pfade.
+
+### Filter und Suche (#22)
+
+Suchfeld und Filterleiste (`src/ui/bookings/booking-filter-bar.tsx`) über der
+Liste. Die reine Logik – URL-Schema, Abbildung auf `BookingQuery`,
+Schnellwahl-Zeiträume, Kategorie-Optionen – liegt getestet in
+`booking-filter-model.ts`.
+
+**URL-Schema** (`validateSearch: validateBookingSearch`, alle Parameter
+optional; Standardwerte stehen nie in der URL):
+
+| Parameter                | Wert                                  | `BookingQuery`           |
+| ------------------------ | ------------------------------------- | ------------------------ |
+| `q`                      | Suchtext (getrimmt)                   | `text`                   |
+| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive | `dateFrom`, `dateTo`     |
+| `art`                    | `einnahmen` oder `ausgaben`           | `type`                   |
+| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)  | `categoryIds`            |
+| `quelle`                 | `manuell` oder `stripe`               | `source`                 |
+| `betragVon`, `betragBis` | Brutto in **Cent**                    | `amountFrom`, `amountTo` |
+
+- **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
+  nötig). Strings, die wie JSON aussehen, werden gequotet (`?q=2025` wird
+  zu `?q="2025"`); Arrays erscheinen als `kategorie=[1,7]`. Beträge als
+  Cent und Daten als ISO halten die URL unabhängig vom Anzeigeformat.
+- **Ungültige Parameter** führen nie zu einem Fehler: Unlesbares
+  (unbekannte Art/Quelle, unmögliches Datum, kein Cent-Betrag 0 bis
+  `MAX_AMOUNT_CENTS`, keine
+  ID) wird verworfen, der Router schreibt die URL bereinigt zurück.
+  Lesbare, aber widersprüchliche Werte (`bis` vor `von`, `betragBis` <
+  `betragVon`, Steuerzeichen oder zu langer Suchtext) bleiben stehen;
+  `normalizeBookingQuery` meldet sie, die Filterleiste zeigt den Fehler am
+  Feld, die Liste einen Hinweis statt Ergebnissen (keine Abfrage).
+- **Vorsicht Router:** Die Suche einer Route wird über die der Elternroute
+  gelegt, und die Root-Route behält die Roh-Parameter. `validateBookingSearch`
+  liefert deshalb jeden Schlüssel des Schemas, verworfene als `undefined` –
+  sonst schiene z. B. `art=foo` durch. Unbekannte Parameter scheinen durch,
+  werden ignoriert und bei der nächsten Filteränderung entfernt.
+- **Zeitraum:** Gespeichert werden nur `von`/`bis`; die Schnellwahl (Jahr,
+  Quartal, Monat) wird daraus abgeleitet (`detectPeriod`), wenn sie genau
+  passt – eine URL hat so genau eine Bedeutung, ein zusätzlicher
+  `zeitraum`-Parameter könnte den Daten widersprechen. „Frei“ (zwei
+  Datumsfelder) bleibt gewählt, solange es benutzt wird, auch wenn die Daten
+  zufällig einen ganzen Monat ergeben – bis eine andere Schnellwahl gewählt,
+  zurückgesetzt oder der Zeitraum von außen geändert wird (Zurück/Vor). Jahre zur Auswahl: Steuerjahre und
+  Jahre mit Buchungen (`useTaxYearList`), das aktuelle und das gewählte.
+- **Historie:** Auswahlen (Zeitraum, Art, Kategorien, Quelle, Zurücksetzen)
+  erzeugen einen Eintrag, Zurück/Vor stellt sie wieder her. Getippte Werte
+  (Suchtext 300 ms, Beträge/freie Daten 500 ms entprellt; Enter/Verlassen
+  sofort) erzeugen beim Setzen oder Leeren einen Eintrag und ersetzen ihn
+  beim Weitertippen – so landet nicht jeder Tastendruck in der Historie.
+  Ändert sich die URL von außen (Zurück, Zurücksetzen), übernehmen die
+  Felder den Wert und verwerfen ausstehende Eingaben (`useDebouncedInput`).
+- **Art und Kategorien:** Die Mehrfachauswahl (Base UI `Select multiple`)
+  gruppiert nach Art, archivierte markiert; mit Art-Filter nur deren
+  Kategorien. Gewählte Kategorien der anderen Art und IDs ohne Kategorie
+  (aus einer URL) stehen markiert in der Liste, damit sie sich abwählen
+  lassen.
+  Ein Art-Wechsel entfernt Kategorien der anderen Art.
+- **Beträge** mit Dezimalkomma (`parseAmount`); unlesbare Eingaben zeigen
+  einen Fehler und ändern die URL nicht.
+- **Ergebnis:** „N Buchungen gefunden“ (`role="status"`); mit Filtern ohne
+  Treffer „Keine Buchungen passen zu den Filtern“ samt „Filter
+  zurücksetzen“, ohne Filter weiterhin „Noch keine Buchungen“. Während eine
+  neue Suche lädt, bleibt das alte Ergebnis gedimmt stehen (nur ein
+  erfolgreiches, `placeholderData`); ein ungültiger Filter fragt nicht ab
+  (`enabled: false`).
+- **Zurücksetzen** leert alle Filter (deaktiviert, wenn keiner aktiv ist;
+  daneben „N Filter aktiv“), baut die Filterleiste neu auf und setzt den
+  Fokus ins Suchfeld.
+- **#23** ergänzt Sortierung, Seite und Seitengröße als weitere optionale
+  Parameter desselben Schemas; Filteränderungen setzen dann die Seite
+  zurück (`updateBookingSearch`/`resetBookingFilters`). Der CSV-Export
+  (#24) nutzt dasselbe `bookingSearchToQuery` mit `pageSize: "all"`.
 
 ### Buchungsformular (#18)
 
