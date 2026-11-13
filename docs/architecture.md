@@ -193,6 +193,45 @@ Gleitkommazahlen).
   `"vatRateRequired"`. Bei `ok: true` passen `netCents`, `vatCents`, `vatRate`
   direkt in `BookingInput`.
 
+## Buchungs-Service (#14)
+
+`src/business/bookings` – `createBookingService({ unitOfWork })` mit
+`get(id)`, `create(input)`, `update(id, input)`, `delete(id)`. Eingabe ist
+`BookingFormInput` (was das Formular abschickt): Datum, Art, Brutto in Cent,
+USt-Satz, Kategorie, Beschreibung, Gegenpartei, optional Referenz, Notiz,
+Quelle, externe ID. Netto/USt nimmt der Service nie entgegen, er berechnet sie
+(`calculateBookingAmounts`).
+
+- **Eine Unit of Work pro Operation:** Kategorie, Steuerjahr und externe IDs
+  werden in derselben Transaktion gelesen, in der geschrieben wird; eine
+  fehlgeschlagene Validierung schreibt nichts.
+- **Ergebnisobjekte statt Exceptions:** `{ ok: true, booking }`,
+  `{ ok: false, reason: "invalid", errors }` oder
+  `{ ok: false, reason: "notFound" }` (`get`, `update`, `delete`). `errors`
+  enthält **alle** Feldfehler (höchstens einer pro Feld, in Formularreihenfolge)
+  als `{ field, code }` – das Formular (#18) zeigt sie am Feld und übersetzt
+  die Codes (`BookingFieldErrorCodes`). Programmierfehler werfen.
+- **Regeln:** Datum existierendes `YYYY-MM-DD` mit Jahr 1000–9999
+  (`parseIsoDate`, wie der DB-CHECK); Brutto sichere Ganzzahl > 0; USt-Satz
+  bekannt und passend zum Steuerstatus des Jahres aus dem Datum (ohne
+  Datensatz regelbesteuert); Kategorie existiert und passt zur Art.
+  **Archivierte Kategorien:** nicht für neue Buchungen und nicht als neue
+  Kategorie beim Bearbeiten; eine Buchung darf ihre inzwischen archivierte
+  Kategorie aber behalten (sonst ließe sie sich nach dem Archivieren nicht
+  mehr bearbeiten).
+- **Texte** werden getrimmt (Innenleerraum und Zeilenumbrüche bleiben); leere
+  optionale Texte werden `null`. Höchstlängen nach dem Trimmen
+  (`BOOKING_TEXT_MAX_LENGTH`): Beschreibung 500, Gegenpartei 200, Referenz
+  200, Notiz 2000, externe ID 255 Zeichen.
+- **Weggelassene optionale Felder** (`undefined`): `create` setzt die Defaults
+  (`null`, Quelle `"manual"`), `update` behält den aktuellen Wert – eine
+  Stripe-Buchung bleibt also eine, auch wenn das Formular Quelle und externe
+  ID nicht zeigt. `null` bzw. ein leerer String leert das Feld.
+- **Quelle und externe ID** sind rein informativ. Nur der Unique-Index auf
+  `(source, external_id)` wird vorab geprüft (`externalIdDuplicate`); ein
+  `ConstraintViolationError` beim Schreiben (Wettlauf) wird ebenfalls auf
+  einen Feldfehler abgebildet.
+
 ## EÜR-Positionen (#13)
 
 `src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
@@ -233,10 +272,10 @@ ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 `src/routes/__root.tsx` umschließt die Shell mit `AppServicesProvider`
 (`src/app/app-services.tsx`). Dieser ruft in einem Effekt einmalig
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
-Migrationen anwenden ([Datenmodell](data-model.md)), Repositories und Services
-erzeugen (`createAppServices`, `src/app/services.ts`). Bis es Services gibt
-(#14 ff.), stellt `AppServices` `repositories` und `unitOfWork` als
-Business-Interfaces bereit. Bis dahin zeigt er einen
+Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
+erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
+nur Services (derzeit `bookings`), keine Repositories und keine Unit of Work:
+UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
 
