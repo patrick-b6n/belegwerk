@@ -2,7 +2,11 @@ import { cn } from "cn";
 import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
-import type { CategoryWithUsage } from "@/business/categories";
+import type {
+  CategoryWithUsage,
+  DeleteCategoryResult,
+  SetCategoryArchivedResult,
+} from "@/business/categories";
 import type { BookingType } from "@/business/model";
 import { m } from "@/paraglide/messages.js";
 import {
@@ -200,13 +204,7 @@ function CategoryRow({
           type: "success",
         });
       } else {
-        toast.add({
-          title:
-            result.reason === "notFound"
-              ? m.category_not_found_toast()
-              : m.category_system_not_archivable(),
-          type: "error",
-        });
+        toast.add({ title: archiveFailureMessage(result), type: "error" });
       }
     } catch (error) {
       console.error("Archiving the category failed", error);
@@ -215,6 +213,7 @@ function CategoryRow({
   };
 
   const deletable = canDelete(category);
+  const deleteHintId = useId();
   const deleteHint = category.isSystem
     ? m.category_delete_system_hint()
     : m.category_delete_in_use_hint({ count: String(category.bookingCount) });
@@ -281,23 +280,55 @@ function CategoryRow({
           )}
           {/* System categories: keeps the other buttons in their columns. */}
           {category.isSystem && !category.archived && <span aria-hidden className="size-7" />}
-          {/* The wrapper carries the hint: a disabled button gets no pointer events. */}
-          <span title={deletable ? m.category_delete() : deleteHint}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled={!deletable}
-              aria-label={m.category_delete_label({ name: category.name })}
-              className="text-destructive hover:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 aria-hidden />
-            </Button>
-          </span>
+          {/*
+            Not deletable: focusable when disabled (`aria-disabled`, clicks are
+            ignored), so keyboard and screen reader users get the reason via
+            `aria-describedby`; mouse users via the `title`.
+          */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={!deletable}
+            focusableWhenDisabled
+            aria-label={m.category_delete_label({ name: category.name })}
+            aria-describedby={deletable ? undefined : deleteHintId}
+            title={deletable ? m.category_delete() : deleteHint}
+            className="text-destructive hover:text-destructive data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-transparent"
+            onClick={onDelete}
+          >
+            <Trash2 aria-hidden />
+          </Button>
+          {!deletable && (
+            <span id={deleteHintId} className="sr-only">
+              {deleteHint}
+            </span>
+          )}
         </span>
       </TableCell>
     </TableRow>
   );
+}
+
+/** Message of a failed archive/reactivate (`SetCategoryArchivedResult`). */
+function archiveFailureMessage(failure: Exclude<SetCategoryArchivedResult, { ok: true }>): string {
+  switch (failure.reason) {
+    case "notFound":
+      return m.category_not_found_toast();
+    case "systemCategory":
+      return m.category_system_not_archivable();
+  }
+}
+
+/** Message of a failed delete (`DeleteCategoryResult`); `inUse` suggests archiving. */
+function deleteFailureMessage(failure: Exclude<DeleteCategoryResult, { ok: true }>): string {
+  switch (failure.reason) {
+    case "inUse":
+      return m.category_delete_in_use({ count: String(failure.bookingCount) });
+    case "systemCategory":
+      return m.category_delete_system_hint();
+    case "notFound":
+      return m.category_not_found_toast();
+  }
 }
 
 function CategoryFormDialog({
@@ -359,15 +390,7 @@ function DeleteCategoryDialog({
       if (result.ok) {
         toast.add({ title: m.category_deleted_toast({ name: category.name }), type: "success" });
       } else {
-        toast.add({
-          title:
-            result.reason === "inUse"
-              ? m.category_delete_in_use({ count: String(result.bookingCount) })
-              : result.reason === "systemCategory"
-                ? m.category_delete_system_hint()
-                : m.category_not_found_toast(),
-          type: "error",
-        });
+        toast.add({ title: deleteFailureMessage(result), type: "error" });
       }
     } catch (error) {
       console.error("Deleting the category failed", error);

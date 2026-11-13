@@ -78,8 +78,13 @@ export function canArchive(category: CategoryWithUsage): boolean {
  *   reduces.
  *
  * `reducesIncome` is ignored for income categories (the form only shows the
- * flag for expenses). `keep` (e.g. a system category's fixed position) is
- * added in its place in the order if it is a known position but not valid.
+ * flag for expenses).
+ *
+ * `keep` is added in its place in the order even if it is not valid – only
+ * for a position the form cannot change (a system category's fixed position,
+ * shown in the disabled select). Never pass the current position of an
+ * editable category: after a type or flag change it may no longer be valid,
+ * and offering it would let the user pick a position the service rejects.
  */
 export function positionOptions(
   type: BookingType,

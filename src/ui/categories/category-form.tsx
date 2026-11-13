@@ -289,7 +289,13 @@ export function CategoryForm({
             validators={{ onDynamic: ({ value }) => message(checkPosition(value)) }}
           >
             {(field) => {
-              const options = positionOptions(type, reducesIncome, category?.euerPosition);
+              // Only a system category keeps its (fixed, disabled) position regardless of
+              // the rules; an editable category is offered only valid positions.
+              const options = positionOptions(
+                type,
+                reducesIncome,
+                system ? category?.euerPosition : undefined,
+              );
               const items = options.map((position) => ({
                 value: position,
                 label: positionDisplay(position, year).text,

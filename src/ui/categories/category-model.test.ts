@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { CATEGORY_NAME_MAX_LENGTH, type CategoryWithUsage } from "@/business/categories";
-import { EUER_POSITION_DEFINITIONS, validateCategoryPosition } from "@/business/euer";
+import {
+  EUER_POSITION_DEFINITIONS,
+  EUER_POSITIONS,
+  validateCategoryPosition,
+} from "@/business/euer";
 
 import {
   archivedCount,
@@ -118,13 +122,22 @@ describe("positionOptions", () => {
     for (const type of ["income", "expense"] as const) {
       for (const reducesIncome of [false, true]) {
         const flag = reducesIncome && type === "expense";
-        for (const position of positionOptions(type, reducesIncome)) {
-          expect(
-            validateCategoryPosition({ type, euerPosition: position, reducesIncome: flag }),
-          ).toEqual({ ok: true });
-        }
+        const accepted = EUER_POSITIONS.filter(
+          (position) =>
+            validateCategoryPosition({ type, euerPosition: position, reducesIncome: flag }).ok,
+        );
+        expect(accepted.length).toBeGreaterThan(0);
+        expect(positionOptions(type, reducesIncome)).toEqual(accepted);
       }
     }
+  });
+
+  it("does not re-offer an editable category's old position after the flag is set", () => {
+    // Editing an expense category on WERBUNG and ticking "mindert Einnahmen":
+    // without `keep` (only used for system categories) WERBUNG is gone.
+    const options = positionOptions("expense", true);
+    expect(options).not.toContain("WERBUNG");
+    expect(positionAfterChange("WERBUNG", "expense", true)).toBe("");
   });
 
   it("keeps a given position in its place even if it is not valid", () => {
