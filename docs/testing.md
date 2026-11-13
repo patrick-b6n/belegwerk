@@ -34,8 +34,10 @@ Einzelne Dateien oder Testnamen: `pnpm test src/business/format` bzw.
   (#11). Die Lint-Regeln von Business gelten auch für Tests – kein Drizzle,
   kein `better-sqlite3`, kein React/Tauri.
 - **Persistence** (`src/persistence`): Tests gegen **`better-sqlite3`** mit
-  demselben Drizzle-Schema und denselben Migrationen wie die App (#11), z. B.
-  mit einer In-Memory-Datenbank pro Test.
+  demselben Drizzle-Schema und denselben Migrationen wie die App (#11):
+  `createTestDb()` aus `src/persistence/__tests__/test-db.ts` liefert pro Test
+  eine frische In-Memory-Datenbank mit allen Migrationen
+  ([Datenmodell](data-model.md)).
 - **UI**: derzeit keine Tests. Bräuchten DOM-Tests später eine Umgebung wie
   `jsdom`, kann sie pro Datei per `// @vitest-environment jsdom` gesetzt
   werden.

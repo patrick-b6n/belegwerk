@@ -26,7 +26,9 @@ Routen beziehen Services über `src/app`, nie direkt aus `src/persistence`.
 | `src/app`         | Composition Root: erzeugt DB, Repositories und Services und stellt sie der UI bereit (#10).                                       |
 
 Generiert und von Lint/Format ausgenommen: `src/routeTree.gen.ts` (TanStack
-Router) und `src/paraglide/` (Paraglide, git-ignoriert).
+Router) und `src/paraglide/` (Paraglide, git-ignoriert). Ebenfalls generiert,
+aber eingecheckt und nur von oxfmt ausgenommen: `src/persistence/migrations/`
+(drizzle-kit, siehe [Datenmodell](data-model.md)).
 
 ## Import-Regeln
 
@@ -34,7 +36,7 @@ Router) und `src/paraglide/` (Paraglide, git-ignoriert).
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/ui`, `src/routes` | `src/persistence`                                                                                                                                                                                                                                                                   |
 | `src/business`         | `src/persistence`, `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, `src/paraglide`, React-Paketen (`react`, `react-dom`, `@tanstack/react-*`, `@base-ui/react`, …), `@tauri-apps/*`, `drizzle-orm`, `drizzle-kit`, `better-sqlite3`; außerdem kein JSX |
-| `src/persistence`      | `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, React-Paketen                                                                                                                                                                                          |
+| `src/persistence`      | `src/ui`, `src/routes`, `src/app`, `src/router.tsx`, `src/routeTree.gen.ts`, React-Paketen; außerhalb von Tests (`__tests__/`, `*.test.ts[x]`) zusätzlich `better-sqlite3`, `drizzle-kit`, `drizzle-orm/better-sqlite3` und `node:*` (läuft im WebView)                             |
 | `src/app`              | – (darf alles)                                                                                                                                                                                                                                                                      |
 
 Erfasst werden sowohl der Alias (`@/persistence/...`) als auch relative Pfade
@@ -152,6 +154,7 @@ CSP-Probleme zeigen sich nur im gebauten Programm
 | `pnpm format`       | oxfmt, formatiert alle Dateien   |
 | `pnpm format:check` | oxfmt im Prüfmodus (für CI, #7)  |
 | `pnpm typecheck`    | Paraglide kompilieren + `tsc -b` |
+| `pnpm db:generate`  | SQL-Migrationen aus dem Schema   |
 
 - **oxlint** ([`.oxlintrc.json`](../.oxlintrc.json)): Kategorien
   `correctness` und `suspicious` als Fehler, Plugins `typescript`, `unicorn`,
@@ -185,7 +188,7 @@ umzuschreiben.
   `__tests__/`), erbt von `tsconfig.app.json`, mit Node-Typen
   ([Tests](testing.md)).
 - `tsconfig.node.json` – Konfigurationsdateien (`vite.config.ts`,
-  `vitest.config.ts`), mit Node-Typen.
+  `vitest.config.ts`, `drizzle.config.ts`), mit Node-Typen.
 - `tsconfig.json` – nur Referenzen auf alle drei; `tsc -b` prüft alle.
 
 ## Tests

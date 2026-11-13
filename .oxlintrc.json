@@ -109,6 +109,42 @@
               {
                 "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
                 "message": "Persistence muss frei von React sein."
+              },
+              {
+                "regex": "^(better-sqlite3|drizzle-kit|drizzle-orm/better-sqlite3|node:)",
+                "message": "Persistence läuft im WebView: kein better-sqlite3, drizzle-kit oder node:* (nur in Tests, src/persistence/**/__tests__ und *.test.ts)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    // Persistence tests run in Node against better-sqlite3 (docs/testing.md).
+    // Must come after the persistence override (last one wins) and repeats its
+    // other restrictions. Scoped to src/persistence so business tests keep the
+    // business override.
+    {
+      "files": [
+        "src/persistence/**/__tests__/**",
+        "src/persistence/**/*.test.ts",
+        "src/persistence/**/*.test.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@/|(\\.\\./)+)(ui|routes|app)(/|$)",
+                "message": "Persistence darf nicht aus src/ui, src/routes oder src/app importieren."
+              },
+              {
+                "regex": "^(@/|(\\.\\./)+)(router|routeTree\\.gen)(\\.[cm]?[jt]sx?)?$",
+                "message": "Persistence darf nicht aus src/router.tsx oder src/routeTree.gen.ts importieren."
+              },
+              {
+                "regex": "^(@[^/]+/)?([^/]*-)?react(-[^/]*)?(/|$)",
+                "message": "Persistence muss frei von React sein."
               }
             ]
           }

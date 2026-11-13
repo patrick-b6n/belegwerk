@@ -62,6 +62,16 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Schema (src/persistence/schema.ts) und committete Migrationen müssen
+      # übereinstimmen: drizzle-kit darf keine neue Migration erzeugen.
+      - name: Migrationen aktuell
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          pnpm db:generate
+          git add -N src/persistence/migrations
+          git diff --exit-code -- src/persistence/migrations
+
       - name: Tauri build (ohne Bundle)
         run: pnpm tauri build --no-bundle
 
