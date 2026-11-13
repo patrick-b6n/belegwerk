@@ -1,0 +1,8 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "Belegwerk",
+  "home_toast_button": "Toast anzeigen",
+  "home_toast_description": "UI-Setup aktiv.",
+  "common_close": "Schließen",
+  "toast_close": "Benachrichtigung schließen"
+}
