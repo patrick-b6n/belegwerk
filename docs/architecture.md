@@ -93,14 +93,14 @@ Business verboten – Drizzle gibt es nur in `src/persistence`.
 
 ## App-Shell & Routen
 
-| Route            | Bereich                                                  |
-| ---------------- | -------------------------------------------------------- |
-| `/`              | Weiterleitung auf `/buchungen` (Startseite)              |
-| `/buchungen`     | Buchungsliste; Filter/Sortierung als Search-Params (#22) |
-| `/euer`          | EÜR-Jahresansicht                                        |
-| `/kategorien`    | Kategorienverwaltung                                     |
-| `/einstellungen` | Einstellungen (Steuerjahre, später Stripe)               |
-| alles andere     | `notFoundComponent` der Root-Route, innerhalb der Shell  |
+| Route            | Bereich                                                             |
+| ---------------- | ------------------------------------------------------------------- |
+| `/`              | Weiterleitung auf `/buchungen` (Startseite)                         |
+| `/buchungen`     | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
+| `/euer`          | EÜR-Jahresansicht                                                   |
+| `/kategorien`    | Kategorienverwaltung                                                |
+| `/einstellungen` | Einstellungen (Steuerjahre, später Stripe)                          |
+| alles andere     | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
   Code-Bezeichner bleiben englisch (`BookingsPage`, `bookings_title`).
@@ -131,6 +131,13 @@ Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
 (inkl. Inline-Styles), Bilder/Fonts auch als `data:`, Netzwerk nur zu eigenen Assets und zur
 Tauri-IPC. Tauri ergänzt beim Build `script-src` um Hashes der Inline-Skripte
 der vorgerenderten Shell; `dangerousDisableAssetCspModification` bleibt aus.
+`base-uri` und `form-action` sind auf `'self'` beschränkt.
+
+**Achtung bei Styles:** Enthält das gebaute HTML ein `<style>`-Element, ergänzt
+Tauri auch `style-src` um Hashes/Nonces. Dann ignorieren Browser
+`'unsafe-inline'`, und zur Laufzeit eingefügte Styles würden blockiert. Derzeit
+enthält die Shell kein `<style>` (CSS kommt als Datei).
+
 Im Dev-Modus (`pnpm tauri dev`, Seite vom Vite-Server) greift die CSP nicht –
 CSP-Probleme zeigen sich nur im gebauten Programm
 (`pnpm tauri build --no-bundle`). Braucht ein späteres Plugin weitere Ziele

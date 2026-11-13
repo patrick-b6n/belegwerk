@@ -22,11 +22,18 @@ export type RouterContext = {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
-  head: () => ({
+  head: ({ match }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: m.app_title() },
+      // Child routes override the title. For unknown paths (also below an
+      // existing route, e.g. /buchungen/x) the router renders the root's
+      // notFoundComponent and flags the root match with `_notFound` (public
+      // field of RouteMatch, despite the underscore).
+      {
+        // oxlint-disable-next-line no-underscore-dangle
+        title: match._notFound ? m.page_title({ page: m.not_found_title() }) : m.app_title(),
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

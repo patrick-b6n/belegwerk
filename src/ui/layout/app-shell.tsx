@@ -27,6 +27,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     <div className="flex h-svh">
       <a
         href={`#${APP_CONTENT_ID}`}
+        onClick={(event) => {
+          // Focus the content without adding a hash/history entry; the href
+          // stays as fallback.
+          event.preventDefault();
+          document.getElementById(APP_CONTENT_ID)?.focus();
+        }}
         className="sr-only rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:ring-2 focus:ring-ring"
       >
         {m.nav_skip_to_content()}
