@@ -11,10 +11,15 @@ import { createBetterSqlite3Client } from "./better-sqlite3-client";
  *
  * - `db` / `database`: as the repositories get them in the app,
  * - `sqlite`: raw `better-sqlite3` handle for assertions.
+ *
+ * `defaultCategories: false` deletes the categories seeded by migration
+ * `0001_default_categories` (#13) afterwards, for tests that need an empty
+ * table (e.g. the repository contract). IDs still continue after the seed.
  */
-export async function createTestDb() {
+export async function createTestDb({ defaultCategories = true } = {}) {
   const sqlite = new Database(":memory:");
   const { database } = await openDatabase(createBetterSqlite3Client(sqlite));
+  if (!defaultCategories) sqlite.prepare("DELETE FROM categories").run();
   return { database, db: database.db, sqlite };
 }
 

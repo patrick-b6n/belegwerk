@@ -1,0 +1,370 @@
+{
+  "id": "f76a998a-93ff-4207-abcd-3e0e14d89941",
+  "prevId": "902b7136-897b-4606-94e2-00cc42984458",
+  "version": "6",
+  "dialect": "sqlite",
+  "tables": {
+    "bookings": {
+      "name": "bookings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gross_cents": {
+          "name": "gross_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vat_rate": {
+          "name": "vat_rate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "net_cents": {
+          "name": "net_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vat_cents": {
+          "name": "vat_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "counterparty": {
+          "name": "counterparty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'manual'"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bookings_date_idx": {
+          "name": "bookings_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "bookings_category_id_idx": {
+          "name": "bookings_category_id_idx",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "bookings_source_external_id_unique": {
+          "name": "bookings_source_external_id_unique",
+          "columns": [
+            "source",
+            "external_id"
+          ],
+          "where": "\"external_id\" IS NOT NULL",
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "bookings_category_id_categories_id_fk": {
+          "name": "bookings_category_id_categories_id_fk",
+          "tableFrom": "bookings",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "tableTo": "categories",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "restrict",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "bookings_date_check": {
+          "name": "bookings_date_check",
+          "value": "date(\"date\") IS \"date\" AND \"date\" >= '1000-01-01'"
+        },
+        "bookings_type_check": {
+          "name": "bookings_type_check",
+          "value": "\"type\" IN ('income', 'expense')"
+        },
+        "bookings_vat_rate_check": {
+          "name": "bookings_vat_rate_check",
+          "value": "\"vat_rate\" IN ('0', '7', '19', 'reverse_charge')"
+        },
+        "bookings_source_check": {
+          "name": "bookings_source_check",
+          "value": "\"source\" IN ('manual', 'stripe')"
+        },
+        "bookings_external_id_check": {
+          "name": "bookings_external_id_check",
+          "value": "\"external_id\" IS NULL OR \"external_id\" <> ''"
+        },
+        "bookings_gross_cents_check": {
+          "name": "bookings_gross_cents_check",
+          "value": "typeof(\"gross_cents\") = 'integer' AND \"gross_cents\" > 0"
+        },
+        "bookings_net_cents_check": {
+          "name": "bookings_net_cents_check",
+          "value": "typeof(\"net_cents\") = 'integer' AND \"net_cents\" >= 0"
+        },
+        "bookings_vat_cents_check": {
+          "name": "bookings_vat_cents_check",
+          "value": "typeof(\"vat_cents\") = 'integer' AND \"vat_cents\" >= 0"
+        },
+        "bookings_amounts_check": {
+          "name": "bookings_amounts_check",
+          "value": "\"net_cents\" + \"vat_cents\" = \"gross_cents\""
+        },
+        "bookings_vat_cents_rate_check": {
+          "name": "bookings_vat_cents_rate_check",
+          "value": "\"vat_cents\" = 0 OR coalesce(\"vat_rate\", '') IN ('7', '19')"
+        }
+      }
+    },
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "euer_position": {
+          "name": "euer_position",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reduces_income": {
+          "name": "reduces_income",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "archived": {
+          "name": "archived",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "is_system": {
+          "name": "is_system",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "categories_type_name_unique": {
+          "name": "categories_type_name_unique",
+          "columns": [
+            "type",
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "categories_type_check": {
+          "name": "categories_type_check",
+          "value": "\"type\" IN ('income', 'expense')"
+        },
+        "categories_reduces_income_check": {
+          "name": "categories_reduces_income_check",
+          "value": "\"reduces_income\" IN (0, 1)"
+        },
+        "categories_archived_check": {
+          "name": "categories_archived_check",
+          "value": "\"archived\" IN (0, 1)"
+        },
+        "categories_is_system_check": {
+          "name": "categories_is_system_check",
+          "value": "\"is_system\" IN (0, 1)"
+        },
+        "categories_reduces_income_expense_check": {
+          "name": "categories_reduces_income_expense_check",
+          "value": "\"reduces_income\" = 0 OR \"type\" = 'expense'"
+        }
+      }
+    },
+    "settings": {
+      "name": "settings",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "tax_years": {
+      "name": "tax_years",
+      "columns": {
+        "year": {
+          "name": "year",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "small_business": {
+          "name": "small_business",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tax_years_year_check": {
+          "name": "tax_years_year_check",
+          "value": "\"year\" BETWEEN 1000 AND 9999"
+        },
+        "tax_years_small_business_check": {
+          "name": "tax_years_small_business_check",
+          "value": "\"small_business\" IN (0, 1)"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

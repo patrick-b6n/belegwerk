@@ -32,7 +32,7 @@ Indizes: `bookings_date_idx` (`date`), `bookings_category_id_idx`
 | Pflichtfelder     | `description` und `counterparty` sind `NOT NULL`; `reference`, `note`, `external_id`, `vat_rate` optional. Leere Strings verhindert Business, nicht die DB – Ausnahme `external_id`: `''` ist per CHECK verboten, weil es im Unique-Index wie eine echte ID kollidieren würde.                                                                                                           |
 | Kategorie         | `category_id` `NOT NULL`, Fremdschlüssel mit `ON DELETE RESTRICT`: Kategorien mit Buchungen werden archiviert statt gelöscht. Dass Art der Buchung und der Kategorie übereinstimmen, prüft Business.                                                                                                                                                                                     |
 | Kategorienamen    | Eindeutig pro Art (`type, name`), in der DB mit Groß-/Kleinschreibung (SQLite-`NOCASE` kennt keine Umlaute). Business (#14/#15) normalisiert Namen (trimmen) und vergleicht vor dem Speichern ohne Groß-/Kleinschreibung (`toLocaleLowerCase("de")`, inkl. Umlaute). „Mindert Einnahmen“ nur bei Ausgabe-Kategorien (CHECK), da Rückerstattungen Ausgaben sind (#1).                     |
-| EÜR-Position      | `euer_position` ist ein stabiler Schlüssel (`TEXT`, z. B. `BETRIEBSEINNAHMEN_UST_PFLICHTIG`) ohne CHECK – die Liste der Positionen lebt im Code (#13) und darf wachsen, ohne dass eine Migration nötig ist.                                                                                                                                                                              |
+| EÜR-Position      | `euer_position` ist ein stabiler Schlüssel (`TEXT`, z. B. `BETRIEBSEINNAHMEN_UST_PFLICHTIG`) ohne CHECK – die Liste der Positionen lebt im Code ([EÜR-Positionen](#eür-positionen-13)) und darf wachsen, ohne dass eine Migration nötig ist. Business prüft den Wert (`validateCategoryPosition`).                                                                                       |
 | Steuerjahre       | `year` (`INTEGER`, 1000–9999) ist der Primärschlüssel.                                                                                                                                                                                                                                                                                                                                   |
 | Duplikatschutz    | Partieller Unique-Index auf `(source, external_id) WHERE external_id IS NOT NULL`: Manuelle Buchungen ohne externe ID kollidieren nie; gelöschte Stripe-Buchungen können erneut importiert werden.                                                                                                                                                                                       |
 | Spalten in CHECKs | Im Schema über `col(...)` unqualifiziert (`"date"` statt `"bookings"."date"`). Baut drizzle-kit eine Tabelle in einer späteren Migration als `__new_<tabelle>` neu auf, übernimmt es den Constraint-Text; ein Verweis auf `"bookings"` schlüge dort fehl.                                                                                                                                |
@@ -41,6 +41,194 @@ Indizes: `bookings_date_idx` (`date`), `bookings_category_id_idx`
 würde SQLite z. B. `1.5` in einer `INTEGER`-Spalte speichern. Text wie `'100'`
 wandelt die Typ-Affinität der Spalte schon vor dem CHECK in die Zahl `100` um;
 er wird daher als ganze Cent akzeptiert (siehe Test).
+
+## EÜR-Positionen (#13)
+
+Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB):
+
+| Datei                  | Inhalt                                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `positions.ts`         | `EUER_POSITIONS` (stabile Schlüssel), `EUER_POSITION_DEFINITIONS` (Seite, zuweisbar, Kleinunternehmer-Ziel), `positionForTaxStatus` |
+| `line-mapping.ts`      | `EUER_LINE_MAPPINGS` (Jahr → Position → Zeile + amtliche Bezeichnung), `describePosition(position, year)`, `hasLineMapping(year)`   |
+| `category-position.ts` | `validateCategoryPosition({ type, euerPosition, reducesIncome })` für den Kategorien-Service (#15)                                  |
+
+- **Stabile Schlüssel.** Kategorien speichern nur den Schlüssel. Schlüssel
+  werden nie umbenannt oder entfernt (sie stehen in der DB); neue Positionen
+  sind einfach neue Schlüssel.
+- **Zeilen pro Jahr.** `describePosition("TELEKOMMUNIKATION", 2025)` liefert
+  `{ position, line: 43, label: "Aufwendungen für Telekommunikation (z. B. Telefon, Internet)" }`.
+  Fehlt das Mapping für das Jahr oder die Position, kommt nur `{ position }`
+  zurück; die UI zeigt dann den Anzeigenamen der Position.
+- **Quelle 2025:** amtlicher Vordruck Anlage EÜR 2025 (2025AnlEÜR801–803,
+  „August 2025“) und „Anleitung zur Anlage EÜR – August 2025 – Version
+  1.9.1.1“, bekanntgegeben mit BMF-Schreiben vom 29.08.2025, GZ IV C 6 -
+  S 2142/00023/010/001 (BStBl I 2025 S. 1652). Genutzte Kopie:
+  <https://www.steuerschroeder.de/blog/wp-content/uploads/2025/09/2025-08-29-anlage-EUER-2025.pdf>.
+  Alle Zeilen im Mapping sind gegen den Vordruck geprüft.
+- **Quelle 2026:** amtlicher Vordruck Anlage EÜR 2026 (2026AnlEÜR801–803,
+  „August 2026“) und „Anleitung zur Anlage EÜR – August 2026 – Version
+  2.5.1.1“, bekanntgegeben mit BMF-Schreiben vom 01.09.2026, GZ IV C 6 -
+  S 2142/00024/010/001:
+  <https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Einkommensteuer/2026-09-01-anlage-EUER-2026.pdf?__blob=publicationFile&v=2>.
+  Alle Zeilen geprüft. Gegenüber 2025 ist Zeile 27 („Bildung Rücklage
+  Tierbewertung bei Land- und Forstwirten“) neu: Die Einnahmenzeilen 12–18
+  bleiben, `WAREN` rückt von 27 auf 29, alle übrigen Ausgabenzeilen ab
+  Fremdleistungen um eins nach hinten. Die Bezeichnungen sind in beiden
+  Jahren gleich (`LABELS_2025_2026`).
+- **Bezeichnungen** sind Formulardaten (wie Zeilennummern), keine UI-Texte:
+  Sie stehen im Code statt in Paraglide. Reine Ausfüllhinweise im Vordruck
+  (Verweise auf andere Zeilen, 10-Tage-Regel) sind weggelassen; Klammern,
+  die den Inhalt beschreiben (Beispiele, „auch zurückgezahlte
+  Hilfen/Zuschüsse aufgrund der Corona-Pandemie“), bleiben. Die **Anzeigenamen** der Positionen (z. B. im
+  Kategorie-Formular, ohne Jahresbezug) sind UI-Texte:
+  `euer_position_<schlüssel>` in `messages/de.json`, abgebildet in
+  `src/ui/euer/position-name.ts` (`euerPositionName`).
+
+### Positionen und Zeilen 2025/2026
+
+| Position                                             | Seite    | Zeile 2025 | Zeile 2026 | Hinweis                                                             |
+| ---------------------------------------------------- | -------- | ---------- | ---------- | ------------------------------------------------------------------- |
+| `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER`                 | Einnahme | 12         | 12         | nur berechnet, nicht zuweisbar (s. u.)                              |
+| `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR` | Einnahme | 13         | 13         | „davon“-Zeile, nur nachrichtlich (`informational`), nicht zuweisbar |
+| `BETRIEBSEINNAHMEN_UST_PFLICHTIG`                    | Einnahme | 15         | 15         | netto                                                               |
+| `BETRIEBSEINNAHMEN_UST_FREI`                         | Einnahme | 16         | 16         | steuerfrei, nicht steuerbar, 0 %, Reverse Charge (§ 13b UStG)       |
+| `UST_VEREINNAHMT`                                    | Einnahme | 17         | 17         | berechnet aus dem USt-Anteil der Einnahmen, nicht zuweisbar         |
+| `UST_ERSTATTUNG`                                     | Einnahme | 18         | 18         | Kategorie „USt-Erstattung“                                          |
+| `WAREN`                                              | Ausgabe  | 27         | 29         |                                                                     |
+| `FREMDLEISTUNGEN`                                    | Ausgabe  | 29         | 30         |                                                                     |
+| `GWG`                                                | Ausgabe  | 36         | 37         |                                                                     |
+| `MIETE_GESCHAEFTSRAEUME`                             | Ausgabe  | 39         | 40         |                                                                     |
+| `TELEKOMMUNIKATION`                                  | Ausgabe  | 43         | 44         |                                                                     |
+| `REISENEBENKOSTEN`                                   | Ausgabe  | 44         | 45         | Übernachtung, Reisenebenkosten                                      |
+| `FORTBILDUNG`                                        | Ausgabe  | 45         | 46         |                                                                     |
+| `RECHTS_STEUERBERATUNG`                              | Ausgabe  | 46         | 47         |                                                                     |
+| `MIETE_LEASING_BEWEGLICH`                            | Ausgabe  | 47         | 48         |                                                                     |
+| `BEITRAEGE_VERSICHERUNGEN`                           | Ausgabe  | 49         | 50         |                                                                     |
+| `EDV_KOSTEN`                                         | Ausgabe  | 50         | 51         |                                                                     |
+| `ARBEITSMITTEL`                                      | Ausgabe  | 51         | 52         | Bürobedarf, Porto, Fachliteratur                                    |
+| `WERBUNG`                                            | Ausgabe  | 54         | 55         |                                                                     |
+| `VORSTEUER`                                          | Ausgabe  | 57         | 58         | berechnet aus dem USt-Anteil der Ausgaben, nicht zuweisbar          |
+| `UST_AN_FA`                                          | Ausgabe  | 58         | 59         | Kategorie „USt-Vorauszahlung“                                       |
+| `SONSTIGE_AUSGABEN`                                  | Ausgabe  | 60         | 61         | übrige unbeschränkt abziehbare Betriebsausgaben                     |
+| `BEWIRTUNG`                                          | Ausgabe  | 63         | 64         | Spalten „nicht abziehbar“/„abziehbar“ (s. u.)                       |
+| `VERPFLEGUNGSMEHRAUFWAND`                            | Ausgabe  | 64         | 65         |                                                                     |
+| `FAHRTKOSTEN`                                        | Ausgabe  | 70         | 71         | sonstige tatsächliche Fahrtkosten (z. B. Bahn, Flug, ÖPNV)          |
+| `FAHRTKOSTEN_PRIVATFAHRZEUG`                         | Ausgabe  | 71         | 72         | Fahrzeug nicht im Betriebsvermögen (Nutzungseinlage)                |
+
+### Kleinunternehmer
+
+Kleinunternehmer tragen laut Anleitung 2025 (Zeile 12) ihre vollständigen
+Betriebseinnahmen ohne die Beträge der Zeilen 18–22 in Zeile 12 ein; die
+Zeilen 15–17 verwenden sie in der Regel nicht. Kategorien behalten deshalb
+ihre Position (`BETRIEBSEINNAHMEN_UST_PFLICHTIG`/`_UST_FREI`), und die
+EÜR-Berechnung (#25) bildet sie im Kleinunternehmer-Jahr mit
+`positionForTaxStatus(position, smallBusiness)` auf
+`BETRIEBSEINNAHMEN_KLEINUNTERNEHMER` ab. Ein Wechsel des Steuerstatus eines
+Jahres braucht so keine Änderung an Kategorien. `UST_ERSTATTUNG` und alle
+Ausgaben bleiben unverändert. `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER`,
+`BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR`, `UST_VEREINNAHMT` und
+`VORSTEUER` sind **nicht zuweisbar** – sie entstehen nur in der Berechnung.
+
+Zeile 13 („davon nicht steuerbare Umsätze sowie Umsätze nach § 19 Abs. 2 …“)
+ist eine nachrichtliche „davon“-Zeile: Ihr Betrag ist schon in Zeile 12
+enthalten und zählt nicht zur Summe der Betriebseinnahmen
+(`informational: true`).
+
+Schuldet ein Kleinunternehmer als Leistungsempfänger die USt nach § 13b UStG
+(z. B. für Werbeanzeigen oder Zahlungsgebühren ausländischer Anbieter), zahlt
+er sie an das Finanzamt: Diese Zahlungen gehören zu `UST_AN_FA` (Kategorie
+„USt-Vorauszahlung“); ein Vorsteuerabzug entfällt.
+
+### Erlösminderung (`reduces_income`)
+
+Eine Erlösminderungs-Kategorie ist eine **Ausgabe**-Kategorie, deren
+`euer_position` die **Einnahmen**-Position ist, die sie mindert (Standard:
+„Erlösminderung / Rückerstattung“ → `BETRIEBSEINNAHMEN_UST_PFLICHTIG`).
+`validateCategoryPosition` liefert dafür Fehlercodes:
+
+| Fall                                   | Erlaubte Position                                                                | Fehlercode sonst                           |
+| -------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| jede Kategorie                         | bekannt und zuweisbar                                                            | `unknownPosition`, `positionNotAssignable` |
+| Einnahme-Kategorie                     | Einnahmen-Position                                                               | `positionKindMismatch`                     |
+| Ausgabe-Kategorie                      | Ausgaben-Position                                                                | `positionKindMismatch`                     |
+| Ausgabe-Kategorie mit `reducesIncome`  | Einnahmen-Position                                                               | `reducesIncomeNeedsIncomePosition`         |
+| Ausgabe-Kategorie mit `reducesIncome`  | Umsatz-Position (15/16, mit Kleinunternehmer-Ziel), nicht z. B. `UST_ERSTATTUNG` | `reducesIncomeNeedsTurnoverPosition`       |
+| Einnahme-Kategorie mit `reducesIncome` | –                                                                                | `reducesIncomeNotExpense` (DB: CHECK)      |
+
+Für #25 heißt das: Beträge solcher Buchungen werden von ihrer Position
+abgezogen statt als Ausgabe gezählt (im Kleinunternehmer-Jahr nach
+`positionForTaxStatus`, also von Zeile 12). Empfehlung für den USt-Anteil
+einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
+(Berichtigung der geschuldeten USt), nicht `VORSTEUER`.
+
+### Standardkategorien (Migration `0001_default_categories`)
+
+| Art      | Name                                               | Position                          | System |
+| -------- | -------------------------------------------------- | --------------------------------- | ------ |
+| Einnahme | Umsatzerlöse                                       | `BETRIEBSEINNAHMEN_UST_PFLICHTIG` |        |
+| Einnahme | Steuerfreie / nicht steuerbare Erlöse              | `BETRIEBSEINNAHMEN_UST_FREI`      |        |
+| Einnahme | USt-Erstattung                                     | `UST_ERSTATTUNG`                  | ja     |
+| Ausgabe  | Fremdleistungen                                    | `FREMDLEISTUNGEN`                 |        |
+| Ausgabe  | Geringwertige Wirtschaftsgüter (GWG)               | `GWG`                             |        |
+| Ausgabe  | Miete Geschäftsräume                               | `MIETE_GESCHAEFTSRAEUME`          |        |
+| Ausgabe  | Telefon / Internet                                 | `TELEKOMMUNIKATION`               |        |
+| Ausgabe  | Übernachtung / Reisenebenkosten                    | `REISENEBENKOSTEN`                |        |
+| Ausgabe  | Verpflegungsmehraufwand                            | `VERPFLEGUNGSMEHRAUFWAND`         |        |
+| Ausgabe  | Fahrtkosten                                        | `FAHRTKOSTEN`                     |        |
+| Ausgabe  | Fortbildung                                        | `FORTBILDUNG`                     |        |
+| Ausgabe  | Rechts- und Steuerberatung, Buchführung            | `RECHTS_STEUERBERATUNG`           |        |
+| Ausgabe  | Beiträge / Versicherungen                          | `BEITRAEGE_VERSICHERUNGEN`        |        |
+| Ausgabe  | EDV-Kosten / Software                              | `EDV_KOSTEN`                      |        |
+| Ausgabe  | Bürobedarf / Porto / Fachliteratur                 | `ARBEITSMITTEL`                   |        |
+| Ausgabe  | Werbung                                            | `WERBUNG`                         |        |
+| Ausgabe  | Bewirtung                                          | `BEWIRTUNG`                       |        |
+| Ausgabe  | Bank- und Zahlungsgebühren                         | `SONSTIGE_AUSGABEN`               |        |
+| Ausgabe  | Sonstige Betriebsausgaben                          | `SONSTIGE_AUSGABEN`               |        |
+| Ausgabe  | USt-Vorauszahlung                                  | `UST_AN_FA`                       | ja     |
+| Ausgabe  | Erlösminderung / Rückerstattung (`reduces_income`) | `BETRIEBSEINNAHMEN_UST_PFLICHTIG` | ja     |
+
+- `is_system = 1` nur für die Kategorien, auf die sich die EÜR verlässt
+  (USt an das bzw. vom Finanzamt, Erlösminderung). Was das für Bearbeiten
+  und Löschen heißt, legt der Kategorien-Service (#15) fest. Die übrigen
+  sind normale, änderbare Vorschläge.
+- Die Migration läuft wie jede Migration genau einmal. Löscht oder benennt
+  der Nutzer eine Standardkategorie um, kommt sie nicht wieder.
+- Tests, die eine leere Kategorientabelle brauchen (z. B. der
+  Repository-Vertrag), nutzen `createTestDb({ defaultCategories: false })`.
+  `src/persistence/default-categories.test.ts` prüft die Seed-Daten und dass
+  jede Position laut `validateCategoryPosition` gültig ist.
+
+### Neues Steuerjahr ergänzen
+
+1. Amtlichen Vordruck und Anleitung der Anlage EÜR des Jahres beschaffen
+   (BMF-Schreiben „Standardisierte Einnahmenüberschussrechnung nach § 60
+   Absatz 4 EStDV; Anlage EÜR <Jahr>“, bundesfinanzministerium.de).
+2. In `line-mapping.ts` eine Konstante `ANLAGE_EUER_<JAHR>` anlegen (Quelle
+   samt Datum, GZ und Version im Kommentar), jede Position gegen den Vordruck
+   prüfen und in `EUER_LINE_MAPPINGS` eintragen (ein vorläufiges Jahr darf
+   auf das Vorjahr zeigen). Nicht prüfbare Zeilen weglassen – dann greift
+   der Fallback.
+3. Die Zeilen des Jahres in `line-mapping.test.ts` festhalten.
+4. Ändert sich die Fachlogik (z. B. eine Zeile wird geteilt), eine neue
+   Position anlegen; alte Schlüssel bleiben.
+
+### Offene Punkte für #25
+
+- **Zeile 15 vs. 16 bei Einnahmen:** Die Kategorie bestimmt die Position,
+  aber eine Einnahme mit USt-Satz `"0"` oder `"reverse_charge"` gehört in
+  Zeile 16, auch wenn ihre Kategorie z. B. „Umsatzerlöse“ ist. #25 ordnet
+  im regelbesteuerten Jahr Einnahmen mit diesen Sätzen
+  `BETRIEBSEINNAHMEN_UST_FREI` zu (bei Erlösminderungen entsprechend).
+- **Kleinunternehmer-Zeile 13:** #25 leitet sie vor der Umleitung aus
+  `BETRIEBSEINNAHMEN_UST_FREI` ab (nur nachrichtlich, nicht in der Summe).
+  Das ist eine Näherung: Zeile 16 umfasst auch steuerfreie Umsätze nach § 4
+  UStG, die nicht unter § 19 Abs. 2 Satz 1 Nr. 1 und 2 UStG fallen.
+- **Bewirtung (Zeile 63 bzw. 64 in 2026)** hat zwei Spalten: nicht
+  abziehbar (30 %) und abziehbar (70 %, § 4 Abs. 5 Satz 1 Nr. 2 EStG). Die
+  Position liefert nur die Zeile; Aufteilung und Wirkung auf den Gewinn
+  entscheidet #25.
+- **Verpflegungsmehraufwand (Zeile 64 bzw. 65 in 2026)** ist nur in Höhe der
+  Pauschalen abziehbar; die App erfasst gezahlte Beträge.
 
 ## Migrationen
 
