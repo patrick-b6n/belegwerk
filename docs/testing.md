@@ -30,9 +30,20 @@ Einzelne Dateien oder Testnamen: `pnpm test src/business/format` bzw.
 ## Layer
 
 - **Business** (`src/business`): reine Unit-Tests. Repositories und
-  Plattformzugriffe werden durch **In-Memory-Fakes** der Interfaces ersetzt
-  (#11). Die Lint-Regeln von Business gelten auch für Tests – kein Drizzle,
-  kein `better-sqlite3`, kein React/Tauri.
+  Plattformzugriffe werden durch **In-Memory-Fakes** der Interfaces ersetzt:
+  `createInMemoryDatabase({ clock })` aus
+  `src/business/__tests__/in-memory-repositories.ts` liefert `repositories`
+  und `unitOfWork` (mit Rollback). Die Fakes werfen, wenn innerhalb von
+  `unitOfWork.run` die äußeren Repositories oder ein verschachteltes `run`
+  benutzt werden (in der App ein Deadlock). Die Lint-Regeln von Business
+  gelten auch für Tests – kein Drizzle, kein `better-sqlite3`, kein
+  React/Tauri.
+- **Vertragstests** (`src/business/__tests__/repository-contract.ts`):
+  `describeRepositoryContract(name, setup)` läuft gegen die Fakes und gegen
+  die Drizzle-Repositories auf `better-sqlite3`
+  (`src/persistence/repositories/repositories.test.ts`). Neue
+  Repository-Methoden bekommen dort ihre Fälle, damit Fakes und DB gleich
+  bleiben und jede Abfrage gegen SQLite läuft.
 - **Persistence** (`src/persistence`): Tests gegen **`better-sqlite3`** mit
   demselben Drizzle-Schema und denselben Migrationen wie die App (#11):
   `await createTestDb()` aus `src/persistence/__tests__/test-db.ts` liefert pro
