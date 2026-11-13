@@ -1,8 +1,10 @@
 {
   // WebView code (src/). Deliberately without Node types: the app runs in
   // WebView2, not Node. Config files run in Node and are checked via
-  // tsconfig.node.json (see `pnpm typecheck`).
+  // tsconfig.node.json (see `pnpm typecheck`); test code runs in Node and is
+  // checked via tsconfig.test.json.
   "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__"],
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

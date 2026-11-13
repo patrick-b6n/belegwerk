@@ -126,7 +126,16 @@ umzuschreiben.
 
 ## TypeScript-Konfiguration
 
-- `tsconfig.app.json` – `src/` (WebView-Code), **ohne** Node-Typen.
+- `tsconfig.app.json` – `src/` (WebView-Code) ohne Testcode, **ohne**
+  Node-Typen.
+- `tsconfig.test.json` – Testcode unter `src/` (`*.test.ts[x]`,
+  `__tests__/`), erbt von `tsconfig.app.json`, mit Node-Typen
+  ([Tests](testing.md)).
 - `tsconfig.node.json` – Konfigurationsdateien (`vite.config.ts`,
   `vitest.config.ts`), mit Node-Typen.
-- `tsconfig.json` – nur Referenzen auf beide; `tsc -b` prüft beide.
+- `tsconfig.json` – nur Referenzen auf alle drei; `tsc -b` prüft alle.
+
+## Tests
+
+Vitest in der Node-Umgebung; Business mit In-Memory-Fakes, Persistence gegen
+`better-sqlite3`. Konventionen: [docs/testing.md](testing.md).

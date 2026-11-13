@@ -5,15 +5,15 @@ import { defineConfig } from "vitest/config";
 // runners. Set before workers start, so they inherit it.
 process.env.TZ = "Pacific/Pago_Pago";
 
-// Minimal setup for #4's unit tests. Kept separate from vite.config.ts so
-// tests don't load the TanStack Start / Paraglide plugins. Full test setup
-// (environments, conventions, coverage) follows in #6.
+// Kept separate from vite.config.ts so tests don't load the TanStack Start /
+// Paraglide plugins. Conventions: docs/testing.md.
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
   test: {
+    // Business and persistence tests run in Node; there are no DOM tests yet.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });
