@@ -209,6 +209,13 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
         [...state().bookings.values()].filter((booking) => booking.categoryId === categoryId)
           .length,
     ),
+    countByCategories: op(() => {
+      const counts = new Map<number, number>();
+      for (const { categoryId } of state().bookings.values()) {
+        counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
+      }
+      return counts;
+    }),
     countVatRateUsage: op((year: number) => {
       const prefix = `${String(year).padStart(4, "0")}-`;
       const inYear = [...state().bookings.values()].filter((booking) =>

@@ -31,8 +31,9 @@ import { isId, trimText } from "../validation";
  * editing a Stripe booking does not turn it into a manual one. `null` (or a
  * blank string) clears `externalId`.
  *
- * Texts are trimmed (also zero-width characters U+200B–U+200D and U+FEFF at
- * the ends); a text consisting only of such characters counts as blank.
+ * Texts are trimmed (also invisible format characters like U+200B–U+200D,
+ * U+2060, U+00AD and U+FEFF at the ends, see `trimText`); a text without any
+ * visible character counts as blank.
  */
 export interface BookingFormInput {
   /** Payment date `YYYY-MM-DD`. */

@@ -70,10 +70,11 @@ export interface CategoryFieldErrorCodes {
     | "reducesIncomeNeedsTurnoverPosition"
     | "systemCategoryFixed";
   /**
+   * `invalidValue`: not a boolean (checked at runtime like `type`);
    * `reducesIncomeNotExpense`: only expense categories reduce income;
    * `systemCategoryFixed`: a system category's flag cannot change.
    */
-  readonly reducesIncome: "reducesIncomeNotExpense" | "systemCategoryFixed";
+  readonly reducesIncome: "invalidValue" | "reducesIncomeNotExpense" | "systemCategoryFixed";
 }
 
 export type CategoryField = keyof CategoryFieldErrorCodes;
@@ -166,14 +167,11 @@ export function createCategoryService({
     list: () =>
       unitOfWork.run(async (repos) => {
         const categories = await repos.categories.list();
-        const result: CategoryWithUsage[] = [];
-        for (const category of categories) {
-          result.push({
-            ...category,
-            bookingCount: await repos.bookings.countByCategory(category.id),
-          });
-        }
-        return result;
+        const counts = await repos.bookings.countByCategories();
+        return categories.map((category) => ({
+          ...category,
+          bookingCount: counts.get(category.id) ?? 0,
+        }));
       }),
 
     get: async (id) => {
@@ -190,14 +188,16 @@ export function createCategoryService({
         const name = await validateName(repos, input.name, input.type, undefined, errors);
         const typeValid = BOOKING_TYPES.includes(input.type);
         if (!typeValid) errors.push({ field: "type", code: "invalidType" });
-        const { euerPosition, reducesIncome } = input;
+        const { euerPosition } = input;
+        const reducesIncome = validateFlag(input.reducesIncome, errors);
         validatePosition(typeValid ? input.type : undefined, euerPosition, reducesIncome, errors);
+        sortErrors(errors);
         if (errors.length > 0) return invalid(errors);
         const category = await repos.categories.insert({
           name,
           type: input.type,
           euerPosition,
-          reducesIncome,
+          reducesIncome: reducesIncome ?? false,
           isSystem: false,
         });
         return { ok: true, category };
@@ -221,20 +221,26 @@ export function createCategoryService({
           );
         }
 
+        const flagValid =
+          changes.reducesIncome === undefined ||
+          validateFlag(changes.reducesIncome, errors) !== undefined;
         const positionChanged =
           changes.euerPosition !== undefined && changes.euerPosition !== existing.euerPosition;
         const flagChanged =
-          changes.reducesIncome !== undefined && changes.reducesIncome !== existing.reducesIncome;
+          flagValid &&
+          changes.reducesIncome !== undefined &&
+          changes.reducesIncome !== existing.reducesIncome;
         if (existing.isSystem) {
           if (positionChanged) errors.push({ field: "euerPosition", code: "systemCategoryFixed" });
           if (flagChanged) errors.push({ field: "reducesIncome", code: "systemCategoryFixed" });
-        } else if (positionChanged || flagChanged) {
+        } else if (flagValid && (positionChanged || flagChanged)) {
           // Only validated when changed: a rename never fails on the position.
           validated.euerPosition = changes.euerPosition ?? existing.euerPosition;
           validated.reducesIncome = changes.reducesIncome ?? existing.reducesIncome;
           validatePosition(existing.type, validated.euerPosition, validated.reducesIncome, errors);
         }
 
+        sortErrors(errors);
         if (errors.length > 0) return invalid(errors);
         const category = await repos.categories.update(id, validated);
         // Cannot happen inside the transaction; a programmer error otherwise.
@@ -261,8 +267,9 @@ export function createCategoryService({
         // A booking created concurrently (only possible through a bug): the
         // unit of work has rolled back; report the current usage.
         if (error instanceof ConstraintViolationError && error.kind === "foreign_key") {
-          const bookingCount = await unitOfWork.run((repos) => repos.bookings.countByCategory(id));
-          return { ok: false, reason: "inUse", bookingCount };
+          const count = await unitOfWork.run((repos) => repos.bookings.countByCategory(id));
+          // The violation proves at least one booking, even if it is gone again.
+          return { ok: false, reason: "inUse", bookingCount: Math.max(1, count) };
         }
         throw error;
       }
@@ -302,6 +309,25 @@ export function createCategoryService({
 
 const NOT_FOUND: CategoryNotFound = { ok: false, reason: "notFound" };
 const SYSTEM_CATEGORY: CategoryIsSystem = { ok: false, reason: "systemCategory" };
+
+const FIELD_ORDER: readonly CategoryField[] = ["name", "type", "euerPosition", "reducesIncome"];
+
+/** Puts the errors into form order (the flag's type check runs early). */
+function sortErrors(errors: CategoryFieldError[]): void {
+  errors.sort((a, b) => FIELD_ORDER.indexOf(a.field) - FIELD_ORDER.indexOf(b.field));
+}
+
+/**
+ * `reducesIncome` must be a real boolean (checked at runtime like `type`,
+ * e.g. against a raw form value): anything else is `invalidValue`, and the
+ * position is then checked as without the flag. Returns the usable value,
+ * `undefined` if invalid.
+ */
+function validateFlag(value: unknown, errors: CategoryFieldError[]): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  errors.push({ field: "reducesIncome", code: "invalidValue" });
+  return undefined;
+}
 
 function invalid(errors: readonly CategoryFieldError[]): CategoryInvalid {
   return { ok: false, reason: "invalid", errors };
@@ -351,7 +377,7 @@ async function validateName(
 function validatePosition(
   type: BookingType | undefined,
   euerPosition: string,
-  reducesIncome: boolean,
+  reducesIncome: boolean | undefined,
   errors: CategoryFieldError[],
 ): void {
   if (euerPosition === "") {
@@ -360,7 +386,7 @@ function validatePosition(
     const result = validateCategoryPosition({
       type: type ?? "expense",
       euerPosition,
-      reducesIncome: reducesIncome && type === "expense",
+      reducesIncome: reducesIncome === true && type === "expense",
     });
     const typeIndependent =
       !result.ok &&
@@ -370,7 +396,7 @@ function validatePosition(
       errors.push({ field: "euerPosition", code: result.error });
     }
   }
-  if (reducesIncome && type === "income") {
+  if (reducesIncome === true && type === "income") {
     errors.push({ field: "reducesIncome", code: "reducesIncomeNotExpense" });
   }
 }

@@ -226,9 +226,11 @@ sie (`calculateBookingAmounts`).
   den Service (`amountTooLarge`). So bleiben Summen exakte JS-Zahlen:
   `Number.MAX_SAFE_INTEGER` fasst rund 900.000 Buchungen mit Höchstbetrag –
   Summen der Suche (#21) und der EÜR (#25) brauchen kein BigInt.
-- **Texte** werden getrimmt, auch Nullbreitenzeichen (U+200B–U+200D, U+FEFF)
-  am Rand; Innenleerraum, Zeilenumbrüche und innere Nullbreitenzeichen (z. B.
-  ZWJ in Emojis) bleiben. Besteht ein Text nur daraus, gilt er als leer;
+- **Texte** werden getrimmt (`trimText`), auch unsichtbare Formatzeichen
+  (`\p{Cf}`, z. B. U+200B–U+200D, U+2060, U+00AD, U+FEFF) und Unicode-Leerzeichen
+  (`\p{Z}`) am Rand; Innenleerraum, Zeilenumbrüche und innere Formatzeichen
+  (z. B. ZWJ in Emojis) bleiben. Enthält ein Text kein sichtbares Zeichen, gilt
+  er als leer;
   leere optionale Texte werden `null`. Höchstlängen nach dem Trimmen
   (`BOOKING_TEXT_MAX_LENGTH`): Beschreibung 500, Gegenpartei 200, Referenz
   200, Notiz 2000, externe ID 255 Zeichen.
@@ -254,7 +256,8 @@ Datenbankzugriff, Texte getrimmt (`trimText`/`isId` aus
 `src/business/validation.ts`, gemeinsam mit #14).
 
 - **`list()`** liefert alle Kategorien inkl. archivierter (nach `id`), jeweils
-  mit `bookingCount` – die Verwaltung (#19) gruppiert nach Art und bietet
+  mit `bookingCount` (eine Abfrage: `BookingRepository.countByCategories()`
+  mit `GROUP BY`) – die Verwaltung (#19) gruppiert nach Art und bietet
   „Löschen“ nur bei `bookingCount === 0` an; das Buchungsformular (#18)
   filtert nach Art und ohne archivierte.
 - **`create({ name, type, euerPosition, reducesIncome })`** legt eine normale
@@ -273,8 +276,10 @@ Datenbankzugriff, Texte getrimmt (`trimText`/`isId` aus
   `euerPosition` bekommt `required` (leer), `unknownPosition`,
   `positionNotAssignable`, `positionKindMismatch`,
   `reducesIncomeNeedsIncomePosition`, `reducesIncomeNeedsTurnoverPosition`;
-  `reducesIncome` bekommt `reducesIncomeNotExpense` (Einnahme-Kategorie; die
-  Position wird dann wie bei einer normalen Einnahme-Kategorie geprüft). Bei
+  `reducesIncome` bekommt `invalidValue` (kein Boolean – zur Laufzeit geprüft
+  wie `type`; die Position wird dann ohne Flag geprüft) oder
+  `reducesIncomeNotExpense` (Einnahme-Kategorie; die Position wird dann wie
+  bei einer normalen Einnahme-Kategorie geprüft). Bei
   ungültiger Art (`type: invalidType`) nur die artunabhängigen Prüfungen.
 - **Position ändern wirkt rückwirkend:** Buchungen speichern nur die
   Kategorie; die EÜR (#25) nimmt Position und Flag der Kategorie zum
@@ -291,7 +296,7 @@ Datenbankzugriff, Texte getrimmt (`trimText`/`isId` aus
 - **Löschen** nur ohne Buchungen: Die Anzahl wird in derselben Unit of Work
   geprüft, sonst `{ ok: false, reason: "inUse", bookingCount }` (Hinweis:
   archivieren). Ein `foreign_key`-`ConstraintViolationError` (Wettlauf) wird
-  ebenso zu `inUse`; `unique` beim Anlegen/Ändern zu `nameDuplicate`; alles
+  ebenso zu `inUse` (`bookingCount` mindestens 1); `unique` beim Anlegen/Ändern zu `nameDuplicate`; alles
   andere wird weitergeworfen.
 
 ## EÜR-Positionen (#13)

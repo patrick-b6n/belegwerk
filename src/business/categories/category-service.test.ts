@@ -117,7 +117,7 @@ describe("CategoryService.list and get", () => {
 describe("CategoryService.create", () => {
   it("creates a normal, unarchived category with trimmed name", async () => {
     const { service, input, repositories } = await setup();
-    const result = await service.create(input({ name: "​  Software ﻿" }));
+    const result = await service.create(input({ name: "\u200B  Software \uFEFF" }));
     expect(result).toEqual({
       ok: true,
       category: {
@@ -148,7 +148,8 @@ describe("CategoryService.create", () => {
 
   it.each([
     ["", "required"],
-    [" ​‌‍﻿\t\n", "required"],
+    [" \u200B\u200C\u200D\uFEFF\t\n", "required"],
+    ["\u2060\u00AD\u180E\u00A0", "required"],
     ["x".repeat(CATEGORY_NAME_MAX_LENGTH + 1), "tooLong"],
   ] as const)("rejects the name %j with %s", async (name, code) => {
     const { service, input } = await setup();
@@ -247,6 +248,22 @@ describe("CategoryService.create", () => {
     expect(await repositories.categories.list()).toEqual(before);
   });
 
+  it.each([undefined, null, "true", 1])(
+    "rejects the non-boolean reducesIncome %j as invalidValue",
+    async (reducesIncome) => {
+      const { service, input, repositories } = await setup();
+      const before = await repositories.categories.list();
+      const result = await service.create(
+        input({ reducesIncome: reducesIncome as unknown as boolean, euerPosition: "VORSTEUER" }),
+      );
+      expect(errorsOf(result)).toEqual([
+        { field: "euerPosition", code: "positionNotAssignable" },
+        { field: "reducesIncome", code: "invalidValue" },
+      ]);
+      expect(await repositories.categories.list()).toEqual(before);
+    },
+  );
+
   it("reports all field errors at once", async () => {
     const { service, input } = await setup();
     const result = await service.create(
@@ -322,6 +339,23 @@ describe("CategoryService.update", () => {
       ok: true,
       category: { reducesIncome: false, euerPosition: "ARBEITSMITTEL" },
     });
+  });
+
+  it("rejects a non-boolean reducesIncome on update, also for system categories", async () => {
+    const { service, expense, vatPayment } = await setup();
+    for (const { id } of [expense, vatPayment]) {
+      expect(
+        errorsOf(
+          await service.update(id, {
+            name: "",
+            reducesIncome: "yes" as unknown as boolean,
+          }),
+        ),
+      ).toEqual([
+        { field: "name", code: "required" },
+        { field: "reducesIncome", code: "invalidValue" },
+      ]);
+    }
   });
 
   it("validates the position against the category's type", async () => {
@@ -508,7 +542,7 @@ describe("CategoryService and constraint errors", () => {
     expect(await service.update(category.id, { name: "Neu" })).toEqual(duplicate);
   });
 
-  it("maps a foreign key violation on delete to inUse with the current count", async () => {
+  it("maps a foreign key violation on delete to inUse with at least one booking", async () => {
     const { unitOfWork, repositories } = createInMemoryDatabase();
     const category = await repositories.categories.insert({
       name: "Büro",
@@ -523,10 +557,11 @@ describe("CategoryService and constraint errors", () => {
         new ConstraintViolationError("foreign_key", "boom"),
       ),
     });
+    // The fake's count is 0 (the failing delete is simulated), the violation proves one.
     expect(await service.delete(category.id)).toEqual({
       ok: false,
       reason: "inUse",
-      bookingCount: 0,
+      bookingCount: 1,
     });
   });
 
