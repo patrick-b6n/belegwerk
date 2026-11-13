@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # Nur überholte PR-Läufe abbrechen; jeder Push auf main läuft vollständig durch.
+  # PRs teilen sich eine Gruppe (überholte Läufe werden abgebrochen);
+  # jeder Push auf main bekommt eine eigene Gruppe und läuft vollständig durch.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -21,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Version kommt aus "packageManager" in package.json (pnpm 12).
       - name: Setup pnpm
@@ -40,6 +43,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Nur main speichert den Cache; PRs stellen ihn von main wieder her.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,7 +55,7 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # Kompiliert auch die Paraglide-Messages (src/paraglide), die Tests/Build brauchen.
+      # Kompiliert die Paraglide-Messages (src/paraglide, gitignored), die tsc braucht.
       - name: Typecheck
         run: pnpm typecheck
 
