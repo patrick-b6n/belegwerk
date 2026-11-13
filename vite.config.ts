@@ -18,7 +18,7 @@ export default defineConfig({
       ignored: ["**/src-tauri/**"],
     },
   },
-  envPrefix: ["VITE_", "TAURI_ENV_*"],
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {
     // Tauri on Windows uses WebView2 (Chromium).
     target: "chrome105",
