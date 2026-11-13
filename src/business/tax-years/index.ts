@@ -10,6 +10,7 @@ export type {
   TaxYearFieldError,
   TaxYearFieldErrorCodes,
   TaxYearInvalid,
+  TaxYearOverview,
   TaxYearService,
   TaxYearServiceDependencies,
   TaxYearStatus,

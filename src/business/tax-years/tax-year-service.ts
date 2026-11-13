@@ -23,7 +23,7 @@
  * the user could only delete and re-enter all bookings of the year.
  */
 import type { TaxYear } from "../model";
-import type { Repositories, UnitOfWork } from "../repositories";
+import type { Repositories, UnitOfWork, VatRateUsage } from "../repositories";
 
 /** Supported years, the same range as booking dates and the `tax_years` CHECK. */
 export const TAX_YEAR_MIN = 1000;
@@ -33,6 +33,17 @@ export const TAX_YEAR_MAX = 9999;
 export interface TaxYearStatus extends TaxYear {
   /** `true` if a record exists; `false` = default (regularly taxed). */
   readonly explicit: boolean;
+}
+
+/** A year of {@link TaxYearService.list}: its status plus the bookings that do not fit it. */
+export interface TaxYearOverview extends TaxYearStatus {
+  /**
+   * Bookings of the year whose VAT rate does not fit its status (with a rate
+   * in a small business year, without one in a regularly taxed year), e.g.
+   * after an acknowledged status change. They need a fitting rate on their
+   * next edit; the settings page (#20) shows a hint.
+   */
+  readonly mismatchedBookings: number;
 }
 
 /** Error codes per field. At most one error is reported per field. */
@@ -106,9 +117,10 @@ export interface TaxYearService {
   get(year: number): Promise<GetTaxYearResult>;
   /**
    * All years that have a record or bookings, ascending – years with
-   * bookings but no record appear with the default (`explicit: false`).
+   * bookings but no record appear with the default (`explicit: false`) –
+   * each with its number of mismatched bookings.
    */
-  list(): Promise<TaxYearStatus[]>;
+  list(): Promise<TaxYearOverview[]>;
   /**
    * Records `year` as regularly taxed ("Jahr hinzufügen", #20), e.g. to set
    * the status before the first booking. `yearExists` if it has a record.
@@ -146,9 +158,20 @@ export function createTaxYearService({ unitOfWork }: TaxYearServiceDependencies)
           bookingYears.map((year) => [year, { year, smallBusiness: false, explicit: false }]),
         );
         for (const record of records) byYear.set(record.year, explicitStatus(record));
-        const statuses = [...byYear.values()];
-        statuses.sort((a, b) => a.year - b.year);
-        return statuses;
+        const withBookings = new Set(bookingYears);
+        const overviews: TaxYearOverview[] = [];
+        for (const taxYear of byYear.values()) {
+          // One count per year with bookings; years without bookings have none.
+          const mismatchedBookings = withBookings.has(taxYear.year)
+            ? mismatched(
+                await repos.bookings.countVatRateUsage(taxYear.year),
+                taxYear.smallBusiness,
+              )
+            : 0;
+          overviews.push({ ...taxYear, mismatchedBookings });
+        }
+        overviews.sort((a, b) => a.year - b.year);
+        return overviews;
       }),
 
     addYear: async (year) => {
@@ -174,7 +197,7 @@ export function createTaxYearService({ unitOfWork }: TaxYearServiceDependencies)
       return unitOfWork.run(async (repos): Promise<SetSmallBusinessResult> => {
         const current = await status(repos, year);
         const usage = await repos.bookings.countVatRateUsage(year);
-        const mismatchedBookings = smallBusiness ? usage.withVatRate : usage.withoutVatRate;
+        const mismatchedBookings = mismatched(usage, smallBusiness);
         const changed = current.smallBusiness !== smallBusiness;
         if (changed && mismatchedBookings > 0 && !acknowledged) {
           return { ok: false, reason: "conflicts", mismatchedBookings };
@@ -198,6 +221,11 @@ async function status(repos: Repositories, year: number): Promise<TaxYearStatus>
 
 function explicitStatus(record: TaxYear): TaxYearStatus {
   return { year: record.year, smallBusiness: record.smallBusiness, explicit: true };
+}
+
+/** Bookings whose VAT rate does not fit `smallBusiness` (see the module comment). */
+function mismatched(usage: VatRateUsage, smallBusiness: boolean): number {
+  return smallBusiness ? usage.withVatRate : usage.withoutVatRate;
 }
 
 function invalid(errors: readonly TaxYearFieldError[]): TaxYearInvalid {

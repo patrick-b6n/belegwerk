@@ -92,10 +92,55 @@ describe("TaxYearService.list", () => {
     await addBooking("2023-01-01", null);
 
     expect(await service.list()).toEqual([
-      smallBusiness(2023),
-      regular(2024, false),
-      regular(2026, true),
+      { ...smallBusiness(2023), mismatchedBookings: 0 },
+      { ...regular(2024, false), mismatchedBookings: 0 },
+      { ...regular(2026, true), mismatchedBookings: 0 },
     ]);
+  });
+
+  it("counts the bookings whose VAT rate does not fit the year's status", async () => {
+    const { service, repositories, addBooking } = await setup();
+    await repositories.taxYears.upsert({ year: 2023, smallBusiness: true });
+    await addBooking("2023-02-01", "19");
+    await addBooking("2023-03-01", "7");
+    await addBooking("2023-04-01", null);
+    await addBooking("2024-05-01", null);
+    await addBooking("2024-06-01", "19");
+    await addBooking("2025-01-01", "19");
+
+    expect(await service.list()).toEqual([
+      { ...smallBusiness(2023), mismatchedBookings: 2 },
+      { ...regular(2024, false), mismatchedBookings: 1 },
+      { ...regular(2025, false), mismatchedBookings: 0 },
+    ]);
+  });
+
+  it("counts only for years with bookings, in one unit of work", async () => {
+    const { repositories, unitOfWork, addBooking } = await setup();
+    await repositories.taxYears.upsert({ year: 2026, smallBusiness: true });
+    await addBooking("2024-05-01", "19");
+    let runs = 0;
+    const counted: number[] = [];
+    const counting: UnitOfWork = {
+      run: (work) => {
+        runs += 1;
+        return unitOfWork.run((repos) =>
+          work({
+            ...repos,
+            bookings: {
+              ...repos.bookings,
+              countVatRateUsage: (year) => {
+                counted.push(year);
+                return repos.bookings.countVatRateUsage(year);
+              },
+            },
+          }),
+        );
+      },
+    };
+    await createTaxYearService({ unitOfWork: counting }).list();
+    expect(runs).toBe(1);
+    expect(counted).toEqual([2024]);
   });
 });
 

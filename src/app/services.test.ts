@@ -238,8 +238,8 @@ describe("createAppServices – tax years on SQLite", () => {
     });
     expect((await services.bookings.create(booking(incomeId, "2025-03-01", "19"))).ok).toBe(true);
     expect(await services.taxYears.list()).toEqual([
-      { year: 2025, smallBusiness: false, explicit: false },
-      { year: 2027, smallBusiness: false, explicit: true },
+      { year: 2025, smallBusiness: false, explicit: false, mismatchedBookings: 0 },
+      { year: 2027, smallBusiness: false, explicit: true, mismatchedBookings: 0 },
     ]);
 
     // Switching 2025 conflicts with its booking until acknowledged.
@@ -262,6 +262,10 @@ describe("createAppServices – tax years on SQLite", () => {
       ok: true,
       taxYear: { year: 2025, smallBusiness: true, explicit: true },
     });
+    expect(await services.taxYears.list()).toEqual([
+      { year: 2025, smallBusiness: true, explicit: true, mismatchedBookings: 1 },
+      { year: 2027, smallBusiness: false, explicit: true, mismatchedBookings: 0 },
+    ]);
 
     // New bookings follow the new status.
     expect(await services.bookings.create(booking(incomeId, "2025-04-01", "19"))).toEqual({
