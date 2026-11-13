@@ -15,11 +15,14 @@
  * | `kategorie` | category ids (array)                    | `categoryIds`   |
  * | `quelle`    | `manuell` \| `stripe`                   | `source`        |
  * | `betragVon`/`betragBis` | gross amount in **cents**   | `amountFrom/To` |
+ * | `sortierung` | `<column>-<auf|ab>`, e.g. `brutto-auf` (#23) | `sort`  |
+ * | `seite`     | page, 1-based (#23)                     | `page`          |
+ * | `proSeite`  | page size, {@link BOOKING_PAGE_SIZES} (#23) | `pageSize`  |
  *
  * The period is stored only as `von`/`bis`; the quick pick (year, quarter,
  * month) is derived from them ({@link detectPeriod}), so a URL has exactly
- * one meaning and stays short. Sorting and page (#23) are added to the same
- * schema as further optional params.
+ * one meaning and stays short. The defaults of sort order (`datum-ab`), page
+ * (1) and page size (50) are not written either.
  *
  * {@link validateBookingSearch} never throws: values that cannot be read
  * (unknown enum value, impossible date, negative or fractional amount, non-id
@@ -27,7 +30,15 @@
  * other (inverted ranges, too long text) are kept, so the filter bar shows
  * the business layer's error (`normalizeBookingQuery`) at the control.
  */
-import type { BookingQuery } from "@/business/bookings";
+import {
+  BOOKING_SORT_FIELDS,
+  type BookingQuery,
+  type BookingSort,
+  type BookingSortField,
+  DEFAULT_BOOKING_PAGE_SIZE,
+  DEFAULT_BOOKING_SORT,
+  type SortDirection,
+} from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
 import { parseAmount, parseIsoDate, type ParseAmountError } from "@/business/format";
 import type { BookingSource, BookingType } from "@/business/model";
@@ -50,6 +61,12 @@ export interface BookingSearch {
   readonly quelle?: BookingSourceParam;
   readonly betragVon?: number;
   readonly betragBis?: number;
+  /** Sort order (#23); absent = {@link DEFAULT_BOOKING_SORT} (date descending). */
+  readonly sortierung?: BookingSortParam;
+  /** Page (#23), an integer ≥ 2; absent = page 1. */
+  readonly seite?: number;
+  /** Page size (#23), one of {@link BOOKING_PAGE_SIZES} except the default; absent = 50. */
+  readonly proSeite?: number;
 }
 
 export type BookingSearchKey = keyof BookingSearch;
@@ -126,6 +143,149 @@ function searchText(value: unknown): string | undefined {
   return typeof text === "string" && trimText(text) !== "" ? text : undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Sort order and pages (#23)
+
+/** The column names of the `sortierung` param. */
+export type BookingSortFieldParam =
+  | "datum"
+  | "art"
+  | "beschreibung"
+  | "gegenpartei"
+  | "kategorie"
+  | "netto"
+  | "ust"
+  | "brutto"
+  | "quelle";
+/** `auf` = ascending, `ab` = descending. */
+export type SortDirectionParam = "auf" | "ab";
+/** Value of the `sortierung` param, e.g. `brutto-auf`. */
+export type BookingSortParam = `${BookingSortFieldParam}-${SortDirectionParam}`;
+
+const SORT_FIELD_PARAMS: Readonly<Record<BookingSortField, BookingSortFieldParam>> = {
+  date: "datum",
+  type: "art",
+  description: "beschreibung",
+  counterparty: "gegenpartei",
+  category: "kategorie",
+  netCents: "netto",
+  vatCents: "ust",
+  grossCents: "brutto",
+  source: "quelle",
+};
+const SORT_DIRECTION_PARAMS: Readonly<Record<SortDirection, SortDirectionParam>> = {
+  asc: "auf",
+  desc: "ab",
+};
+
+/** The page sizes the list offers; {@link DEFAULT_BOOKING_PAGE_SIZE} (50) is the default. */
+export const BOOKING_PAGE_SIZES: readonly number[] = [25, 50, 100, 200];
+
+/** The `sortierung` value of a sort order. */
+export function sortParam(sort: BookingSort): BookingSortParam {
+  return `${SORT_FIELD_PARAMS[sort.field]}-${SORT_DIRECTION_PARAMS[sort.direction]}`;
+}
+
+/** The sort order of a `sortierung` value; `undefined` if it is none. */
+export function parseSortParam(value: unknown): BookingSort | undefined {
+  if (typeof value !== "string") return undefined;
+  const separator = value.lastIndexOf("-");
+  if (separator <= 0) return undefined;
+  const fieldParam = value.slice(0, separator);
+  const directionParam = value.slice(separator + 1);
+  const field = BOOKING_SORT_FIELDS.find(
+    (candidate) => SORT_FIELD_PARAMS[candidate] === fieldParam,
+  );
+  const direction = directionParam === "auf" ? "asc" : directionParam === "ab" ? "desc" : undefined;
+  return field !== undefined && direction !== undefined ? { field, direction } : undefined;
+}
+
+function isDefaultSort(sort: BookingSort): boolean {
+  return (
+    sort.field === DEFAULT_BOOKING_SORT.field && sort.direction === DEFAULT_BOOKING_SORT.direction
+  );
+}
+
+/** The sort order of the search params (default: date descending). */
+export function bookingSearchSort(search: BookingSearch): BookingSort {
+  return parseSortParam(search.sortierung) ?? DEFAULT_BOOKING_SORT;
+}
+
+/**
+ * The direction a column sorts in when it is chosen: dates and amounts
+ * descending (newest, largest first), texts ascending (A first).
+ */
+export function initialSortDirection(field: BookingSortField): SortDirection {
+  return field === "date" || field === "netCents" || field === "vatCents" || field === "grossCents"
+    ? "desc"
+    : "asc";
+}
+
+/**
+ * The sort order after activating the header of `field`: the sorted column
+ * flips its direction, another column starts with its
+ * {@link initialSortDirection}.
+ */
+export function nextBookingSort(current: BookingSort, field: BookingSortField): BookingSort {
+  if (current.field === field) {
+    return { field, direction: current.direction === "asc" ? "desc" : "asc" };
+  }
+  return { field, direction: initialSortDirection(field) };
+}
+
+/** The `sortierung` param of a sort order: `undefined` for the default. */
+export function sortSearchParam(sort: BookingSort): BookingSortParam | undefined {
+  return isDefaultSort(sort) ? undefined : sortParam(sort);
+}
+
+/** The page of the search params (1-based). */
+export function bookingSearchPage(search: BookingSearch): number {
+  return search.seite ?? 1;
+}
+
+/** The page size of the search params. */
+export function bookingSearchPageSize(search: BookingSearch): number {
+  return search.proSeite ?? DEFAULT_BOOKING_PAGE_SIZE;
+}
+
+/** The `seite` param of a page: `undefined` for page 1. */
+export function pageSearchParam(page: number): number | undefined {
+  return page > 1 ? page : undefined;
+}
+
+/** The `proSeite` param of a page size: `undefined` for the default. */
+export function pageSizeSearchParam(pageSize: number): number | undefined {
+  return pageSize === DEFAULT_BOOKING_PAGE_SIZE ? undefined : pageSize;
+}
+
+function pageParam(value: unknown): number | undefined {
+  const page = nonNegativeInteger(value);
+  return page !== undefined && page > 1 ? page : undefined;
+}
+
+function pageSizeParam(value: unknown): number | undefined {
+  const size = nonNegativeInteger(value);
+  return size !== undefined && BOOKING_PAGE_SIZES.includes(size) ? size : undefined;
+}
+
+function sortingParam(value: unknown): BookingSortParam | undefined {
+  const sort = parseSortParam(value);
+  return sort ? sortSearchParam(sort) : undefined;
+}
+
+/**
+ * The rows a page shows, 1-based and inclusive, for the pagination's
+ * "51–100 von 120"; `0–0` for an empty result.
+ */
+export function pageRange(
+  page: number,
+  pageSize: number,
+  total: number,
+): { readonly from: number; readonly to: number } {
+  if (total === 0) return { from: 0, to: 0 };
+  return { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total) };
+}
+
 /**
  * Removes absent and empty values, so defaults never appear in the URL, and
  * fixes the key order (the URL reads the same however a filter was set).
@@ -142,6 +302,11 @@ export function cleanBookingSearch(search: BookingSearch): BookingSearch {
   if (search.quelle !== undefined) result.quelle = search.quelle;
   if (search.betragVon !== undefined) result.betragVon = search.betragVon;
   if (search.betragBis !== undefined) result.betragBis = search.betragBis;
+  if (search.sortierung !== undefined) result.sortierung = search.sortierung;
+  if (search.seite !== undefined && search.seite > 1) result.seite = search.seite;
+  if (search.proSeite !== undefined && search.proSeite !== DEFAULT_BOOKING_PAGE_SIZE) {
+    result.proSeite = search.proSeite;
+  }
   return result;
 }
 
@@ -155,6 +320,9 @@ const NO_SEARCH: Readonly<Record<BookingSearchKey, undefined>> = {
   quelle: undefined,
   betragVon: undefined,
   betragBis: undefined,
+  sortierung: undefined,
+  seite: undefined,
+  proSeite: undefined,
 };
 
 /**
@@ -183,18 +351,35 @@ function validParams(raw: Readonly<Record<string, unknown>>): BookingSearch {
     quelle: isSourceParam(raw.quelle) ? raw.quelle : undefined,
     betragVon: amountCents(raw.betragVon),
     betragBis: amountCents(raw.betragBis),
+    sortierung: sortingParam(raw.sortierung),
+    seite: pageParam(raw.seite),
+    proSeite: pageSizeParam(raw.proSeite),
   });
 }
 
-/** `search` with `patch` applied (`undefined` removes a param), cleaned. */
+/**
+ * `search` with `patch` applied (`undefined` removes a param), cleaned.
+ *
+ * Changing anything but the page – a filter, the sort order or the page
+ * size – goes back to page 1 (the old page number would show unrelated
+ * rows), unless the patch sets `seite` itself.
+ */
 export function updateBookingSearch(
   search: BookingSearch,
   patch: { readonly [K in BookingSearchKey]?: BookingSearch[K] | undefined },
 ): BookingSearch {
-  return cleanBookingSearch({ ...search, ...patch });
+  const next = cleanBookingSearch({ ...search, ...patch });
+  if (Object.hasOwn(patch, "seite") || next.seite === undefined) return next;
+  const withoutPage = (value: BookingSearch) =>
+    JSON.stringify(cleanBookingSearch({ ...value, seite: undefined }));
+  return withoutPage(next) === withoutPage(search) ? next : { ...next, seite: undefined };
 }
 
-/** The filters of the search params as `BookingQuery` (without sort order and page). */
+/**
+ * The filters of the search params as `BookingQuery` (without sort order and
+ * page). The CSV export (#24) adds {@link bookingSearchSort} and
+ * `pageSize: "all"`.
+ */
 export function bookingSearchToQuery(search: BookingSearch): BookingQuery {
   const query: { -readonly [K in keyof BookingQuery]?: BookingQuery[K] } = {};
   if (search.q !== undefined) query.text = search.q;
@@ -206,6 +391,19 @@ export function bookingSearchToQuery(search: BookingSearch): BookingQuery {
   if (search.betragVon !== undefined) query.amountFrom = search.betragVon;
   if (search.betragBis !== undefined) query.amountTo = search.betragBis;
   return query;
+}
+
+/**
+ * The list's query (#23): filters, sort order, page and page size of the
+ * search params.
+ */
+export function bookingSearchToListQuery(search: BookingSearch): BookingQuery {
+  return {
+    ...bookingSearchToQuery(search),
+    sort: bookingSearchSort(search),
+    page: bookingSearchPage(search),
+    pageSize: bookingSearchPageSize(search),
+  };
 }
 
 /**
@@ -224,10 +422,12 @@ export function countActiveFilters(search: BookingSearch): number {
   return active.filter(Boolean).length;
 }
 
-/** The search params without any filter ("Filter zurücksetzen"). */
-export function resetBookingFilters(_search: BookingSearch): BookingSearch {
-  // Sort order and page size (#23) will be kept here; the page resets.
-  return {};
+/**
+ * The search params without any filter ("Filter zurücksetzen"): sort order
+ * and page size stay, the page goes back to 1.
+ */
+export function resetBookingFilters(search: BookingSearch): BookingSearch {
+  return cleanBookingSearch({ sortierung: search.sortierung, proSeite: search.proSeite });
 }
 
 /** The search text as committed to the URL: trimmed; blank removes the param. */
