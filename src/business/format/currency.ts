@@ -4,6 +4,8 @@
  * ever doing floating-point arithmetic on fractional euros.
  */
 
+import { MAX_AMOUNT_CENTS } from "../money/limits";
+
 const LOCALE = "de-DE";
 
 const currencyFormat = new Intl.NumberFormat(LOCALE, {
@@ -54,7 +56,7 @@ export type ParseAmountError =
   | "negative"
   /** More than two decimal places; we never round silently. */
   | "tooManyDecimals"
-  /** Result would exceed `Number.MAX_SAFE_INTEGER` cents. */
+  /** Result would exceed `MAX_AMOUNT_CENTS` (100.000.000,00 €). */
   | "tooLarge"
   /** Anything else that is not a valid de-DE amount. */
   | "invalid";
@@ -94,7 +96,7 @@ const MINUS_SIGN = "\u2212";
  * - a dot as decimal separator or wrong grouping (`"12.5"`, `"1.23"`,
  *   `"12.34,5"`, `"0.123"`), inner whitespace, a leading plus, missing
  *   integer part (`",5"`), letters, multiple commas, … → `"invalid"`
- * - more than `Number.MAX_SAFE_INTEGER` cents → `"tooLarge"`
+ * - more than `MAX_AMOUNT_CENTS` (100.000.000,00 €) → `"tooLarge"`
  *
  * Works purely on the digit string, so there is no floating-point rounding
  * (`"0,29"` → `29`, not `28`).
@@ -118,7 +120,7 @@ export function parseAmount(input: string): ParseAmountResult {
   if (fractionDigits.length > 2) return { ok: false, error: "tooManyDecimals" };
 
   const cents = BigInt(integerDigits + fractionDigits.padEnd(2, "0"));
-  if (cents > BigInt(Number.MAX_SAFE_INTEGER)) {
+  if (cents > BigInt(MAX_AMOUNT_CENTS)) {
     return { ok: false, error: "tooLarge" };
   }
   return { ok: true, cents: Number(cents) };
