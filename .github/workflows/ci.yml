@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # PRs teilen sich eine Gruppe (überholte Läufe werden abgebrochen);
+  # jeder Push auf main bekommt eine eigene Gruppe und läuft vollständig durch.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    name: Check & Build (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Version kommt aus "packageManager" in package.json (pnpm 12).
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo-Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          # Nur main speichert den Cache; PRs stellen ihn von main wieder her.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      # Kompiliert die Paraglide-Messages (src/paraglide, gitignored), die tsc braucht.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Tauri build (ohne Bundle)
+        run: pnpm tauri build --no-bundle
+
+      # Kein Release – nur zum Ausprobieren im Review, kurz aufbewahrt.
+      - name: Upload exe
+        uses: actions/upload-artifact@v7
+        with:
+          name: belegwerk-${{ github.sha }}
+          path: src-tauri/target/release/belegwerk.exe
+          if-no-files-found: error
+          retention-days: 7
