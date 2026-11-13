@@ -7,8 +7,12 @@ import type {
   CategoryInput,
   TaxYear,
 } from "../model";
+import { textSearchCharClasses } from "../bookings/text-search";
 import {
+  type BookingFilter,
   type BookingRepository,
+  type BookingSearchCriteria,
+  type BookingSort,
   type CategoryRepository,
   type Clock,
   ConstraintViolationError,
@@ -229,12 +233,107 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
       for (const { date } of state().bookings.values()) years.add(Number(date.slice(0, 4)));
       return [...years].toSorted((a, b) => a - b);
     }),
-    list: op(() =>
-      [...state().bookings.values()]
-        .toSorted((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1))
-        .map((booking) => ({ ...booking })),
-    ),
+    search: op(({ filter, sort, limit, offset }: BookingSearchCriteria) => {
+      const s = state();
+      const matching = [...s.bookings.values()].filter(matches(filter));
+      const sorted = matching.toSorted(comparator(sort, (id) => s.categories.get(id)?.name ?? ""));
+      const start = limit === undefined ? 0 : (offset ?? 0);
+      const end = limit === undefined ? undefined : start + limit;
+      return sorted.slice(start, end).map(copyOf);
+    }),
+    summarize: op((filter: BookingFilter) => {
+      const totals = { count: 0, incomeCents: 0, expenseCents: 0 };
+      for (const booking of [...state().bookings.values()].filter(matches(filter))) {
+        totals.count += 1;
+        if (booking.type === "income") totals.incomeCents += booking.grossCents;
+        else totals.expenseCents += booking.grossCents;
+      }
+      return totals;
+    }),
   };
+}
+
+/** {@link BookingFilter} in JavaScript – the same semantics as the SQL of the Drizzle repository. */
+function matches(filter: BookingFilter): (booking: Booking) => boolean {
+  const text = filter.text === undefined ? undefined : containsRegExp(filter.text);
+  const categoryIds = filter.categoryIds && new Set(filter.categoryIds);
+  return (booking) =>
+    (text === undefined ||
+      [booking.description, booking.counterparty, booking.reference, booking.note].some(
+        (value) => value !== null && text.test(value),
+      )) &&
+    (filter.dateFrom === undefined || booking.date >= filter.dateFrom) &&
+    (filter.dateTo === undefined || booking.date <= filter.dateTo) &&
+    (filter.type === undefined || booking.type === filter.type) &&
+    (categoryIds === undefined || categoryIds.has(booking.categoryId)) &&
+    (filter.source === undefined || booking.source === filter.source) &&
+    (filter.amountFrom === undefined || booking.grossCents >= filter.amountFrom) &&
+    (filter.amountTo === undefined || booking.grossCents <= filter.amountTo);
+}
+
+/** Substring match with the case variants of `textSearchCharClasses` (like the SQL GLOB set). */
+function containsRegExp(text: string): RegExp {
+  const source = textSearchCharClasses(text)
+    .map((variants) =>
+      variants.length === 1
+        ? escapeRegExp(variants[0]!)
+        : `[${variants.map(escapeRegExp).join("")}]`,
+    )
+    .join("");
+  return new RegExp(source, "u");
+}
+
+/**
+ * {@link BookingSort} in JavaScript, like SQLite: `NOCASE` folds only ASCII
+ * letters, then strings compare by code point (= UTF-8 byte order of
+ * SQLite's `memcmp`; JavaScript's `<` compares UTF-16 code units, which
+ * differs above U+FFFF).
+ */
+function comparator(
+  { field, direction }: BookingSort,
+  categoryName: (id: number) => string,
+): (a: Booking, b: Booking) => number {
+  const sign = direction === "asc" ? 1 : -1;
+  const key = (booking: Booking): string | number => {
+    switch (field) {
+      case "description":
+        return nocase(booking.description);
+      case "counterparty":
+        return nocase(booking.counterparty);
+      case "category":
+        return nocase(categoryName(booking.categoryId));
+      default:
+        return booking[field];
+    }
+  };
+  return (a, b) => {
+    if (field === "date") return sign * (compare(a.date, b.date) || a.id - b.id);
+    return sign * compare(key(a), key(b)) || compare(b.date, a.date) || b.id - a.id;
+  };
+}
+
+function escapeRegExp(char: string): string {
+  return char.replace(/[\\^$.*+?()[\]{}|/]/gu, "\\$&");
+}
+
+/** SQLite's `NOCASE`: folds ASCII letters only. */
+function nocase(value: string): string {
+  return value.replace(/[A-Z]/gu, (char) => char.toLowerCase());
+}
+
+function compare(a: string | number, b: string | number): number {
+  return typeof a === "number" && typeof b === "number"
+    ? a - b
+    : compareCodePoints(String(a), String(b));
+}
+
+function compareCodePoints(a: string, b: string): number {
+  const x = Array.from(a, (char) => char.codePointAt(0)!);
+  const y = Array.from(b, (char) => char.codePointAt(0)!);
+  for (let index = 0; index < Math.min(x.length, y.length); index += 1) {
+    if (x[index] !== y[index]) return x[index]! - y[index]!;
+  }
+  return x.length - y.length;
 }
 
 function createCategories(state: () => State, op: Op): CategoryRepository {

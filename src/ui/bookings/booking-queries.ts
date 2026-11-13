@@ -1,7 +1,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
-import type { BookingFormInput } from "@/business/bookings";
+import type { BookingFormInput, BookingQuery } from "@/business/bookings";
 import { categoryQueryKeys } from "@/ui/categories/category-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
 
@@ -13,20 +13,23 @@ import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
  */
 export const bookingQueryKeys = {
   all: ["bookings"] as const,
-  /**
-   * The booking list. The search (#21/#22) appends its query object
-   * (`["bookings", "list", query]`); `all` and this prefix still match.
-   */
-  list: () => [...bookingQueryKeys.all, "list"] as const,
+  /** Every booking list query, whatever its search (prefix of `list(query)`). */
+  lists: () => [...bookingQueryKeys.all, "list"] as const,
+  /** One booking search (#21): `["bookings", "list", query]`. */
+  list: (query: BookingQuery) => [...bookingQueryKeys.lists(), query] as const,
   detail: (id: number) => [...bookingQueryKeys.all, "detail", id] as const,
 };
 
-/** All bookings with their category, newest first (`BookingService.list`). */
-export function useBookingList() {
+/**
+ * One page of the booking search with total count and sums
+ * (`BookingService.list`, #21). An invalid query is a result
+ * (`{ ok: false, reason: "invalid", errors }`), not a query error.
+ */
+export function useBookingList(query: BookingQuery) {
   const { bookings } = useAppServices();
   return useQuery({
-    queryKey: bookingQueryKeys.list(),
-    queryFn: () => bookings.list(),
+    queryKey: bookingQueryKeys.list(query),
+    queryFn: () => bookings.list(query),
   });
 }
 

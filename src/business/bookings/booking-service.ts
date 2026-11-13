@@ -25,6 +25,11 @@ import type {
 } from "../model";
 import { ConstraintViolationError, type Repositories, type UnitOfWork } from "../repositories";
 import { isId, trimText } from "../validation";
+import {
+  type BookingQuery,
+  type BookingQueryInvalid,
+  normalizeBookingQuery,
+} from "./booking-query";
 
 /**
  * What the booking form submits. Amounts are integer cents (gross, #1);
@@ -40,7 +45,10 @@ import { isId, trimText } from "../validation";
  *
  * Texts are trimmed (also invisible format characters like U+200B–U+200D,
  * U+2060, U+00AD and U+FEFF at the ends, see `trimText`); a text without any
- * visible character counts as blank.
+ * visible character counts as blank. Description, counterparty, reference
+ * and note are stored NFC-normalized (a decomposed "u + U+0308" becomes
+ * "ü"), so the search (#21), which normalizes its text the same way, finds
+ * them; the external ID stays as given.
  */
 export interface BookingFormInput {
   /** Payment date `YYYY-MM-DD`. */
@@ -149,25 +157,44 @@ export interface BookingListItem extends Booking {
   readonly category: BookingListCategory;
 }
 
-/**
- * Result of {@link BookingService.list}. An object (not a bare array) so the
- * search (#21) can add the total count and the sums of the filtered bookings
- * without changing existing callers.
- */
-export interface BookingListResult {
-  /** Newest first: by date descending, then id descending. */
-  readonly items: readonly BookingListItem[];
+/** Sums of the gross amounts of all bookings matching the query (not just the page). */
+export interface BookingSums {
+  readonly incomeCents: number;
+  readonly expenseCents: number;
+  /** Income minus expense; negative for a loss. */
+  readonly balanceCents: number;
 }
+
+/** Result of {@link BookingService.list}. */
+export type BookingListResult =
+  | {
+      readonly ok: true;
+      /** The bookings of the page, in the query's sort order. */
+      readonly items: readonly BookingListItem[];
+      /** Number of all matching bookings. */
+      readonly total: number;
+      /**
+       * The page returned (1-based): the requested one, or the last page if
+       * the requested one is after it (e.g. after deleting its last booking).
+       */
+      readonly page: number;
+      readonly pageSize: number | "all";
+      /** At least 1 (an empty result is one empty page); 1 for `pageSize: "all"`. */
+      readonly pageCount: number;
+      readonly sums: BookingSums;
+    }
+  | BookingQueryInvalid;
 
 export interface BookingService {
   /**
-   * All bookings with their category, newest first (booking list, #17).
-   *
-   * Extension (#21): an optional query object (text, period, type,
-   * categories, source, amount range, sorting, page) as parameter – without
-   * it, all bookings in this order – and `total`/sums in the result.
+   * Booking search (#17, #21): one page of the bookings matching `query`,
+   * each with its category, plus the total count and the sums of **all**
+   * matching bookings. Without a query: the first
+   * DEFAULT_BOOKING_PAGE_SIZE bookings, newest first. Invalid input
+   * gives `{ ok: false, reason: "invalid", errors }` (see
+   * {@link normalizeBookingQuery}).
    */
-  list(): Promise<BookingListResult>;
+  list(query?: BookingQuery): Promise<BookingListResult>;
   get(id: number): Promise<GetBookingResult>;
   create(input: BookingFormInput): Promise<CreateBookingResult>;
   /** Replaces the booking's fields (see {@link BookingFormInput} for omitted optional ones). */
@@ -184,11 +211,25 @@ const BOOKING_SOURCES: readonly BookingSource[] = ["manual", "stripe"];
 
 export function createBookingService({ unitOfWork }: BookingServiceDependencies): BookingService {
   return {
-    list: () =>
-      unitOfWork.run(async (repos) => {
-        // Two queries, joined here: categories are few, and a SQL join would
-        // need an explicit select object (duplicate column names, docs/data-model.md).
-        const bookings = await repos.bookings.list();
+    list: async (query) => {
+      const normalized = normalizeBookingQuery(query);
+      if (!normalized.ok) return normalized;
+      const { filter, sort, pageSize } = normalized.query;
+      // One unit of work: count, sums and page see the same state.
+      return unitOfWork.run(async (repos) => {
+        const totals = await repos.bookings.summarize(filter);
+        const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(totals.count / pageSize));
+        const page = Math.min(normalized.query.page, pageCount);
+        const bookings =
+          totals.count === 0
+            ? []
+            : await repos.bookings.search(
+                pageSize === "all"
+                  ? { filter, sort }
+                  : { filter, sort, limit: pageSize, offset: (page - 1) * pageSize },
+              );
+        // Categories joined here: they are few, and a SQL join would need an
+        // explicit select object (duplicate column names, docs/data-model.md).
         const categories = new Map(
           (await repos.categories.list()).map((category) => [category.id, category]),
         );
@@ -201,8 +242,21 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
           const { id, name, archived } = category;
           return { ...booking, category: { id, name, archived } };
         });
-        return { items };
-      }),
+        return {
+          ok: true,
+          items,
+          total: totals.count,
+          page,
+          pageSize,
+          pageCount,
+          sums: {
+            incomeCents: totals.incomeCents,
+            expenseCents: totals.expenseCents,
+            balanceCents: totals.incomeCents - totals.expenseCents,
+          },
+        };
+      });
+    },
 
     get: async (id) => {
       if (!isId(id)) return NOT_FOUND;
@@ -400,7 +454,7 @@ function requiredText(
   field: "description" | "counterparty",
   errors: BookingFieldError[],
 ): string {
-  const text = trimText(value);
+  const text = trimText(value).normalize("NFC");
   if (text === "") errors.push({ field, code: "required" });
   else if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;
@@ -412,7 +466,9 @@ function optionalText(
   field: "reference" | "note" | "externalId",
   errors: BookingFieldError[],
 ): string | null {
-  const text = value === null ? "" : trimText(value);
+  const trimmed = value === null ? "" : trimText(value);
+  // IDs of a source system are kept exactly as given.
+  const text = field === "externalId" ? trimmed : trimmed.normalize("NFC");
   if (text === "") return null;
   if (text.length > BOOKING_TEXT_MAX_LENGTH[field]) errors.push({ field, code: "tooLong" });
   return text;
