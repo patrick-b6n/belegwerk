@@ -11,7 +11,9 @@ import {
   type SearchChangeOptions,
 } from "@/ui/bookings/booking-filter-bar";
 import {
+  type BookingSearch,
   bookingSearchToQuery,
+  cleanBookingSearch,
   countActiveFilters,
   resetBookingFilters,
   updateBookingSearch,
@@ -50,20 +52,28 @@ function BookingsPage() {
   const errors = normalized.ok ? [] : normalized.errors;
   const filtered = countActiveFilters(search) > 0;
 
+  // Patches apply to the current search (`prev`), not to the one of the last
+  // render: two changes in a row (e.g. a debounced commit right after a
+  // select) must not undo each other. An unchanged search keeps the URL; the
+  // router then adds no history entry.
   const changeSearch = useCallback(
     (patch: BookingSearchPatch, options?: SearchChangeOptions) => {
-      const next = updateBookingSearch(search, patch);
-      if (JSON.stringify(next) === JSON.stringify(search)) return;
-      void navigate({ search: next, replace: options?.replace ?? false });
+      void navigate({
+        search: (prev) => {
+          const next = updateBookingSearch(prev, patch);
+          return sameSearch(next, prev) ? prev : next;
+        },
+        replace: options?.replace ?? false,
+      });
     },
-    [navigate, search],
+    [navigate],
   );
   const reset = useCallback(() => {
-    void navigate({ search: resetBookingFilters(search) });
+    void navigate({ search: (prev) => resetBookingFilters(prev) });
     setResetCount((count) => count + 1);
     // The reset button is disabled now: continue in the search field.
     requestAnimationFrame(() => document.getElementById(searchInputId)?.focus());
-  }, [navigate, search, searchInputId]);
+  }, [navigate, searchInputId]);
 
   const categories = useCategoryList();
   const taxYears = useTaxYearList();
@@ -99,13 +109,21 @@ function BookingsPage() {
   );
 }
 
+/** Whether two searches give the same URL (`undefined` params are not written). */
+function sameSearch(a: BookingSearch, b: BookingSearch): boolean {
+  return JSON.stringify(cleanBookingSearch(a)) === JSON.stringify(cleanBookingSearch(b));
+}
+
 function BookingList({
   query,
   invalid,
   filtered,
   onReset,
 }: Readonly<{ query: BookingQuery; invalid: boolean; filtered: boolean; onReset: () => void }>) {
-  const { data, error, isPending, isPlaceholderData, refetch } = useBookingList(query);
+  // An invalid query is not run (the filter bar shows the errors).
+  const { data, error, isPending, isPlaceholderData, refetch } = useBookingList(query, {
+    enabled: !invalid,
+  });
 
   if (invalid) {
     // The filter bar shows the errors at the controls.

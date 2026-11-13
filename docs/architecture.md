@@ -552,9 +552,9 @@ optional; Standardwerte stehen nie in der URL):
 | ------------------------ | ------------------------------------- | ------------------------ |
 | `q`                      | Suchtext (getrimmt)                   | `text`                   |
 | `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive | `dateFrom`, `dateTo`     |
-| `art`                    | `einnahmen`                           | `ausgaben`               | `type`   |
+| `art`                    | `einnahmen` oder `ausgaben`           | `type`                   |
 | `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)  | `categoryIds`            |
-| `quelle`                 | `manuell`                             | `stripe`                 | `source` |
+| `quelle`                 | `manuell` oder `stripe`               | `source`                 |
 | `betragVon`, `betragBis` | Brutto in **Cent**                    | `amountFrom`, `amountTo` |
 
 - **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
@@ -562,7 +562,8 @@ optional; Standardwerte stehen nie in der URL):
   zu `?q="2025"`); Arrays erscheinen als `kategorie=[1,7]`. Beträge als
   Cent und Daten als ISO halten die URL unabhängig vom Anzeigeformat.
 - **Ungültige Parameter** führen nie zu einem Fehler: Unlesbares
-  (unbekannte Art/Quelle, unmögliches Datum, kein Cent-Betrag ≥ 0, keine
+  (unbekannte Art/Quelle, unmögliches Datum, kein Cent-Betrag 0 bis
+  `MAX_AMOUNT_CENTS`, keine
   ID) wird verworfen, der Router schreibt die URL bereinigt zurück.
   Lesbare, aber widersprüchliche Werte (`bis` vor `von`, `betragBis` <
   `betragVon`, Steuerzeichen oder zu langer Suchtext) bleiben stehen;
@@ -578,7 +579,8 @@ optional; Standardwerte stehen nie in der URL):
   passt – eine URL hat so genau eine Bedeutung, ein zusätzlicher
   `zeitraum`-Parameter könnte den Daten widersprechen. „Frei“ (zwei
   Datumsfelder) bleibt gewählt, solange es benutzt wird, auch wenn die Daten
-  zufällig einen ganzen Monat ergeben. Jahre zur Auswahl: Steuerjahre und
+  zufällig einen ganzen Monat ergeben – bis eine andere Schnellwahl gewählt,
+  zurückgesetzt oder der Zeitraum von außen geändert wird (Zurück/Vor). Jahre zur Auswahl: Steuerjahre und
   Jahre mit Buchungen (`useTaxYearList`), das aktuelle und das gewählte.
 - **Historie:** Auswahlen (Zeitraum, Art, Kategorien, Quelle, Zurücksetzen)
   erzeugen einen Eintrag, Zurück/Vor stellt sie wieder her. Getippte Werte
@@ -588,15 +590,19 @@ optional; Standardwerte stehen nie in der URL):
   Ändert sich die URL von außen (Zurück, Zurücksetzen), übernehmen die
   Felder den Wert und verwerfen ausstehende Eingaben (`useDebouncedInput`).
 - **Art und Kategorien:** Die Mehrfachauswahl (Base UI `Select multiple`)
-  gruppiert nach Art, archivierte markiert; mit Art-Filter nur deren Gruppe.
+  gruppiert nach Art, archivierte markiert; mit Art-Filter nur deren
+  Kategorien. Gewählte Kategorien der anderen Art und IDs ohne Kategorie
+  (aus einer URL) stehen markiert in der Liste, damit sie sich abwählen
+  lassen.
   Ein Art-Wechsel entfernt Kategorien der anderen Art.
 - **Beträge** mit Dezimalkomma (`parseAmount`); unlesbare Eingaben zeigen
   einen Fehler und ändern die URL nicht.
 - **Ergebnis:** „N Buchungen gefunden“ (`role="status"`); mit Filtern ohne
   Treffer „Keine Buchungen passen zu den Filtern“ samt „Filter
   zurücksetzen“, ohne Filter weiterhin „Noch keine Buchungen“. Während eine
-  neue Suche lädt, bleibt das alte Ergebnis gedimmt stehen
-  (`keepPreviousData`).
+  neue Suche lädt, bleibt das alte Ergebnis gedimmt stehen (nur ein
+  erfolgreiches, `placeholderData`); ein ungültiger Filter fragt nicht ab
+  (`enabled: false`).
 - **Zurücksetzen** leert alle Filter (deaktiviert, wenn keiner aktiv ist;
   daneben „N Filter aktiv“), baut die Filterleiste neu auf und setzt den
   Fokus ins Suchfeld.

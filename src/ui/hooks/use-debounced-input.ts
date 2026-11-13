@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export interface DebouncedInputOptions {
   /** The value's text as it currently is in the URL (or other source of truth). */
@@ -48,7 +48,8 @@ export function useDebouncedInput({
   const commitRef = useRef(onCommit);
   const matchesRef = useRef(matches);
 
-  useEffect(() => {
+  // Layout effect: up to date before any effect or timer of this commit reads them.
+  useLayoutEffect(() => {
     commitRef.current = onCommit;
     matchesRef.current = matches;
   });

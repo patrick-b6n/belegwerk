@@ -1,5 +1,5 @@
 import { RotateCcw, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { BookingQueryError, BookingQueryField } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
@@ -27,7 +27,9 @@ import {
   type BookingTypeParam,
   categoriesAfterTypeChange,
   categoryFilterGroups,
+  unknownCategoryIds,
   countActiveFilters,
+  type DateRange,
   detectPeriod,
   MONTHS,
   parseAmountFilter,
@@ -343,12 +345,18 @@ function SearchField({
   );
 }
 
+/** Identity of a period range as the URL has it (blank = absent). */
+function rangeKey(from: string | undefined, to: string | undefined): string {
+  return `${from ?? ""}/${to ?? ""}`;
+}
+
 /**
  * Period: quick picks year / quarter / month of a year, or custom dates. Only
  * `von`/`bis` are stored; the quick pick is derived from them. "Frei" stays
  * selected while it is used (also with empty dates or dates that happen to
- * form a whole month), until another quick pick is chosen or the filters
- * are reset (the filter bar is then mounted anew).
+ * form a whole month), until another quick pick is chosen, the filters are
+ * reset (the filter bar is then mounted anew) or the range changes from
+ * outside (back/forward, a link).
  */
 function PeriodFilter({
   idPrefix,
@@ -365,9 +373,20 @@ function PeriodFilter({
   years: readonly number[];
   fromErrors: readonly string[];
   toErrors: readonly string[];
-  onChange: (range: { from?: string; to?: string }, options?: SearchChangeOptions) => void;
+  onChange: (range: DateRange, options?: SearchChangeOptions) => void;
 }>) {
   const [customMode, setCustomMode] = useState(false);
+  // The range this filter committed last, until the URL reflects it.
+  const ownRange = useRef<string | undefined>(undefined);
+  const commit = (range: DateRange, options?: SearchChangeOptions) => {
+    ownRange.current = rangeKey(range.from, range.to);
+    onChange(range, options);
+  };
+  useEffect(() => {
+    const own = ownRange.current === rangeKey(from, to);
+    ownRange.current = undefined;
+    if (!own) setCustomMode(false);
+  }, [from, to]);
   const [today] = useState<YearMonth>(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -375,7 +394,7 @@ function PeriodFilter({
   const detected = detectPeriod(from, to);
   const kind: PeriodKind = customMode ? "custom" : detected.kind;
   const period: Period = customMode ? { kind: "custom", from, to } : detected;
-  const setPeriod = (next: Period) => onChange(periodRange(next));
+  const setPeriod = (next: Period) => commit(periodRange(next));
 
   const yearOptions = periodYearOptions(
     years,
@@ -525,7 +544,7 @@ function PeriodFilter({
             errors={fromErrors}
             onCommit={(date) => {
               setCustomMode(true);
-              onChange({ from: date, to }, replaceWhenEditing(from, date));
+              commit({ from: date, to }, replaceWhenEditing(from, date));
             }}
           />
           <DateField
@@ -535,7 +554,7 @@ function PeriodFilter({
             errors={toErrors}
             onCommit={(date) => {
               setCustomMode(true);
-              onChange({ from, to: date }, replaceWhenEditing(to, date));
+              commit({ from, to: date }, replaceWhenEditing(to, date));
             }}
           />
         </>
@@ -671,6 +690,11 @@ function AmountField({
   );
 }
 
+/** A selected id without a category. */
+function unknownLabel(categoryId: number): string {
+  return m.bookings_filter_category_unknown_id({ id: String(categoryId) });
+}
+
 /** A category as the filter shows it: archived ones marked. */
 function categoryLabel(category: CategoryWithUsage): string {
   return category.archived
@@ -679,9 +703,10 @@ function categoryLabel(category: CategoryWithUsage): string {
 }
 
 /**
- * Multi-select of categories, grouped by type (only the filtered type's
- * group with a type filter), archived ones marked. Selected ids that are not
- * offered (deleted category, other type) still show as selected count.
+ * Multi-select of categories, grouped by type (with a type filter only that
+ * type's categories), archived ones marked. Selected categories of the other
+ * type and selected ids without a category are listed marked, so they can be
+ * deselected.
  */
 function CategoryFilter({
   id,
@@ -698,16 +723,23 @@ function CategoryFilter({
   errors: readonly string[];
   onChange: (ids: number[] | undefined) => void;
 }>) {
-  const groups = categoryFilterGroups(categories, type);
-  const items = categories.map((category) => ({
-    value: category.id,
-    label: categoryLabel(category),
-  }));
+  const groups = categoryFilterGroups(categories, type, selected);
+  const unknown = unknownCategoryIds(categories, selected);
+  // Selected categories the type filter excludes (e.g. from a URL) are listed
+  // marked, so they can be deselected.
+  const label = (category: CategoryWithUsage) =>
+    type !== undefined && category.type !== type
+      ? m.bookings_filter_category_other_type({ name: categoryLabel(category) })
+      : categoryLabel(category);
+  const items = [
+    ...categories.map((category) => ({ value: category.id, label: label(category) })),
+    ...unknown.map((categoryId) => ({ value: categoryId, label: unknownLabel(categoryId) })),
+  ];
   const summary = (ids: readonly number[]) => {
     if (ids.length === 0) return m.bookings_filter_category_all();
     if (ids.length > 1) return m.bookings_filter_category_count({ count: String(ids.length) });
     const category = categories.find((candidate) => candidate.id === ids[0]);
-    return category ? categoryLabel(category) : m.bookings_filter_category_unknown();
+    return category ? label(category) : unknownLabel(ids[0] ?? 0);
   };
 
   return (
@@ -734,13 +766,27 @@ function CategoryFilter({
                   <SelectItem
                     key={category.id}
                     value={category.id}
-                    className={category.archived ? "text-muted-foreground" : undefined}
+                    className={
+                      category.archived || (type !== undefined && category.type !== type)
+                        ? "text-muted-foreground"
+                        : undefined
+                    }
                   >
-                    {categoryLabel(category)}
+                    {label(category)}
                   </SelectItem>
                 ))}
               </SelectGroup>
             ))}
+            {unknown.length > 0 && (
+              <SelectGroup>
+                <SelectLabel>{m.bookings_filter_category_group_unknown()}</SelectLabel>
+                {unknown.map((categoryId) => (
+                  <SelectItem key={categoryId} value={categoryId} className="text-muted-foreground">
+                    {unknownLabel(categoryId)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
           </SelectContent>
         </Select>
       )}

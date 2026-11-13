@@ -31,6 +31,7 @@ import type { BookingQuery } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
 import { parseAmount, parseIsoDate, type ParseAmountError } from "@/business/format";
 import type { BookingSource, BookingType } from "@/business/model";
+import { MAX_AMOUNT_CENTS } from "@/business/money";
 import { isId, trimText } from "@/business/validation";
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,18 @@ function nonNegativeInteger(value: unknown): number | undefined {
   if (typeof value === "number") number = value;
   else if (typeof value === "string" && /^\d+$/.test(value)) number = Number(value);
   else return undefined;
-  return Number.isSafeInteger(number) && number >= 0 ? number : undefined;
+  if (!Number.isSafeInteger(number) || number < 0) return undefined;
+  // -0 (from `?betragVon=-0`) is 0.
+  return number === 0 ? 0 : number;
+}
+
+/**
+ * An amount in cents from a URL value: like the amount inputs (`parseAmount`),
+ * at most {@link MAX_AMOUNT_CENTS}; larger amounts are dropped.
+ */
+function amountCents(value: unknown): number | undefined {
+  const cents = nonNegativeInteger(value);
+  return cents !== undefined && cents <= MAX_AMOUNT_CENTS ? cents : undefined;
 }
 
 /** Category ids from an array, a single number or a comma-separated string. */
@@ -169,8 +181,8 @@ function validParams(raw: Readonly<Record<string, unknown>>): BookingSearch {
     art: isTypeParam(raw.art) ? raw.art : undefined,
     kategorie: categoryIds(raw.kategorie),
     quelle: isSourceParam(raw.quelle) ? raw.quelle : undefined,
-    betragVon: nonNegativeInteger(raw.betragVon),
-    betragBis: nonNegativeInteger(raw.betragBis),
+    betragVon: amountCents(raw.betragVon),
+    betragBis: amountCents(raw.betragBis),
   });
 }
 
@@ -361,20 +373,30 @@ export interface YearMonth {
  * The period after choosing `kind` in the period select, starting from
  * `current`: keeps its year (else the current year) and, for quarter/month,
  * the narrower part it already has (the month's quarter, the quarter's first
- * month) – otherwise today's quarter/month in the current year and the first
+ * month, a custom range's starting month) – otherwise today's quarter/month in the current year and the first
  * one in other years. "custom" starts with the current range, so the dates
  * can be adjusted.
  */
+/** The month a period starts in, if it has one (custom: of its start, else of its end). */
+function periodMonth(period: Period): number | undefined {
+  switch (period.kind) {
+    case "all":
+    case "year":
+      return undefined;
+    case "quarter":
+      return period.quarter * 3 - 2;
+    case "month":
+      return period.month;
+    case "custom": {
+      const date = period.from ?? period.to;
+      return date === undefined ? undefined : parseIsoDate(date)?.month;
+    }
+  }
+}
+
 export function switchPeriodKind(current: Period, kind: PeriodKind, today: YearMonth): Period {
   const year = periodYear(current) ?? today.year;
-  const month =
-    current.kind === "month"
-      ? current.month
-      : current.kind === "quarter"
-        ? current.quarter * 3 - 2
-        : year === today.year
-          ? today.month
-          : 1;
+  const month = periodMonth(current) ?? (year === today.year ? today.month : 1);
   switch (kind) {
     case "all":
       return { kind: "all" };
@@ -428,19 +450,36 @@ const TYPE_ORDER: readonly BookingType[] = ["income", "expense"];
 /**
  * The category filter's options, grouped by type (income first), sorted by
  * name (de), archived ones included (bookings may still use them). With a
- * type filter only that type's group. Selected categories that do not exist
- * (any more) are not offered.
+ * type filter only that type's categories – plus the `selected` ones of the
+ * other type (e.g. from a URL), so they can be deselected. Selected ids
+ * without a category: {@link unknownCategoryIds}.
  */
 export function categoryFilterGroups(
   categories: readonly CategoryWithUsage[],
   type: BookingType | undefined,
+  selected: readonly number[] = [],
 ): CategoryGroup[] {
-  return TYPE_ORDER.filter((groupType) => type === undefined || type === groupType)
-    .map((groupType) => ({
-      type: groupType,
-      categories: sortedByName(categories.filter((category) => category.type === groupType)),
-    }))
-    .filter((group) => group.categories.length > 0);
+  return TYPE_ORDER.map((groupType) => ({
+    type: groupType,
+    categories: sortedByName(
+      categories.filter(
+        (category) =>
+          category.type === groupType &&
+          (type === undefined || type === groupType || selected.includes(category.id)),
+      ),
+    ),
+  })).filter((group) => group.categories.length > 0);
+}
+
+/**
+ * Selected ids without a category (deleted, or a manipulated URL): the
+ * filter lists them, so they can be deselected.
+ */
+export function unknownCategoryIds(
+  categories: readonly CategoryWithUsage[],
+  selected: readonly number[],
+): number[] {
+  return selected.filter((id) => !categories.some((category) => category.id === id));
 }
 
 /**

@@ -1,10 +1,4 @@
-import {
-  keepPreviousData,
-  type QueryClient,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
 import type { BookingFormInput, BookingQuery } from "@/business/bookings";
@@ -32,15 +26,23 @@ export const bookingQueryKeys = {
  * (`{ ok: false, reason: "invalid", errors }`), not a query error.
  *
  * While another search loads (a filter changed, #22), the previous result
- * stays (`keepPreviousData`, `isPlaceholderData`), so the list does not
- * flash a loading state on every keystroke.
+ * stays (`isPlaceholderData`), so the list does not flash a loading state
+ * on every keystroke – but only a successful one: an `{ ok: false }`
+ * result must not stand in for the next query.
+ *
+ * `enabled: false` skips the query, e.g. while the filters are invalid
+ * (the caller shows their errors instead).
  */
-export function useBookingList(query: BookingQuery) {
+export function useBookingList(
+  query: BookingQuery,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { bookings } = useAppServices();
   return useQuery({
     queryKey: bookingQueryKeys.list(query),
     queryFn: () => bookings.list(query),
-    placeholderData: keepPreviousData,
+    enabled,
+    placeholderData: (previous) => (previous?.ok ? previous : undefined),
   });
 }
 

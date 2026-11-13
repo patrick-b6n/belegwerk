@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { normalizeBookingQuery } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
+import { MAX_AMOUNT_CENTS } from "@/business/money";
 
 import {
   type BookingSearch,
@@ -23,6 +24,7 @@ import {
   sourceParam,
   switchPeriodKind,
   typeParam,
+  unknownCategoryIds,
   updateBookingSearch,
   validateBookingSearch,
 } from "./booking-filter-model";
@@ -136,6 +138,19 @@ describe("validateBookingSearch", () => {
       betragVon: 1000,
       betragBis: 0,
     });
+  });
+
+  it("normalizes -0 to 0", () => {
+    const search = validateBookingSearch({ betragVon: -0 });
+    expect(Object.is(search.betragVon, 0)).toBe(true);
+  });
+
+  it("drops amounts above the largest amount", () => {
+    expect(validateBookingSearch({ betragBis: MAX_AMOUNT_CENTS })).toEqual({
+      betragBis: MAX_AMOUNT_CENTS,
+    });
+    expect(validateBookingSearch({ betragVon: MAX_AMOUNT_CENTS + 1 })).toEqual({});
+    expect(validateBookingSearch({ betragBis: String(MAX_AMOUNT_CENTS + 1) })).toEqual({});
   });
 
   it("drops amounts that are no integer cents ≥ 0", () => {
@@ -479,6 +494,25 @@ describe("switchPeriodKind", () => {
     });
   });
 
+  it("uses the starting month of a custom range", () => {
+    const custom: Period = { kind: "custom", from: "2023-08-15", to: "2023-09-10" };
+    expect(switchPeriodKind(custom, "month", today)).toEqual({
+      kind: "month",
+      year: 2023,
+      month: 8,
+    });
+    expect(switchPeriodKind(custom, "quarter", today)).toEqual({
+      kind: "quarter",
+      year: 2023,
+      quarter: 3,
+    });
+    expect(switchPeriodKind({ kind: "custom", to: "2025-11-30" }, "month", today)).toEqual({
+      kind: "month",
+      year: 2025,
+      month: 11,
+    });
+  });
+
   it("uses the year of a custom range", () => {
     expect(
       switchPeriodKind({ kind: "custom", from: "2022-06-15", to: "2022-07-01" }, "year", today),
@@ -525,9 +559,29 @@ describe("categoryFilterGroups", () => {
     ]);
   });
 
+  it("keeps selected categories of the other type, so they can be deselected", () => {
+    expect(
+      categoryFilterGroups(categories, "income", [1, 99]).map((group) => [
+        group.type,
+        group.categories.map((c) => c.id),
+      ]),
+    ).toEqual([
+      ["income", [4, 2]],
+      ["expense", [1]],
+    ]);
+  });
+
   it("drops empty groups", () => {
     expect(categoryFilterGroups([category(1, "A", "expense")], undefined)).toHaveLength(1);
     expect(categoryFilterGroups([], undefined)).toEqual([]);
+  });
+});
+
+describe("unknownCategoryIds", () => {
+  it("lists selected ids without a category", () => {
+    const categories = [category(1, "A", "income")];
+    expect(unknownCategoryIds(categories, [1, 5, 9])).toEqual([5, 9]);
+    expect(unknownCategoryIds(categories, [1])).toEqual([]);
   });
 });
 
