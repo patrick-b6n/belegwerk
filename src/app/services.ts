@@ -13,6 +13,7 @@ import {
 } from "@/business/euer";
 import type { FileSaver } from "@/business/files";
 import type { Clock } from "@/business/repositories";
+import { createStripeSettingsService, type StripeSettingsService } from "@/business/stripe";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
 import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
@@ -33,6 +34,8 @@ export interface AppServices {
   readonly euer: EuerService;
   /** CSV export of the EÜR (#27): save dialog and file via `FileSaver`. */
   readonly euerExport: EuerExportService;
+  /** Stripe key (masked only) and import defaults (#28). */
+  readonly stripeSettings: StripeSettingsService;
   readonly taxYears: TaxYearService;
 }
 
@@ -52,6 +55,7 @@ export function createAppServices(
     categories: createCategoryService({ unitOfWork }),
     euer,
     euerExport: createEuerExportService({ euer, fileSaver }),
+    stripeSettings: createStripeSettingsService({ unitOfWork }),
     taxYears: createTaxYearService({ unitOfWork }),
   };
 }

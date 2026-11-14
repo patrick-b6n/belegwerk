@@ -3,7 +3,7 @@ import { type ReactNode, useId } from "react";
 /**
  * One section of the settings page (`/einstellungen`): a titled region with
  * an optional description. The page stacks sections ("Steuerjahre" #20,
- * later "Stripe" #28); each section owns its data, loading and error states.
+ * "Stripe" #28); each section owns its data, loading and error states.
  */
 export function SettingsSection({
   title,

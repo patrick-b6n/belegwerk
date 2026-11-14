@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_EUER_CSV_LABELS } from "@/business/__tests__/euer-csv-labels";
 import { CSV_LINE_ENDING } from "@/business/csv";
+import { suggestStripeDefaults } from "@/business/stripe";
 import type { FileSaver, SaveTextFileRequest } from "@/business/files";
 import { createTestDb } from "@/persistence/__tests__/test-db";
 
@@ -536,5 +537,50 @@ describe("createAppServices – EÜR CSV export on SQLite", () => {
       "Ergebnis;;Summe Betriebsausgaben;0,00;",
       "Ergebnis;;Gewinn;50,00;",
     ]);
+  });
+});
+
+// The Stripe settings (#28) against SQLite: the seeded categories give the
+// suggested defaults, which pass the service's validation; the key is
+// stored in the settings table and returned masked only.
+describe("createAppServices – Stripe settings on SQLite", () => {
+  it("stores key and defaults", async () => {
+    const { services, sqlite } = await setup();
+    const key = "rk_test_FAKE0123456789abcdefghijKLMNOP";
+    expect(await services.stripeSettings.get()).toEqual({
+      apiKey: null,
+      defaults: { defaultVatRate: null, feeCategoryId: null, refundCategoryId: null },
+    });
+    expect(await services.stripeSettings.setApiKey(key)).toEqual({
+      ok: true,
+      apiKey: { masked: "rk_test_…MNOP", mode: "test" },
+    });
+    expect(sqlite.prepare("SELECT value FROM settings WHERE key = 'stripe.apiKey'").get()).toEqual({
+      value: key,
+    });
+    expect(JSON.stringify(await services.stripeSettings.get())).not.toContain(key);
+
+    const suggested = suggestStripeDefaults(await services.categories.list());
+    const name = (id: number | null) =>
+      (sqlite.prepare("SELECT name FROM categories WHERE id = ?").get(id) as { name: string }).name;
+    expect(name(suggested.feeCategoryId)).toBe("Umsatzerlöse");
+    expect(name(suggested.refundCategoryId)).toBe("Erlösminderung / Rückerstattung");
+    const defaults = {
+      defaultVatRate: suggested.defaultVatRate,
+      feeCategoryId: suggested.feeCategoryId ?? 0,
+      refundCategoryId: suggested.refundCategoryId ?? 0,
+    };
+    expect(await services.stripeSettings.setDefaults(defaults)).toEqual({ ok: true, defaults });
+    expect(await services.stripeSettings.get()).toEqual({
+      apiKey: { masked: "rk_test_…MNOP", mode: "test" },
+      defaults,
+    });
+
+    expect(await services.stripeSettings.deleteApiKey()).toEqual({ ok: true, deleted: true });
+    expect(
+      sqlite.prepare("SELECT count(*) AS n FROM settings WHERE key = 'stripe.apiKey'").get(),
+    ).toEqual({
+      n: 0,
+    });
   });
 });
