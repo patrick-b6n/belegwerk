@@ -16,9 +16,10 @@ import { isVatRate } from "../money";
 import { isId, trimText } from "../validation";
 
 /**
- * Keys in the `settings` table. `lastImportAt` is reserved for the import
- * (#30): the time of the last successful import (`toISOString()`), the
- * default start of the next import period (#31).
+ * Keys in the `settings` table. Written by the import (#30): `lastImportAt`
+ * – the time of the last successful import (`toISOString()`); `lastImportTo`
+ * – the latest period end imported so far (`YYYY-MM-DD`), the default start
+ * of the next import period (#31).
  */
 export const STRIPE_SETTING_KEYS = {
   apiKey: "stripe.apiKey",
@@ -26,6 +27,7 @@ export const STRIPE_SETTING_KEYS = {
   feeCategoryId: "stripe.feeCategoryId",
   refundCategoryId: "stripe.refundCategoryId",
   lastImportAt: "stripe.lastImportAt",
+  lastImportTo: "stripe.lastImportTo",
 } as const;
 
 /** Live or test mode of a key (from its prefix `rk_live_` / `rk_test_`). */

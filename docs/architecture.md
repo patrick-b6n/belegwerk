@@ -242,6 +242,10 @@ sie (`calculateBookingAmounts`).
   Feldfehler (höchstens einer pro Feld, in Formularreihenfolge) als
   `{ field, code }` – das Formular (#18) zeigt sie am Feld und übersetzt die
   Codes (`BookingFieldErrorCodes`). Programmierfehler werfen.
+- **Regeln an einer Stelle:** `prepareBooking(input, lookups, existing?)`
+  validiert, normalisiert und rechnet die Beträge, ohne zu schreiben; die
+  Lesezugriffe gehen über `BookingLookups` (`repositoryBookingLookups(repos)`
+  im Service, vorab geladene Daten im Stripe-Import #30).
 - **Regeln:** Datum existierendes `YYYY-MM-DD` mit Jahr 1000–9999
   (`parseIsoDate`, wie der DB-CHECK); Brutto Ganzzahl > 0 und höchstens
   `MAX_AMOUNT_CENTS`; USt-Satz bekannt und passend zum Steuerstatus des
@@ -461,9 +465,10 @@ Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
 - **Speicherung** in der Key/Value-Tabelle `settings`
   (`STRIPE_SETTING_KEYS`): `stripe.apiKey` (Klartext, #1),
   `stripe.defaultVatRate` (`VatRate`), `stripe.feeCategoryId`,
-  `stripe.refundCategoryId` (ID als Dezimaltext). Reserviert für den Import
-  (#30): `stripe.lastImportAt` (`toISOString()` des letzten Imports, Default
-  des Zeitraums in #31).
+  `stripe.refundCategoryId` (ID als Dezimaltext). Vom Import (#30)
+  geschrieben: `stripe.lastImportAt` (`toISOString()` des letzten
+  erfolgreichen Imports) und `stripe.lastImportTo` (spätestes importiertes
+  Zeitraumende `YYYY-MM-DD`, Default-Start des Zeitraums in #31).
 - **Der Schlüssel erreicht die UI nie:** `get()` liefert
   `{ apiKey: { masked, mode } | null, defaults }` – maskiert als Präfix plus
   die letzten vier Zeichen (`rk_live_…AbCd`), `mode` aus dem Präfix
@@ -503,9 +508,9 @@ Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
   `{ ok: true, apiKey, defaultVatRate, feeCategory, refundCategory }`,
   `noApiKey` oder `invalidDefaults` mit Codes – gespeicherte Werte werden neu
   geprüft (Kategorie inzwischen archiviert, gelöscht, geändert). Der Import
-  bucht über den Buchungs-Service, der die Jahresregel durchsetzt: In einem
-  **Kleinunternehmer-Jahr** muss der Import `vatRate: null` übergeben,
-  unabhängig vom Standard-Satz (sonst `vatRateNotAllowed`).
+  bucht mit den Regeln des Buchungs-Service (`prepareBooking`), der die
+  Jahresregel durchsetzt: In einem **Kleinunternehmer-Jahr** übergibt der
+  Import `vatRate: null`, unabhängig vom Standard-Satz.
 
 ## Stripe-Client (#29)
 
@@ -542,17 +547,25 @@ fileSaver, stripeClient)` verdrahtet ihn, Tests geben einen Fake
   `network` (nicht erreichbar, TLS, Proxy, vom HTTP-Scope abgelehnt),
   `timeout` (30 s je Anfrage), `stripeError` (andere Status, mit Stripes
   `error.code`/`error.message` oder `null`), `invalidResponse`.
-- **Rate Limit:** bis zu drei Versuche je Anfrage; gewartet wird
-  `Retry-After` (höchstens 10 s), sonst 1 s, 2 s.
+- **Wiederholungen:** bis zu drei Versuche je Anfrage bei 429, bei
+  vorübergehenden Serverfehlern (500/502/503/504) und bei `network` (keine
+  Antwort); gewartet wird `Retry-After` (höchstens 10 s), sonst 1 s, 2 s.
+  Danach `rateLimited`, `stripeError` bzw. `network`. `timeout` wird nicht
+  wiederholt (sonst Minuten Wartezeit). Alles sind GETs – Wiederholen ist
+  gefahrlos. `createdFrom > createdTo` ist ein Programmierfehler
+  (`RangeError`).
 - **Schlüssel:** nur im Header `Authorization: Bearer …`, nie in der URL;
   in keinem Ergebnis, Fehler oder Log (Fehler der Plugin-Aufrufe werden auf
   Codes reduziert, ohne Meldung). `Stripe-Version` ist gepinnt
   (`STRIPE_API_VERSION`, `2026-10-28.endive`) – die Validierung ist gegen
   diese Version geschrieben.
 - **Tauri:** `tauri-plugin-http` (Rust, ohne Cookie-Store). Capability
-  `http:default` mit Scope **nur** `https://api.stripe.com/v1/application_fees*`
-  (Liste und Refunds-Unterressource; anderer Host, anderer Pfad, `http:` →
-  vom Plugin abgelehnt). Weiterleitungen: der Client setzt
+  `http:default` mit Scope **nur** `https://api.stripe.com/v1/application_fees`
+  (Liste) und `https://api.stripe.com/v1/application_fees/*`
+  (Refunds-Unterressource; anderer Host, anderer Pfad wie
+  `/v1/application_feesX`, `http:` → vom Plugin abgelehnt). Query-Strings
+  passen trotzdem: das Plugin setzt eine im Muster fehlende Suche auf `*`
+  (`parse_url_pattern` in `tauri-plugin-http/src/scope.rs`). Weiterleitungen: der Client setzt
   `maxRedirections: 0`, zusätzlich prüft `plugins.http.scopeRedirects` in
   `tauri.conf.json` jedes Weiterleitungsziel gegen den Scope. Die Anfrage
   führt Rust aus, die WebView spricht nur über die IPC – **keine
@@ -582,6 +595,73 @@ Duplikatschutz über die externe ID (`fee_…`/`fr_…`) verhindert Doppelungen.
 Zeitraum erstellt wurde, wird nicht gefunden (in der Praxis selten – Refunds
 folgen der Erstattung der Zahlung). Mehr Rückblick kostet nur Anfragen
 (100 Fees je Seite).
+
+## Stripe-Import (#30)
+
+`src/business/stripe/stripe-import-service.ts` –
+`createStripeImportService({ unitOfWork, stripeClient, clock })` mit
+`import({ from, to })` und `getStatus()`, in `AppServices` als
+`stripeImport`.
+
+- **Ablauf:** (1) Unit of Work: `loadStripeImportSettings`. (2) **Außerhalb**
+  jeder Unit of Work: `listApplicationFees` von `from − 180 Tage` bis Ende
+  `to` (siehe [Stripe-Client](#stripe-client-29)). (3) Fees und Refunds mit
+  **eigenem** `created` im Zeitraum auswählen, älteste zuerst (Fee vor ihrem
+  Refund), doppelt gelistete IDs nur einmal. (4) **Eine** Unit of Work:
+  Einstellungen erneut laden (können sich während der Anfrage geändert haben
+  → ggf. `noApiKey`/`invalidDefaults`), vorhandene externe IDs (Quelle
+  `stripe`, `findExistingExternalIds` in einer Abfrage) überspringen, den
+  Rest validieren und anlegen, `stripe.lastImportAt`/`lastImportTo`
+  schreiben. Ein unerwarteter Fehler rollt alles zurück (keine Buchung, kein
+  Zeitstempel) und wird geworfen.
+- **Zeitraum:** `from`/`to` inklusive Kalendertage (Europe/Berlin). Codes
+  `required`, `invalidDate`, `beforeFrom` (`to` vor `from`), `inFuture`
+  (`to` nach heute – es würde Start des nächsten Imports).
+- **Mapping:**
+
+  | Feld         | Fee                         | Refund                                    |
+  | ------------ | --------------------------- | ----------------------------------------- |
+  | Datum        | `fee.created` (Berlin)      | `refund.created` (Berlin)                 |
+  | Art          | Einnahme                    | Ausgabe                                   |
+  | Brutto       | `amount`                    | `amount`                                  |
+  | USt-Satz     | Standard; `null` im KU-Jahr | Standard; `null` im KU-Jahr               |
+  | Kategorie    | Fee-Kategorie               | Refund-Kategorie (mindert Einnahmen)      |
+  | Beschreibung | „Stripe Application Fee“    | „Stripe Application Fee – Rückerstattung“ |
+  | Gegenpartei  | Connected Account `acct_…`  | Connected Account der Fee                 |
+  | Referenz     | –                           | `fee_…` der erstatteten Fee               |
+  | Notiz        | –                           | –                                         |
+  | Quelle / ID  | `stripe` / `fee_…`          | `stripe` / `fr_…`                         |
+
+  Die Beschreibungen sind gespeicherte Fachwerte (wie die Namen der
+  Standardkategorien), keine UI-Texte: `STRIPE_BOOKING_DESCRIPTIONS`,
+  editierbar wie jede Buchung.
+
+- **Eine Quelle der Regeln:** Der Buchungs-Service exportiert
+  `prepareBooking(input, lookups, existing?)` (Validierung, Normalisierung,
+  `calculateBookingAmounts`). `create`/`update` übergeben
+  `repositoryBookingLookups(repos)`; der Import übergibt Lookups über
+  Daten, die er einmal pro Lauf in seiner Unit of Work lädt (Kategorien,
+  Steuerjahre, vorhandene IDs) – kein verschachteltes `run`, keine
+  Abfragen je Buchung außer dem Insert.
+- **Ergebnis:** `{ ok: true, range, keyMode, created, skipped, failed,
+  fees, refunds }` (`fees`/`refunds` je `{ created, skipped, failed }`;
+  `failed` je Eintrag `{ kind, externalId, date, amount, currency, code,
+  errors? }`) oder `{ ok: false, reason: "invalid" | "noApiKey" |
+  "invalidDefaults" | "stripe" }`. Fehlercodes je Eintrag:
+  `unsupportedCurrency` (nicht EUR), `zeroAmount`, `amountTooLarge`
+  (über `MAX_AMOUNT_CENTS`), `invalidBooking` (mit den Feldfehlern des
+  Buchungs-Service). Fehlgeschlagene Einträge werden nicht gebucht; ein
+  späterer Import versucht sie erneut. **Übersprungen** heißt: externe ID
+  existiert schon (gelöschte Buchungen werden wieder angelegt, #1); manuelle
+  Buchungen mit gleicher ID zählen nicht.
+- **Letzter Import:** nur bei `ok: true` (auch mit fehlgeschlagenen
+  Einträgen), in derselben Transaktion. `lastImportAt` = Uhrzeit des Laufs;
+  `lastImportTo` = das spätere von bisherigem Wert und `to` (ein Import eines
+  älteren Zeitraums setzt es nicht zurück). `getStatus()` liefert
+  `{ lastImportAt, lastImportTo }` (`null`, wenn nie/unlesbar). **#31:**
+  Default-Zeitraum `lastImportTo` bis heute – derselbe Tag noch einmal, denn
+  später am Tag erstellte Fees fehlen sonst; Doppelte werden übersprungen.
+  Ohne bisherigen Import entscheidet #31 (z. B. 1. Januar des Jahres).
 
 ## EÜR-Positionen (#13)
 

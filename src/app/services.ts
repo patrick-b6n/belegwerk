@@ -14,8 +14,10 @@ import {
 import type { FileSaver } from "@/business/files";
 import type { Clock } from "@/business/repositories";
 import {
+  createStripeImportService,
   createStripeSettingsService,
   type StripeClient,
+  type StripeImportService,
   type StripeSettingsService,
 } from "@/business/stripe";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
@@ -41,6 +43,8 @@ export interface AppServices {
   readonly euerExport: EuerExportService;
   /** Stripe key (masked only), import defaults (#28) and the connection test (#29). */
   readonly stripeSettings: StripeSettingsService;
+  /** Stripe import of application fees and fee refunds (#30) and its status for #31. */
+  readonly stripeImport: StripeImportService;
   readonly taxYears: TaxYearService;
 }
 
@@ -62,6 +66,7 @@ export function createAppServices(
     euer,
     euerExport: createEuerExportService({ euer, fileSaver }),
     stripeSettings: createStripeSettingsService({ unitOfWork, stripeClient }),
+    stripeImport: createStripeImportService({ unitOfWork, stripeClient, clock }),
     taxYears: createTaxYearService({ unitOfWork }),
   };
 }

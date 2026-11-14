@@ -48,3 +48,16 @@ export {
   stripeCreatedToBookingDate,
   subtractDays,
 } from "./stripe-dates";
+export { createStripeImportService, STRIPE_BOOKING_DESCRIPTIONS } from "./stripe-import-service";
+export type {
+  StripeImportCounts,
+  StripeImportFailure,
+  StripeImportFailureCode,
+  StripeImportFieldError,
+  StripeImportFieldErrorCodes,
+  StripeImportRequest,
+  StripeImportResult,
+  StripeImportService,
+  StripeImportServiceDependencies,
+  StripeImportStatus,
+} from "./stripe-import-service";

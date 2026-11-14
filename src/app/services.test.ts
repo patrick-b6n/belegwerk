@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_EUER_CSV_LABELS } from "@/business/__tests__/euer-csv-labels";
 import { CSV_LINE_ENDING } from "@/business/csv";
+import {
+  createFakeStripeClient,
+  stripeFee,
+  stripeFeeRefund,
+} from "@/business/__tests__/fake-stripe-client";
 import { suggestStripeDefaults } from "@/business/stripe";
 import type { FileSaver, SaveTextFileRequest } from "@/business/files";
 import { createTestDb } from "@/persistence/__tests__/test-db";
@@ -581,6 +586,83 @@ describe("createAppServices – Stripe settings on SQLite", () => {
       sqlite.prepare("SELECT count(*) AS n FROM settings WHERE key = 'stripe.apiKey'").get(),
     ).toEqual({
       n: 0,
+    });
+  });
+});
+
+/** Epoch seconds of an ISO instant. */
+const at = (iso: string) => Date.parse(iso) / 1000;
+
+describe("createAppServices – Stripe import on SQLite", () => {
+  it("imports fees and refunds in one transaction and skips them the next time", async () => {
+    const { database, sqlite } = await createTestDb();
+    const stripeClient = createFakeStripeClient();
+    const services = createAppServices(database, () => NOW, undefined, stripeClient);
+    stripeClient.fees.push(
+      stripeFee({
+        id: "fee_int1",
+        amount: 1190,
+        account: "acct_int",
+        created: at("2025-02-01T12:00:00Z"),
+        refunds: [
+          stripeFeeRefund({ id: "fr_int1", amount: 119, created: at("2025-02-10T12:00:00Z") }),
+        ],
+      }),
+      stripeFee({ id: "fee_usd", currency: "usd", created: at("2025-02-02T12:00:00Z") }),
+    );
+    const range = { from: "2025-01-01", to: "2025-03-07" };
+    expect(await services.stripeImport.import(range)).toEqual({ ok: false, reason: "noApiKey" });
+
+    await services.stripeSettings.setApiKey("rk_test_FAKEFAKEFAKEFAKE0123456789");
+    const suggested = suggestStripeDefaults(await services.categories.list());
+    await services.stripeSettings.setDefaults({
+      defaultVatRate: suggested.defaultVatRate,
+      feeCategoryId: suggested.feeCategoryId ?? 0,
+      refundCategoryId: suggested.refundCategoryId ?? 0,
+    });
+
+    expect(await services.stripeImport.import(range)).toMatchObject({
+      ok: true,
+      created: 2,
+      skipped: 0,
+      failed: [{ externalId: "fee_usd", code: "unsupportedCurrency" }],
+    });
+    expect(
+      sqlite
+        .prepare(
+          "SELECT external_id, type, gross_cents, net_cents, vat_cents, vat_rate, source, reference FROM bookings ORDER BY date",
+        )
+        .all(),
+    ).toEqual([
+      {
+        external_id: "fee_int1",
+        type: "income",
+        gross_cents: 1190,
+        net_cents: 1000,
+        vat_cents: 190,
+        vat_rate: "19",
+        source: "stripe",
+        reference: null,
+      },
+      {
+        external_id: "fr_int1",
+        type: "expense",
+        gross_cents: 119,
+        net_cents: 100,
+        vat_cents: 19,
+        vat_rate: "19",
+        source: "stripe",
+        reference: "fee_int1",
+      },
+    ]);
+    expect(await services.stripeImport.getStatus()).toEqual({
+      lastImportAt: NOW.toISOString(),
+      lastImportTo: "2025-03-07",
+    });
+    expect(await services.stripeImport.import(range)).toMatchObject({
+      ok: true,
+      created: 0,
+      skipped: 2,
     });
   });
 });
