@@ -1,6 +1,6 @@
 {
-  // Config files that run in Node (Vite, Vitest, drizzle-kit).
-  "include": ["vite.config.ts", "vitest.config.ts", "drizzle.config.ts"],
+  // Config files and scripts that run in Node (Vite, Vitest, drizzle-kit, scripts/).
+  "include": ["vite.config.ts", "vitest.config.ts", "drizzle.config.ts", "scripts/**/*.ts"],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2022",

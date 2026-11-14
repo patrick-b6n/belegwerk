@@ -31,3 +31,16 @@ tauri-plugin-http = { version = "2.9.0", default-features = false, features = [
 ] }
 # `tauri::generate_context!` needs it once tauri.conf.json configures a plugin (`plugins.http`).
 serde_json = "1"
+# Second start focuses the running window (#33).
+tauri-plugin-single-instance = "2.5.5"
+
+# Release build for the single .exe (#33, `pnpm release`; CI builds the same
+# profile). Size and speed instead of build time: one codegen unit and full
+# LTO let LLVM optimize across all crates, `strip` removes the debug symbols
+# (no .pdb is shipped anyway). `panic` stays `unwind`: a panic in a plugin
+# command then fails that call instead of killing the window.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

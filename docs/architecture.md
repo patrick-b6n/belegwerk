@@ -1406,6 +1406,15 @@ manuell ([Datenmodell](data-model.md#backup-und-wiederherstellung-32)).
   und ein Kurzhinweis zur Wiederherstellung. Es werden keine Daten
   geändert, also nichts invalidiert.
 
+## Release und Einzelinstanz (#33)
+
+Ausgeliefert wird eine einzelne, unsignierte `.exe` ohne Installer
+(`pnpm release`, Release-Profil, Version, Speicherorte, SmartScreen:
+[Release](release.md)). `tauri-plugin-single-instance` ist das erste Plugin in
+`src-tauri/src/lib.rs`: Ein zweiter Start beendet sich und holt das Fenster
+`main` der laufenden Instanz nach vorn – nie öffnen zwei Prozesse dieselbe
+Datenbank. Das Plugin hat keine JS-API, also keine Capability.
+
 ## Content Security Policy
 
 `src-tauri/tauri.conf.json` setzt eine CSP: nur eigene Skripte, Styles
@@ -1421,7 +1430,7 @@ enthält die Shell kein `<style>` (CSS kommt als Datei).
 
 Im Dev-Modus (`pnpm tauri dev`, Seite vom Vite-Server) greift die CSP nicht –
 CSP-Probleme zeigen sich nur im gebauten Programm
-(`pnpm tauri build --no-bundle`). Der Stripe-Client (#29) braucht keine
+(`pnpm tauri build --no-bundle` bzw. `pnpm release`). Der Stripe-Client (#29) braucht keine
 Erweiterung: `tauri-plugin-http` führt die Anfrage in Rust aus, die WebView
 spricht nur über die IPC. Braucht ein späteres Feature echte Netzwerkziele
 der WebView, wird die CSP gezielt erweitert.
