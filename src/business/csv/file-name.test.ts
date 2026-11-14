@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { csvFileName } from "./file-name";
+import { csvFileName, yearCsvFileName } from "./file-name";
 
 const words = { base: "buchungen", today: "2026-11-14", fromWord: "ab", toWord: "bis" };
 
@@ -27,5 +27,15 @@ describe("csvFileName", () => {
     expect(csvFileName({ ...words, base: 'a<b>c:d"e/f\\g|h?i*j\u0001k' })).toBe(
       "a_b_c_d_e_f_g_h_i_j_k-2026-11-14.csv",
     );
+  });
+});
+
+describe("yearCsvFileName", () => {
+  it("names the year", () => {
+    expect(yearCsvFileName("euer", 2025)).toBe("euer-2025.csv");
+  });
+
+  it("replaces characters Windows forbids in the base", () => {
+    expect(yearCsvFileName("e/ü:r", 2026)).toBe("e_ü_r-2026.csv");
   });
 });

@@ -28,3 +28,8 @@ export interface FileSaver {
    */
   saveTextFile(request: SaveTextFileRequest): Promise<SaveTextFileResult>;
 }
+
+/** The file name of a saved path (last segment; Windows or POSIX separators). */
+export function fileNameOfPath(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
+}

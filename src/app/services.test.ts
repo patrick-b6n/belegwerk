@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEST_EUER_CSV_LABELS } from "@/business/__tests__/euer-csv-labels";
 import { CSV_LINE_ENDING } from "@/business/csv";
 import type { FileSaver, SaveTextFileRequest } from "@/business/files";
 import { createTestDb } from "@/persistence/__tests__/test-db";
@@ -444,5 +445,96 @@ describe("createAppServices – EÜR on SQLite", () => {
       totals: { incomeCents: 5999, expenseCents: 0, profitCents: 5999 },
       warnings: [{ code: "vatRateInSmallBusinessYear", bookingCount: 1 }],
     });
+  });
+});
+
+// The EÜR export through the composition root: the real calculation on
+// SQLite, the CSV and a fake save dialog.
+describe("createAppServices – EÜR CSV export on SQLite", () => {
+  it("exports a regular and a small-business year", async () => {
+    const requests: SaveTextFileRequest[] = [];
+    const { services, sqlite } = await setup({
+      saveTextFile: async (request) => {
+        requests.push(request);
+        return { saved: true, path: `C:\\Export\\${request.defaultFileName}` };
+      },
+    });
+    const find = (type: string, position: string) =>
+      (
+        sqlite
+          .prepare(
+            "SELECT id FROM categories WHERE type = ? AND euer_position = ? AND reduces_income = 0 ORDER BY id LIMIT 1",
+          )
+          .get(type, position) as { id: number }
+      ).id;
+    const create = async (
+      date: string,
+      type: "income" | "expense",
+      categoryId: number,
+      grossCents: number,
+      vatRate: "19" | null,
+    ) => {
+      const created = await services.bookings.create({
+        date,
+        type,
+        grossCents,
+        vatRate,
+        categoryId,
+        description: "x",
+        counterparty: "y",
+        reference: null,
+        note: null,
+      });
+      expect(created.ok).toBe(true);
+    };
+    const sales = find("income", "BETRIEBSEINNAHMEN_UST_PFLICHTIG");
+    const entertainment = find("expense", "BEWIRTUNG");
+    await create("2026-01-15", "income", sales, 119000, "19");
+    await create("2026-04-01", "expense", entertainment, 11900, "19");
+    expect(
+      (await services.taxYears.setSmallBusiness(2025, true, { acknowledgeConflicts: true })).ok,
+    ).toBe(true);
+    await create("2025-06-01", "income", sales, 5000, null);
+
+    const exportYear = (year: number) =>
+      services.euerExport.exportCsv({
+        year,
+        labels: TEST_EUER_CSV_LABELS,
+        fileNameBase: "euer",
+        filterName: "CSV",
+      });
+
+    expect(await exportYear(2026)).toEqual({
+      ok: true,
+      saved: true,
+      fileName: "euer-2026.csv",
+      year: 2026,
+    });
+    expect(await exportYear(2025)).toEqual({
+      ok: true,
+      saved: true,
+      fileName: "euer-2025.csv",
+      year: 2025,
+    });
+    const [regular, small] = requests.map((request) =>
+      request.content.slice(1).split(CRLF).slice(0, -1),
+    );
+    expect(regular).toEqual([
+      "Bereich;Zeile;Bezeichnung;Betrag;Nicht abziehbar",
+      expect.stringMatching(/^Betriebseinnahmen;15;[^;]+;1000,00;$/),
+      expect.stringMatching(/^Betriebseinnahmen;17;[^;]+;190,00;$/),
+      expect.stringMatching(/^Betriebsausgaben;58;[^;]+;19,00;$/),
+      "Betriebsausgaben;64;Bewirtungsaufwendungen;70,00;30,00",
+      "Ergebnis;;Summe Betriebseinnahmen;1190,00;",
+      "Ergebnis;;Summe Betriebsausgaben;89,00;",
+      "Ergebnis;;Gewinn;1101,00;",
+    ]);
+    expect(small).toEqual([
+      "Bereich;Zeile;Bezeichnung;Betrag;Nicht abziehbar",
+      expect.stringMatching(/^Betriebseinnahmen;12;[^;]+;50,00;$/),
+      "Ergebnis;;Summe Betriebseinnahmen;50,00;",
+      "Ergebnis;;Summe Betriebsausgaben;0,00;",
+      "Ergebnis;;Gewinn;50,00;",
+    ]);
   });
 });

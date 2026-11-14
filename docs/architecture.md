@@ -174,7 +174,7 @@ mit `@tauri-apps/*` liegt außerhalb von `src/business` und wird in `src/app`
 verdrahtet. Ebenso sind `drizzle-orm`, `drizzle-kit` und `better-sqlite3` in
 Business verboten – Drizzle gibt es nur in `src/persistence`.
 
-**Dateien speichern (#24):** Port `FileSaver` (`src/business/files.ts`,
+**Dateien speichern (#24, auch EÜR #27):** Port `FileSaver` (`src/business/files.ts`,
 `saveTextFile({ defaultFileName, filter, content })` →
 `{ saved: true, path }` oder `{ saved: false }` bei Abbruch; Schreibfehler
 werfen). Implementierung `createTauriFileSaver()` in
@@ -315,7 +315,7 @@ oder `{ ok: false, reason: "invalid", errors }`.
   Steuerzeichen (`\p{Cc}`, z. B. NUL – `GLOB` endete dort – oder
   Zeilenumbruch) und einzelne Surrogates werden abgelehnt (`invalidText`),
   nicht entfernt;
-  leere Texte/Daten und leere `categoryIds` filtern nicht.
+  leere Texte/Daten und leere `categoryIds`/`vatRates` filtern nicht.
 - **Seite hinter der letzten** → die letzte Seite; `page` im Ergebnis ist
   die tatsächlich gelieferte (z. B. nach dem Löschen der letzten Buchung
   einer Seite). Die UI (#23) kann ihre URL daran angleichen. `pageCount` ist
@@ -782,7 +782,10 @@ Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
   regelbesteuerten Jahr (`ust=["ohne"]`), Satz 7/19 % auf Zahlungen an das /
   vom Finanzamt (deren Kategorien + `ust` 7/19), nicht zuordenbare Buchungen
   (deren Kategorien – enthält ggf. auch gezählte Buchungen der anderen Art),
-  negative Zeile, Bewirtung und Verpflegungsmehraufwand (die Zeile).
+  negative Zeile, Bewirtung und Verpflegungsmehraufwand (die Zeile). Die
+  Anzahl im Hinweis zählt nur zuordenbare Buchungen; die verlinkte Liste
+  enthält ggf. auch nicht zuordenbare Buchungen (der Filter kann sie nicht
+  ausschließen), kann also länger sein.
 - **Drill-down:** Die Bezeichnung jeder Position ist ein Link auf
   `/buchungen` mit `von`/`bis` = Jahr, `kategorie` = alle beitragenden
   Kategorien, `ust` = Vereinigung der beitragenden Sätze (entfällt, wenn alle
@@ -800,7 +803,73 @@ Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
   rechnet im regelbesteuerten Jahr netto (Zeile 15 + Zeile 17 = Brutto der
   Liste, wenn keine Erlösminderung beiträgt).
 - **Zustände:** Laden, Fehler mit „Erneut versuchen“, leeres Jahr („Für
-  {Jahr} gibt es keine Buchungen.“).
+  {Jahr} gibt es keine Buchungen.“). Ein Jahr ohne Zeilen, aber mit
+  Hinweisen (z. B. nur nicht zuordenbare Buchungen), zeigt die Hinweise und
+  „Für {Jahr} gibt es keine Positionen in der EÜR.“
+- **Barrierefreiheit:** fehlende Zeilennummer sichtbar „–“ (`aria-hidden`)
+  plus `sr-only` „ohne Zeile“; die Buchungsanzahl einer Position steht im
+  Tooltip und per `aria-describedby` (verstecktes Element, wird nicht doppelt
+  vorgelesen) als Beschreibung des Links.
+
+### CSV-Export der EÜR (#27)
+
+„CSV exportieren“ neben der Jahresauswahl (`src/ui/euer/euer-export-button.tsx`)
+speichert die EÜR des gezeigten Jahres – gleiches CSV-Format wie der
+Buchungsexport (siehe [CSV-Export](#csv-export-24): `toCsv`, `;`, CRLF,
+UTF-8 mit BOM, Beträge per `formatAmountPlain` als `csvLiteral`).
+
+**Aufbau** (`euerToCsv(result, labels)` in `src/business/euer/euer-csv.ts`,
+rein): Kopfzeile, eine Zeile pro Position, am Ende die Summen.
+
+```csv
+Bereich;Zeile;Bezeichnung;Betrag;Nicht abziehbar
+Betriebseinnahmen;15;Umsatzsteuerpflichtige Betriebseinnahmen (…);1000,00;
+Betriebseinnahmen;17;Vereinnahmte Umsatzsteuer sowie (…);190,00;
+Betriebsausgaben;58;Gezahlte und nach § 15 UStG abziehbare Vorsteuerbeträge;19,00;
+Betriebsausgaben;64;Bewirtungsaufwendungen;70,00;30,00
+Ergebnis;;Summe Betriebseinnahmen;1190,00;
+Ergebnis;;Summe Betriebsausgaben;89,00;
+Ergebnis;;Gewinn;1101,00;
+```
+
+- **Bereich** trennt die Blöcke, damit eine Tabellenkalkulation danach
+  filtern oder summieren kann: Betriebseinnahmen, Betriebseinnahmen
+  (nachrichtlich), Betriebsausgaben, Ergebnis. Die Summe von `Betrag` über
+  „Betriebseinnahmen“ ergibt die Summe der Einnahmen – Zeile 13 hat einen
+  eigenen Bereich und zählt nicht doppelt, die Summen stehen unter
+  „Ergebnis“.
+- **Reihenfolge** wie in der Ansicht: Einnahmen nach Zeile, Zeile 13 direkt
+  nach Zeile 12 (`incomeInReportOrder`, gemeinsam mit `euerTables`), dann
+  Ausgaben, dann Summe Betriebseinnahmen, Summe Betriebsausgaben und
+  Gewinn / Verlust / „Weder Gewinn noch Verlust“ (mit Vorzeichen; ein
+  Verlust ist eine negative Zahl).
+- **Zeile** leer ohne Zeilen-Mapping; **Bezeichnung** = amtlicher Text des
+  Jahres, sonst der Anzeigename der Position.
+- **Bewirtung:** `Betrag` = abziehbarer Teil (70 %, zählt in der Summe),
+  `Nicht abziehbar` = 30 % – die beiden Spalten des Formulars; nur diese
+  Zeile füllt die fünfte Spalte. Gesamt = Betrag + Nicht abziehbar. Eine
+  eigene Spalte statt „davon“-Zeilen, damit die Summe über `Betrag` stimmt.
+- **Jahr und Steuerstatus** stehen nicht in der Datei (kein Metablock vor der
+  Kopfzeile – die Datei bleibt eine einfache Tabelle): das Jahr steht im
+  Dateinamen, der Status ergibt sich aus den Zeilen (12 bzw. 15/16).
+- **Texte** (Kopfzeile, Bereiche, Summen, Anzeigenamen) übergibt die UI
+  (`euerCsvLabels()` in `src/ui/euer/euer-messages.ts`); die amtlichen
+  Bezeichnungen kommen als Formulardaten aus dem Ergebnis.
+- **Dateiname** `yearCsvFileName(base, year)`: `euer-2025.csv` (`euer` aus
+  Paraglide). Dialogfilter wie beim Buchungsexport.
+- **Service** `createEuerExportService({ euer, fileSaver })` (`AppServices.euerExport`),
+  `exportCsv({ year, labels, fileNameBase, filterName })`: berechnet vor dem
+  Dialog (`EuerService.calculate`), speichert über den `FileSaver`. Ergebnis
+  `{ ok: true, saved: true, fileName, year }`, `{ ok: true, saved: false }`
+  (Abbruch) oder `{ ok: false, reason: "invalid", errors }` (ungültiges
+  Jahr, ohne Dialog); Rechen-/Schreibfehler werfen. Keine neuen
+  Capabilities.
+- **Button:** deaktiviert (fokussierbar, Grund im Tooltip), solange die EÜR
+  lädt oder nicht berechnet werden konnte, für ein Jahr ohne Zeilen (nichts
+  zu exportieren) und während ein Export läuft (Spinner, „Exportiere …“).
+  Die Daten kommen aus derselben Abfrage wie die Tabelle (gleicher
+  Query-Key). Erfolg: Toast „EÜR {Jahr} in {Datei}“; Abbruch: kein Toast;
+  Fehler: Fehler-Toast, Details in der Konsole.
 
 ### Buchungsformular (#18)
 

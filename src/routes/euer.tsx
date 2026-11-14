@@ -13,6 +13,7 @@ import {
 } from "@/ui/components/ui/select";
 import { euerSearchYear, euerYearSearch, validateEuerSearch } from "@/ui/euer/euer-model";
 import { useEuer } from "@/ui/euer/euer-queries";
+import { EuerExportButton } from "@/ui/euer/euer-export-button";
 import { EuerReport } from "@/ui/euer/euer-view";
 import { FormField } from "@/ui/forms/form-field";
 import { Page } from "@/ui/layout/page";
@@ -21,7 +22,8 @@ import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 /**
  * The EÜR year view (#26): the year is a search param (`jahr`, default the
  * current calendar year); the calculation is `EuerService.calculate(year)`
- * (#25). Each position links to its bookings in the booking list.
+ * (#25). Each position links to its bookings in the booking list; "CSV
+ * exportieren" saves the year's EÜR (#27).
  */
 export const Route = createFileRoute("/euer")({
   validateSearch: validateEuerSearch,
@@ -36,6 +38,8 @@ function EuerPage() {
   const [currentYear] = useState(() => new Date().getFullYear());
   const year = euerSearchYear(search, currentYear);
   const taxYears = useTaxYearList();
+  // Same query (key) as the report below: one calculation for both.
+  const euer = useEuer(year);
   const yearOptions = useMemo(
     () => periodYearOptions(taxYears.data?.map((taxYear) => taxYear.year) ?? [], currentYear, year),
     [taxYears.data, currentYear, year],
@@ -45,33 +49,40 @@ function EuerPage() {
     <Page
       title={m.euer_title()}
       actions={
-        <FormField id="euer-year" label={m.euer_year_label()} errors={[]} className="w-28">
-          {(control) => (
-            <Select<string>
-              items={yearOptions.map((option) => ({
-                value: String(option),
-                label: String(option),
-              }))}
-              value={String(year)}
-              onValueChange={(value) => {
-                if (value !== null) {
-                  void navigate({ search: euerYearSearch(Number(value), currentYear) });
-                }
-              }}
-            >
-              <SelectTrigger {...control}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map((option) => (
-                  <SelectItem key={option} value={String(option)}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
+        <div className="flex flex-wrap items-end gap-2">
+          <FormField id="euer-year" label={m.euer_year_label()} errors={[]} className="w-28">
+            {(control) => (
+              <Select<string>
+                items={yearOptions.map((option) => ({
+                  value: String(option),
+                  label: String(option),
+                }))}
+                value={String(year)}
+                onValueChange={(value) => {
+                  if (value !== null) {
+                    void navigate({ search: euerYearSearch(Number(value), currentYear) });
+                  }
+                }}
+              >
+                <SelectTrigger {...control}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+          <EuerExportButton
+            year={year}
+            // Not after an error: the view shows the error, not stale data.
+            result={!euer.error && euer.data?.ok ? euer.data.euer : undefined}
+          />
+        </div>
       }
     >
       <p className="-mt-3 max-w-3xl text-sm text-muted-foreground">{m.euer_description()}</p>

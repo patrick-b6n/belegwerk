@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
+import type { ExportEuerCsvRequest } from "@/business/euer";
 
 /**
  * TanStack Query keys of the EÜR (#26, docs/architecture.md, "TanStack
@@ -19,5 +20,13 @@ export function useEuer(year: number) {
   return useQuery({
     queryKey: euerQueryKeys.year(year),
     queryFn: () => euer.calculate(year),
+  });
+}
+
+/** CSV export of a year's EÜR (#27); nothing to invalidate (reads only). */
+export function useEuerCsvExport() {
+  const { euerExport } = useAppServices();
+  return useMutation({
+    mutationFn: (request: ExportEuerCsvRequest) => euerExport.exportCsv(request),
   });
 }

@@ -18,7 +18,12 @@
  * unassignable bookings (other type than their category, which the services
  * do not create) may show up in a mixed line's list.
  */
-import type { EuerReportLine, EuerResult, EuerWarning } from "@/business/euer";
+import {
+  type EuerReportLine,
+  type EuerResult,
+  type EuerWarning,
+  incomeInReportOrder,
+} from "@/business/euer";
 import type { BookingType, VatRate } from "@/business/model";
 import { isTaxYear } from "@/business/tax-years";
 import {
@@ -127,22 +132,24 @@ function row(line: EuerReportLine, year: number, informational = false): EuerRow
 }
 
 /**
- * The rows of both tables. Informational lines (line 13, "davon nicht
- * steuerbar") are part of line 12 (`BETRIEBSEINNAHMEN_KLEINUNTERNEHMER`) and
- * follow it; without it (cannot happen with #25's rules) they come last.
+ * The rows of both tables, in the order of `incomeInReportOrder` (shared
+ * with the CSV export, #27): informational lines (line 13, "davon nicht
+ * steuerbar") follow line 12, which they are part of.
  */
 export function euerTables(result: EuerResult): EuerTables {
-  const income: EuerRow[] = [];
-  const pending = result.informational.map((line) => row(line, result.year, true));
-  for (const line of result.income) {
-    income.push(row(line, result.year));
-    if (line.position === "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER") income.push(...pending.splice(0));
-  }
-  income.push(...pending);
-  return { income, expenses: result.expenses.map((line) => row(line, result.year)) };
+  return {
+    income: incomeInReportOrder(result).map(({ line, informational }) =>
+      row(line, result.year, informational),
+    ),
+    expenses: result.expenses.map((line) => row(line, result.year)),
+  };
 }
 
-/** Whether the year has no lines at all (no bookings, or none that count). */
+/**
+ * Whether the year has no lines at all (no bookings, or none that count).
+ * It may still have warnings (e.g. only unassignable bookings) – the view
+ * shows them in the empty state too.
+ */
 export function isEmptyEuer(result: EuerResult): boolean {
   return (
     result.income.length === 0 && result.expenses.length === 0 && result.informational.length === 0
@@ -191,6 +198,12 @@ const RATED: readonly VatRate[] = ["0", "7", "19", "reverse_charge"];
  * - `unassignableBookings`: the categories concerned (may include counted
  *   bookings of the other type – the filter cannot tell them apart);
  * - `negativeLine`, `entertainmentSplit`, `mealAllowanceFlatRates`: the line.
+ *
+ * The count in a warning and the number of bookings its link shows can
+ * differ when the year has unassignable bookings: the calculation skips them
+ * before counting anything else, but the filters (year, rate, category)
+ * cannot exclude them – e.g. the list of `vatRateInSmallBusinessYear` may
+ * also contain unassignable bookings with a rate.
  */
 export function euerWarningViews(result: EuerResult): EuerWarningView[] {
   const { year } = result;

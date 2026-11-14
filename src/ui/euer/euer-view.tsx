@@ -43,10 +43,16 @@ function lineLabel(line: EuerReportLine): string {
 export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
   const year = String(result.year);
   if (isEmptyEuer(result)) {
+    // No lines, but possibly warnings (e.g. only unassignable bookings):
+    // then there are bookings, just none that count.
+    const warnings = euerWarningViews(result);
     return (
       <div className="flex flex-col gap-4">
         {!result.hasLineMapping && <NoMappingHint year={year} />}
-        <PagePlaceholder>{m.euer_empty({ year })}</PagePlaceholder>
+        <EuerWarnings warnings={warnings} year={year} />
+        <PagePlaceholder>
+          {warnings.length === 0 ? m.euer_empty({ year }) : m.euer_empty_with_warnings({ year })}
+        </PagePlaceholder>
       </div>
     );
   }
@@ -140,6 +146,9 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
   const { line, informational, search } = row;
   const label = lineLabel(line);
   const count = line.bookingCount;
+  const countId = useId();
+  const countText =
+    count === 1 ? m.euer_line_bookings_one() : m.euer_line_bookings_other({ count: String(count) });
   return (
     <TableRow
       data-position={line.position}
@@ -147,7 +156,10 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
     >
       <TableCell className="align-top tabular-nums">
         {line.line === undefined ? (
-          <span aria-label={m.euer_line_missing_label()}>{m.euer_line_missing()}</span>
+          <>
+            <span aria-hidden>{m.euer_line_missing()}</span>
+            <span className="sr-only">{m.euer_line_missing_label()}</span>
+          </>
         ) : (
           line.line
         )}
@@ -157,18 +169,22 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
           {search === undefined ? (
             <span>{label}</span>
           ) : (
-            <Link
-              to="/buchungen"
-              search={search}
-              title={
-                count === 1
-                  ? m.euer_line_bookings_one()
-                  : m.euer_line_bookings_other({ count: String(count) })
-              }
-              className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-foreground focus-visible:decoration-foreground"
-            >
-              {label}
-            </Link>
+            <>
+              {/* The count as tooltip and, for screen readers, as description
+                  (a hidden element still names it, without being read twice). */}
+              <Link
+                to="/buchungen"
+                search={search}
+                title={countText}
+                aria-describedby={countId}
+                className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-foreground focus-visible:decoration-foreground"
+              >
+                {label}
+              </Link>
+              <span id={countId} hidden>
+                {countText}
+              </span>
+            </>
           )}
           {informational && (
             <span

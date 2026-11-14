@@ -1,5 +1,5 @@
 import { csvFileName, type CsvFileNameParts } from "../csv";
-import type { FileSaver } from "../files";
+import { fileNameOfPath, type FileSaver } from "../files";
 import { type BookingCsvLabels, bookingsToCsv } from "./booking-csv";
 import type { BookingQuery, BookingQueryInvalid } from "./booking-query";
 import type { BookingService } from "./booking-service";
@@ -39,11 +39,6 @@ export interface BookingExportServiceDependencies {
   readonly fileSaver: FileSaver;
 }
 
-/** The last segment of a path (Windows or POSIX separators). */
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() || path;
-}
-
 export function createBookingExportService({
   bookings,
   fileSaver,
@@ -65,7 +60,12 @@ export function createBookingExportService({
         content: bookingsToCsv(result.items, labels),
       });
       if (!saved.saved) return { ok: true, saved: false };
-      return { ok: true, saved: true, fileName: baseName(saved.path), count: result.items.length };
+      return {
+        ok: true,
+        saved: true,
+        fileName: fileNameOfPath(saved.path),
+        count: result.items.length,
+      };
     },
   };
 }
