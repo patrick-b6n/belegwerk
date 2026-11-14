@@ -17,7 +17,12 @@ export type {
   NormalizeBookingQueryResult,
   NormalizedBookingQuery,
 } from "./booking-query";
-export { BOOKING_TEXT_MAX_LENGTH, createBookingService } from "./booking-service";
+export {
+  BOOKING_TEXT_MAX_LENGTH,
+  createBookingService,
+  prepareBooking,
+  repositoryBookingLookups,
+} from "./booking-service";
 export type {
   BookingErrorCode,
   BookingField,
@@ -28,6 +33,7 @@ export type {
   BookingListCategory,
   BookingListItem,
   BookingListResult,
+  BookingLookups,
   BookingNotFound,
   BookingService,
   BookingServiceDependencies,
@@ -35,6 +41,7 @@ export type {
   CreateBookingResult,
   DeleteBookingResult,
   GetBookingResult,
+  PrepareBookingResult,
   UpdateBookingResult,
 } from "./booking-service";
 export type { BookingSort, BookingSortField, SortDirection } from "../repositories";

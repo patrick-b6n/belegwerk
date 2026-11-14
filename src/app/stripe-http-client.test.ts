@@ -196,11 +196,12 @@ describe("createStripeHttpClient – listApplicationFees", () => {
         message: "Invalid integer",
       },
     });
-    plugin.fetch.mockResolvedValueOnce(new Response("<html>Bad gateway</html>", { status: 502 }));
+    plugin.fetch.mockResolvedValueOnce(new Response("<html>Not found</html>", { status: 404 }));
     expect(await client().listApplicationFees(RANGE)).toEqual({
       ok: false,
-      error: { code: "stripeError", status: 502, stripeCode: null, message: null },
+      error: { code: "stripeError", status: 404, stripeCode: null, message: null },
     });
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("retries 429 respecting Retry-After, then succeeds", async () => {
@@ -225,12 +226,63 @@ describe("createStripeHttpClient – listApplicationFees", () => {
     expect(sleep.mock.calls).toEqual([[10_000], [10_000]]);
   });
 
-  it("maps a failed request to network without passing the plugin's message on", async () => {
-    plugin.fetch.mockRejectedValueOnce(new Error("url not allowed on the configured scope"));
+  it("maps a failed request to network after the retries, without the plugin's message", async () => {
+    plugin.fetch.mockRejectedValue(new Error("url not allowed on the configured scope"));
     expect(await client().listApplicationFees(RANGE)).toEqual({
       ok: false,
       error: { code: "network" },
     });
+    expect(plugin.fetch).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[1000], [2000]]);
+  });
+
+  it("retries a network error and continues", async () => {
+    plugin.fetch
+      .mockRejectedValueOnce(new Error("connection reset"))
+      .mockResolvedValueOnce(json(list([fee("fee_1")])));
+    expect(await client().listApplicationFees(RANGE)).toMatchObject({ ok: true });
+    expect(sleep.mock.calls).toEqual([[1000]]);
+  });
+
+  it.each([500, 502, 503, 504])("retries %i with backoff, then succeeds", async (status) => {
+    plugin.fetch
+      .mockResolvedValueOnce(json({ error: { message: "temporary" } }, status))
+      .mockResolvedValueOnce(
+        json({ error: { message: "temporary" } }, status, { "Retry-After": "4" }),
+      )
+      .mockResolvedValueOnce(json(list([fee("fee_1")])));
+    expect(await client().listApplicationFees(RANGE)).toMatchObject({ ok: true });
+    expect(sleep.mock.calls).toEqual([[1000], [4000]]);
+  });
+
+  it("gives up on a server error after three attempts", async () => {
+    plugin.fetch.mockImplementation(() =>
+      Promise.resolve(new Response("<html>Bad gateway</html>", { status: 502 })),
+    );
+    expect(await client().listApplicationFees(RANGE)).toEqual({
+      ok: false,
+      error: { code: "stripeError", status: 502, stripeCode: null, message: null },
+    });
+    expect(plugin.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a timeout", async () => {
+    plugin.fetch.mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    const result = await createStripeHttpClient({ sleep, timeoutMs: 5 }).listApplicationFees(RANGE);
+    expect(result).toEqual({ ok: false, error: { code: "timeout" } });
+    expect(plugin.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a reversed range as a programmer error", async () => {
+    await expect(
+      client().listApplicationFees({ ...RANGE, createdFrom: RANGE.createdTo + 1 }),
+    ).rejects.toThrow(RangeError);
+    expect(plugin.fetch).not.toHaveBeenCalled();
   });
 
   it("aborts after the timeout", async () => {
@@ -267,10 +319,10 @@ describe("createStripeHttpClient – listApplicationFees", () => {
   it("drops everything on an error in a later page", async () => {
     plugin.fetch
       .mockResolvedValueOnce(json(list([fee("fee_2")], true)))
-      .mockResolvedValueOnce(json({ error: { message: "boom" } }, 500));
+      .mockResolvedValueOnce(json({ error: { message: "boom" } }, 400));
     expect(await client().listApplicationFees(RANGE)).toMatchObject({
       ok: false,
-      error: { code: "stripeError", status: 500 },
+      error: { code: "stripeError", status: 400 },
     });
   });
 

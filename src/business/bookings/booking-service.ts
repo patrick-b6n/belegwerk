@@ -268,7 +268,7 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
 
     create: (input) =>
       save(async (repos) => {
-        const validated = await validate(repos, input, undefined);
+        const validated = await prepareBooking(input, repositoryBookingLookups(repos));
         if (!validated.ok) return validated;
         return { ok: true, booking: await repos.bookings.insert(validated.input) };
       }),
@@ -278,7 +278,7 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
       return save(async (repos) => {
         const existing = await repos.bookings.findById(id);
         if (!existing) return NOT_FOUND;
-        const validated = await validate(repos, input, existing);
+        const validated = await prepareBooking(input, repositoryBookingLookups(repos), existing);
         if (!validated.ok) return validated;
         const booking = await repos.bookings.update(id, validated.input);
         // Cannot happen inside the transaction; a programmer error otherwise.
@@ -325,20 +325,49 @@ function invalid(errors: readonly BookingFieldError[]): BookingInvalid {
   return { ok: false, reason: "invalid", errors };
 }
 
-type Validated = { readonly ok: true; readonly input: BookingInput } | BookingInvalid;
+/** Result of {@link prepareBooking}: the row to write, or all field errors. */
+export type PrepareBookingResult =
+  | { readonly ok: true; readonly input: BookingInput }
+  | BookingInvalid;
 
 /**
- * Validates and normalizes `input` and computes the amounts. `existing` is
- * the booking being updated (`undefined` on create).
+ * What the booking validation reads. The service passes the repositories of
+ * its unit of work ({@link repositoryBookingLookups}); a batch writer such as
+ * the Stripe import (#30) passes data it loaded once for the whole batch – in
+ * its own unit of work – so the rules stay in one place.
+ */
+export interface BookingLookups {
+  findCategory(id: number): Promise<Category | undefined>;
+  /** Tax status of the year; a year without a record is regularly taxed (#16). */
+  isSmallBusinessYear(year: number): Promise<boolean>;
+  /** Whether another booking of `source` already has `externalId`. */
+  externalIdExists(source: BookingSource, externalId: string): Promise<boolean>;
+}
+
+/** {@link BookingLookups} reading from the repositories of a unit of work. */
+export function repositoryBookingLookups(repos: Repositories): BookingLookups {
+  return {
+    findCategory: (id) => repos.categories.findById(id),
+    isSmallBusinessYear: async (year) => (await repos.taxYears.find(year))?.smallBusiness ?? false,
+    externalIdExists: async (source, externalId) =>
+      (await repos.bookings.findExistingExternalIds(source, [externalId])).has(externalId),
+  };
+}
+
+/**
+ * Validates and normalizes `input` and computes the amounts
+ * (`calculateBookingAmounts`) – the single source of the booking rules, used
+ * by `create`/`update` and by the Stripe import (#30). `existing` is the
+ * booking being updated (`undefined` on create). Writes nothing.
  *
  * Normalization: all text fields are trimmed (inner whitespace and line
  * breaks stay as entered); blank optional texts become `null`.
  */
-async function validate(
-  repos: Repositories,
+export async function prepareBooking(
   input: BookingFormInput,
-  existing: Booking | undefined,
-): Promise<Validated> {
+  lookups: BookingLookups,
+  existing?: Booking,
+): Promise<PrepareBookingResult> {
   const errors: BookingFieldError[] = [];
 
   // Date
@@ -374,14 +403,10 @@ async function validate(
   if (!vatRateValid) {
     errors.push({ field: "vatRate", code: "vatRateInvalid" });
   } else if (dateParts) {
-    const taxYear = await repos.taxYears.find(dateParts.year);
+    const smallBusiness = await lookups.isSmallBusinessYear(dateParts.year);
     // The rule does not depend on the amount; with an invalid amount (already
     // reported) a placeholder still reports the VAT rate error.
-    const result = calculateBookingAmounts(
-      grossValid ? grossCents : 1,
-      vatRate,
-      taxYear?.smallBusiness ?? false,
-    );
+    const result = calculateBookingAmounts(grossValid ? grossCents : 1, vatRate, smallBusiness);
     if (!result.ok) errors.push({ field: "vatRate", code: result.error });
     else if (grossValid) amounts = { netCents: result.netCents, vatCents: result.vatCents };
   }
@@ -390,7 +415,7 @@ async function validate(
   // allowed for new bookings; an update may keep the booking's current
   // (meanwhile archived) category, but not switch to another archived one.
   const categoryIdValid = isId(input.categoryId);
-  const category = categoryIdValid ? await repos.categories.findById(input.categoryId) : undefined;
+  const category = categoryIdValid ? await lookups.findCategory(input.categoryId) : undefined;
   if (!categoryIdValid) {
     errors.push({ field: "categoryId", code: "required" });
   } else if (!category) {
@@ -422,8 +447,8 @@ async function validate(
     externalId.length <= BOOKING_TEXT_MAX_LENGTH.externalId &&
     !(existing && existing.source === source && existing.externalId === externalId)
   ) {
-    const found = await repos.bookings.findExistingExternalIds(source, [externalId]);
-    if (found.has(externalId)) errors.push({ field: "externalId", code: "externalIdDuplicate" });
+    if (await lookups.externalIdExists(source, externalId))
+      errors.push({ field: "externalId", code: "externalIdDuplicate" });
   }
 
   if (errors.length > 0 || !amounts || !category || !dateParts) {

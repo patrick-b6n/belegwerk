@@ -11,7 +11,7 @@ Quelle der Wahrheit; die SQL-Migrationen erzeugt `drizzle-kit` daraus.
 | `bookings`   | `id`, `date`, `type`, `gross_cents`, `vat_rate`, `net_cents`, `vat_cents`, `category_id` → `categories`, `description`, `counterparty`, `reference`, `note`, `source`, `external_id`, `created_at`, `updated_at` |
 | `categories` | `id`, `name`, `type`, `euer_position`, `reduces_income`, `archived`, `is_system`                                                                                                                                 |
 | `tax_years`  | `year` (PK), `small_business`                                                                                                                                                                                    |
-| `settings`   | `key` (PK), `value` – Stripe (#28): `stripe.apiKey`, `stripe.defaultVatRate`, `stripe.feeCategoryId`, `stripe.refundCategoryId`, reserviert `stripe.lastImportAt` (#30)                                          |
+| `settings`   | `key` (PK), `value` – Stripe (#28): `stripe.apiKey`, `stripe.defaultVatRate`, `stripe.feeCategoryId`, `stripe.refundCategoryId`, Import (#30): `stripe.lastImportAt`, `stripe.lastImportTo`                      |
 
 Indizes: `bookings_date_idx` (`date`), `bookings_category_id_idx`
 (`category_id`), `bookings_source_external_id_unique` (eindeutig auf

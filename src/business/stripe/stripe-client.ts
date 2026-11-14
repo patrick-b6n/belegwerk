@@ -13,7 +13,7 @@
 export interface StripeFeeRefund {
   /** `fr_…` – the external ID of the refund booking (#30). */
   readonly id: string;
-  /** Refunded amount in the smallest currency unit (cents for EUR), > 0. */
+  /** Refunded amount in the smallest currency unit (cents for EUR), ≥ 0 (the import skips 0). */
   readonly amount: number;
   /** Three-letter ISO currency code, lowercase as Stripe sends it (`"eur"`). */
   readonly currency: string;
@@ -58,11 +58,14 @@ export type StripeClientError =
   | { readonly code: "permissionDenied" }
   /** 429 after the client's own retries; `retryAfterSeconds` from `Retry-After`, if sent. */
   | { readonly code: "rateLimited"; readonly retryAfterSeconds: number | null }
-  /** Stripe not reachable (offline, DNS, TLS, proxy) or refused by the HTTP scope. */
+  /** Stripe not reachable (offline, DNS, TLS, proxy) or refused by the HTTP scope – after retries. */
   | { readonly code: "network" }
   /** No response within the client's timeout. */
   | { readonly code: "timeout" }
-  /** Any other 4xx/5xx; Stripe's `error.code`/`error.message` if the body had them. */
+  /**
+   * Any other 4xx/5xx (500/502/503/504 after the client's retries);
+   * Stripe's `error.code`/`error.message` if the body had them.
+   */
   | {
       readonly code: "stripeError";
       readonly status: number;
