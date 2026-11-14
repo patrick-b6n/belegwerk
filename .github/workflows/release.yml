@@ -11,10 +11,12 @@ on:
 permissions:
   contents: read
 
-# Eine Gruppe für alle Läufe: Releases entstehen nacheinander, keiner wird
-# abgebrochen (die Version hängt vom zuletzt angelegten Tag ab).
+# Eine Gruppe pro Ref: Releases von main entstehen nacheinander, keiner wird
+# abgebrochen (die Version hängt vom zuletzt angelegten Tag ab). Ein
+# workflow_dispatch auf einem anderen Branch landet in einer eigenen Gruppe
+# und verdrängt keinen wartenden main-Lauf.
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -28,37 +30,63 @@ jobs:
       # gh release create
       contents: write
     steps:
+      # Nur der aktuelle Stand von main wird veröffentlicht. Ein erneut
+      # gestarteter alter Lauf (Re-run) würde sonst älteren Code als „Latest“
+      # veröffentlichen; seine Commits sind im Release des neueren Laufs
+      # enthalten. Vor `gh release create` wird erneut geprüft.
+      - name: Stand von main prüfen
+        id: head
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Kein Release: $GITHUB_SHA ist nicht mehr der Stand von main ($head); der neuere Lauf veröffentlicht diese Commits."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.head.outputs.current == 'true'
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       # Version kommt aus "packageManager" in package.json (pnpm 12).
       - name: Setup pnpm
+        if: steps.head.outputs.current == 'true'
         uses: pnpm/action-setup@v6
         with:
           cache: true
 
       - name: Setup Node.js
+        if: steps.head.outputs.current == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 26
 
       - name: Setup Rust (stable)
+        if: steps.head.outputs.current == 'true'
         uses: dtolnay/rust-toolchain@stable
 
       # Nur lesen: CI (ci.yml) speichert den Cache von main; der Release-Lauf
       # baut im selben Profil und speichert keinen zweiten.
       - name: Cargo-Cache
+        if: steps.head.outputs.current == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           save-if: false
 
       - name: Install dependencies
+        if: steps.head.outputs.current == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Verify
+        if: steps.head.outputs.current == 'true'
         run: pnpm verify
 
       # Version erst nach dem Verify bilden, direkt vor Build und Release:
@@ -68,6 +96,7 @@ jobs:
       # (scripts/release-version.ts). Die Tags kommen über die API, der
       # Checkout bleibt flach.
       - name: Version bestimmen
+        if: steps.head.outputs.current == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -83,16 +112,24 @@ jobs:
       # release/belegwerk-<version>.exe, schreibt die Prüfsumme und prüft die
       # Dateiversion der .exe (scripts/release.ts).
       - name: Build
+        if: steps.head.outputs.current == 'true'
         run: node scripts/release.ts --calver "$env:VERSION"
 
       # Legt das Tag `v<version>` auf den gebauten Commit an. Kein Pre-release,
       # ausdrücklich „Latest“: die App liest `releases/latest`. `gh` lädt die
       # Assets hoch, bevor es das Release veröffentlicht.
       - name: GitHub-Release anlegen
+        if: steps.head.outputs.current == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          head=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "::notice::Kein Release: main ist während des Builds auf $head weitergerückt; der neuere Lauf veröffentlicht diese Commits."
+            exit 0
+          fi
           gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \

@@ -60,8 +60,15 @@ anderen Branches wird der Job übersprungen.
    die App (`releases/latest`). `gh` lädt die Assets hoch, bevor es das
    Release veröffentlicht – die App sieht also nie ein Release ohne Assets.
 
-**Nacheinander:** Alle Läufe teilen sich eine Concurrency-Gruppe ohne
-Abbruch (`cancel-in-progress: false`). Ein zweiter Push wartet, bis das
+**Nur der aktuelle Stand:** Zu Beginn und noch einmal direkt vor
+`gh release create` prüft der Job, dass der gebaute Commit (`GITHUB_SHA`)
+noch der Stand von `main` ist (`gh api repos/…/commits/main`). Sonst endet er
+erfolgreich ohne Release, mit einem Hinweis im Log – etwa beim Re-run eines
+alten Laufs oder wenn `main` während des Builds weitergerückt ist. Die Commits
+veröffentlicht dann der neuere Lauf; ein älterer Stand wird nie „Latest“.
+
+**Nacheinander:** Alle Läufe auf `main` teilen sich eine Concurrency-Gruppe
+(`<workflow>-<ref>`) ohne Abbruch (`cancel-in-progress: false`). Ein zweiter Push wartet, bis das
 vorige Release angelegt ist, und sieht dessen Tag beim Bestimmen der
 Version. Wartet schon ein Lauf und kommt ein weiterer Push, ersetzt GitHub
 den wartenden durch den neuen (nur der jeweils neueste wartende Lauf bleibt);

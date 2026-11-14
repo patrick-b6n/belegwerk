@@ -159,7 +159,7 @@ struct ReleaseAssets<'a> {
 
 // --- Pure logic (unit-tested) ---
 
-// Versions are CalVer `YYYY-MM-DD-HHMM` (local release time) in tags, asset
+// Versions are CalVer `YYYY-MM-DD-HHMM` (release time in UTC) in tags, asset
 // names, UI and logs; the app itself (package.json, Tauri) carries the SemVer
 // form `YYYY.(MM*100+DD).(HH*100+MM)`. Same conversion as
 // src/business/updates/calver.ts.
