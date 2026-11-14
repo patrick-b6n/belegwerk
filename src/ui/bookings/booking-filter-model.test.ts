@@ -40,6 +40,9 @@ import {
   unknownCategoryIds,
   updateBookingSearch,
   validateBookingSearch,
+  VAT_RATE_PARAMS,
+  vatRateOfParam,
+  vatRateParam,
 } from "./booking-filter-model";
 
 function category(
@@ -74,6 +77,7 @@ describe("validateBookingSearch", () => {
         art: "ausgaben",
         kategorie: [3, 7],
         quelle: "stripe",
+        ust: ["19", "ohne"],
         betragVon: 1000,
         betragBis: 250000,
       }),
@@ -84,6 +88,7 @@ describe("validateBookingSearch", () => {
       art: "ausgaben",
       kategorie: [3, 7],
       quelle: "stripe",
+      ust: ["ohne", "19"],
       betragVon: 1000,
       betragBis: 250000,
     });
@@ -100,6 +105,20 @@ describe("validateBookingSearch", () => {
     expect(Object.hasOwn(search, "kategorie") && search.kategorie === undefined).toBe(true);
     const raw = { art: "foo", kategorie: "abc" };
     expect({ ...raw, ...search }).toEqual({});
+  });
+
+  it("reads VAT rates as numbers or strings, sorted, without duplicates or unknown values", () => {
+    expect(validateBookingSearch({ ust: [19, 0, "rc", 19, "ohne", 7] })).toEqual({
+      ust: ["ohne", "0", "7", "19", "rc"],
+    });
+    expect(validateBookingSearch({ ust: 19 })).toEqual({ ust: ["19"] });
+    expect(validateBookingSearch({ ust: "rc" })).toEqual({ ust: ["rc"] });
+    expect(validateBookingSearch({ ust: [16, "reverse_charge", null, "__proto__", 7] })).toEqual({
+      ust: ["7"],
+    });
+    const dropped = validateBookingSearch({ ust: ["x"] });
+    expect(Object.hasOwn(dropped, "ust") && dropped.ust === undefined).toBe(true);
+    expect(validateBookingSearch({ ust: [] })).toEqual({});
   });
 
   it("drops unknown params", () => {
@@ -200,8 +219,16 @@ describe("validateBookingSearch", () => {
 describe("cleanBookingSearch / updateBookingSearch", () => {
   it("removes absent and empty values", () => {
     expect(
-      cleanBookingSearch({ q: " ", von: "", bis: undefined, kategorie: [], art: undefined }),
+      cleanBookingSearch({
+        q: " ",
+        von: "",
+        bis: undefined,
+        kategorie: [],
+        art: undefined,
+        ust: [],
+      }),
     ).toEqual({});
+    expect(cleanBookingSearch({ ust: ["rc", "0", "rc"] })).toEqual({ ust: ["0", "rc"] });
   });
 
   it("applies a patch and removes params set to undefined", () => {
@@ -227,6 +254,7 @@ describe("bookingSearchToQuery", () => {
         art: "einnahmen",
         kategorie: [1, 2],
         quelle: "manuell",
+        ust: ["ohne", "19", "rc"],
         betragVon: 100,
         betragBis: 200,
       }),
@@ -237,6 +265,7 @@ describe("bookingSearchToQuery", () => {
       type: "income",
       categoryIds: [1, 2],
       source: "manual",
+      vatRates: [null, "19", "reverse_charge"],
       amountFrom: 100,
       amountTo: 200,
     });
@@ -253,6 +282,7 @@ describe("bookingSearchToQuery", () => {
       art: "einnahmen",
       kategorie: "1,2",
       quelle: "stripe",
+      ust: [0, "ohne"],
       betragBis: "99",
     });
     expect(normalizeBookingQuery(bookingSearchToQuery(search)).ok).toBe(true);
@@ -280,6 +310,13 @@ describe("bookingSearchToQuery", () => {
     expect(sourceParam("manual")).toBe("manuell");
     expect(sourceParam("stripe")).toBe("stripe");
   });
+
+  it("round-trips VAT rate params", () => {
+    for (const param of VAT_RATE_PARAMS) expect(vatRateParam(vatRateOfParam(param))).toBe(param);
+    expect(vatRateOfParam("ohne")).toBeNull();
+    expect(vatRateOfParam("rc")).toBe("reverse_charge");
+    expect(vatRateParam(null)).toBe("ohne");
+  });
 });
 
 describe("countActiveFilters / resetBookingFilters", () => {
@@ -294,13 +331,16 @@ describe("countActiveFilters / resetBookingFilters", () => {
         art: "ausgaben",
         kategorie: [1, 2],
         quelle: "stripe",
+        ust: ["19"],
         betragBis: 3,
       }),
-    ).toBe(6);
+    ).toBe(7);
   });
 
   it("removes every filter", () => {
-    expect(resetBookingFilters({ q: "a", art: "ausgaben", kategorie: [1] })).toEqual({});
+    expect(resetBookingFilters({ q: "a", art: "ausgaben", kategorie: [1], ust: ["7"] })).toEqual(
+      {},
+    );
   });
 });
 

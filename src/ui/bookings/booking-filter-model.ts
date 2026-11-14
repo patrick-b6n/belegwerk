@@ -14,6 +14,7 @@
  * | `art`       | `einnahmen` \| `ausgaben`               | `type`          |
  * | `kategorie` | category ids (array)                    | `categoryIds`   |
  * | `quelle`    | `manuell` \| `stripe`                   | `source`        |
+ * | `ust`       | VAT rates (array of `0`/`7`/`19`/`rc`/`ohne`, #26) | `vatRates` |
  * | `betragVon`/`betragBis` | gross amount in **cents**   | `amountFrom/To` |
  * | `sortierung` | `<column>-<auf|ab>`, e.g. `brutto-auf` (#23) | `sort`  |
  * | `seite`     | page, 1-based (#23)                     | `page`          |
@@ -41,7 +42,7 @@ import {
 } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
 import { parseAmount, parseIsoDate, type ParseAmountError } from "@/business/format";
-import type { BookingSource, BookingType } from "@/business/model";
+import type { BookingSource, BookingType, VatRate } from "@/business/model";
 import { MAX_AMOUNT_CENTS } from "@/business/money";
 import { isId, trimText } from "@/business/validation";
 
@@ -50,6 +51,8 @@ import { isId, trimText } from "@/business/validation";
 
 export type BookingTypeParam = "einnahmen" | "ausgaben";
 export type BookingSourceParam = "manuell" | "stripe";
+/** A VAT rate in the URL: `rc` = reverse charge, `ohne` = no rate (small business). */
+export type VatRateParam = "ohne" | "0" | "7" | "19" | "rc";
 
 /** The validated search params of `/buchungen` (absent = no filter). */
 export interface BookingSearch {
@@ -59,6 +62,8 @@ export interface BookingSearch {
   readonly art?: BookingTypeParam;
   readonly kategorie?: readonly number[];
   readonly quelle?: BookingSourceParam;
+  /** VAT rates (#26, drill-down from the EÜR), in {@link VAT_RATE_PARAMS} order, without duplicates. */
+  readonly ust?: readonly VatRateParam[];
   readonly betragVon?: number;
   readonly betragBis?: number;
   /** Sort order (#23); absent = {@link DEFAULT_BOOKING_SORT} (date descending). */
@@ -79,6 +84,39 @@ const SOURCE_PARAMS: Readonly<Record<BookingSourceParam, BookingSource>> = {
   manuell: "manual",
   stripe: "stripe",
 };
+
+/** Every VAT rate param, in display order. */
+export const VAT_RATE_PARAMS: readonly VatRateParam[] = ["ohne", "0", "7", "19", "rc"];
+
+const VAT_RATE_OF_PARAM: Readonly<Record<VatRateParam, VatRate | null>> = {
+  ohne: null,
+  "0": "0",
+  "7": "7",
+  "19": "19",
+  rc: "reverse_charge",
+};
+
+/** The URL value of a VAT rate (`null` = no rate). */
+export function vatRateParam(rate: VatRate | null): VatRateParam {
+  if (rate === null) return "ohne";
+  return rate === "reverse_charge" ? "rc" : rate;
+}
+
+/** The VAT rate of a URL value (`null` = no rate). */
+export function vatRateOfParam(param: VatRateParam): VatRate | null {
+  return VAT_RATE_OF_PARAM[param];
+}
+
+/**
+ * VAT rate params in {@link VAT_RATE_PARAMS} order without duplicates;
+ * `undefined` when empty (no filter).
+ */
+export function sortedVatRateParams(
+  params: readonly VatRateParam[],
+): readonly VatRateParam[] | undefined {
+  const sorted = VAT_RATE_PARAMS.filter((param) => params.includes(param));
+  return sorted.length > 0 ? sorted : undefined;
+}
 
 export function typeParam(type: BookingType): BookingTypeParam {
   return type === "income" ? "einnahmen" : "ausgaben";
@@ -131,6 +169,22 @@ function categoryIds(value: unknown): number[] | undefined {
     if (id !== undefined && isId(id) && !ids.includes(id)) ids.push(id);
   }
   return ids.length > 0 ? ids : undefined;
+}
+
+/**
+ * VAT rates from an array or a single value; the router parses `ust=[19,0]`
+ * as numbers and `ust=["rc"]` as strings, both are accepted. Unknown values
+ * are dropped.
+ */
+function vatRateParams(value: unknown): readonly VatRateParam[] | undefined {
+  const raw: unknown[] = Array.isArray(value) ? value : [value];
+  const params = raw
+    .map((item) => (typeof item === "number" ? String(item) : item))
+    .filter(
+      (item): item is VatRateParam =>
+        typeof item === "string" && Object.hasOwn(VAT_RATE_OF_PARAM, item),
+    );
+  return sortedVatRateParams(params);
 }
 
 function isoDate(value: unknown): string | undefined {
@@ -300,6 +354,10 @@ export function cleanBookingSearch(search: BookingSearch): BookingSearch {
     result.kategorie = search.kategorie;
   }
   if (search.quelle !== undefined) result.quelle = search.quelle;
+  if (search.ust !== undefined) {
+    const ust = sortedVatRateParams(search.ust);
+    if (ust !== undefined) result.ust = ust;
+  }
   if (search.betragVon !== undefined) result.betragVon = search.betragVon;
   if (search.betragBis !== undefined) result.betragBis = search.betragBis;
   if (search.sortierung !== undefined) result.sortierung = search.sortierung;
@@ -318,6 +376,7 @@ const NO_SEARCH: Readonly<Record<BookingSearchKey, undefined>> = {
   art: undefined,
   kategorie: undefined,
   quelle: undefined,
+  ust: undefined,
   betragVon: undefined,
   betragBis: undefined,
   sortierung: undefined,
@@ -349,6 +408,7 @@ function validParams(raw: Readonly<Record<string, unknown>>): BookingSearch {
     art: isTypeParam(raw.art) ? raw.art : undefined,
     kategorie: categoryIds(raw.kategorie),
     quelle: isSourceParam(raw.quelle) ? raw.quelle : undefined,
+    ust: vatRateParams(raw.ust),
     betragVon: amountCents(raw.betragVon),
     betragBis: amountCents(raw.betragBis),
     sortierung: sortingParam(raw.sortierung),
@@ -388,6 +448,7 @@ export function bookingSearchToQuery(search: BookingSearch): BookingQuery {
   if (search.art !== undefined) query.type = TYPE_PARAMS[search.art];
   if (search.kategorie !== undefined) query.categoryIds = search.kategorie;
   if (search.quelle !== undefined) query.source = SOURCE_PARAMS[search.quelle];
+  if (search.ust !== undefined) query.vatRates = search.ust.map(vatRateOfParam);
   if (search.betragVon !== undefined) query.amountFrom = search.betragVon;
   if (search.betragBis !== undefined) query.amountTo = search.betragBis;
   return query;
@@ -408,7 +469,7 @@ export function bookingSearchToListQuery(search: BookingSearch): BookingQuery {
 
 /**
  * Number of active filters, counting a range (period, amount) once: search
- * text, period, type, categories, source, amount.
+ * text, period, type, categories, source, VAT rates, amount.
  */
 export function countActiveFilters(search: BookingSearch): number {
   const active = [
@@ -417,6 +478,7 @@ export function countActiveFilters(search: BookingSearch): number {
     search.art !== undefined,
     search.kategorie !== undefined,
     search.quelle !== undefined,
+    search.ust !== undefined,
     search.betragVon !== undefined || search.betragBis !== undefined,
   ];
   return active.filter(Boolean).length;

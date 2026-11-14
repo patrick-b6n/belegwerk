@@ -5,7 +5,8 @@
  * and URLs – and turns it into the repository's filter, sort order and page.
  */
 import { parseIsoDate } from "../format";
-import type { BookingSource, BookingType } from "../model";
+import type { BookingSource, BookingType, VatRate } from "../model";
+import { isVatRate } from "../money";
 import type { BookingFilter, BookingSort, BookingSortField, SortDirection } from "../repositories";
 import { isId, trimText } from "../validation";
 
@@ -67,6 +68,11 @@ export interface BookingQuery {
   /** Any of these categories. Empty = all categories; duplicates are ignored. */
   readonly categoryIds?: readonly number[];
   readonly source?: BookingSource;
+  /**
+   * Any of these VAT rates; `null` = bookings without a rate (#26, drill-down
+   * from the EÜR). Empty = all rates; duplicates are ignored.
+   */
+  readonly vatRates?: readonly (VatRate | null)[];
   /** Gross amount from (integer cents ≥ 0, inclusive). */
   readonly amountFrom?: number;
   /** Gross amount to (integer cents ≥ 0, inclusive). */
@@ -101,6 +107,8 @@ export interface BookingQueryErrorCodes {
    */
   readonly categoryIds: "invalidCategoryId" | "tooMany";
   readonly source: "invalidSource";
+  /** `invalidVatRate`: some value is neither a known `VatRate` nor `null`. */
+  readonly vatRates: "invalidVatRate";
   /** `invalidAmount`: not an integer number of cents ≥ 0. */
   readonly amountFrom: "invalidAmount";
   /** `amountRangeInverted`: `amountTo` is below `amountFrom`. */
@@ -149,8 +157,8 @@ export type NormalizeBookingQueryResult =
  *
  * Normalization: text trimmed (`trimText`) and NFC-normalized (so a
  * decomposed "ü" typed somewhere still finds the usual composed one);
- * blank texts and dates and an empty `categoryIds` are dropped; category
- * ids deduplicated. Control characters and lone surrogates inside the text
+ * blank texts and dates and an empty `categoryIds`/`vatRates` are dropped;
+ * category ids and VAT rates deduplicated. Control characters and lone surrogates inside the text
  * are rejected (`invalidText`), not stripped: a search box cannot produce
  * them, so they mean a manipulated URL or a bug.
  */
@@ -205,6 +213,16 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
   if (query.source !== undefined) {
     if (BOOKING_SOURCES.includes(query.source)) filter.source = query.source;
     else errors.push({ field: "source", code: "invalidSource" });
+  }
+
+  // VAT rates
+  if (query.vatRates !== undefined) {
+    const vatRates = [...new Set(query.vatRates)];
+    if (!vatRates.every((rate) => rate === null || isVatRate(rate))) {
+      errors.push({ field: "vatRates", code: "invalidVatRate" });
+    } else if (vatRates.length > 0) {
+      filter.vatRates = vatRates;
+    }
   }
 
   // Amount

@@ -45,6 +45,7 @@ describe("normalizeBookingQuery", () => {
         type: "expense",
         categoryIds: [3, 1, 3],
         source: "stripe",
+        vatRates: ["19", null, "19"],
         amountFrom: 0,
         amountTo: 10_000,
         sort: { field: "category", direction: "asc" },
@@ -59,6 +60,7 @@ describe("normalizeBookingQuery", () => {
         type: "expense",
         categoryIds: [3, 1],
         source: "stripe",
+        vatRates: ["19", null],
         amountFrom: 0,
         amountTo: 10_000,
       },
@@ -140,6 +142,18 @@ describe("normalizeBookingQuery", () => {
     for (const id of [0, -1, 1.5, Infinity]) {
       expect(errorsOf({ categoryIds: [id] })).toEqual([
         { field: "categoryIds", code: "invalidCategoryId" },
+      ]);
+    }
+  });
+
+  it("validates the VAT rates; null means no rate, an empty list does not filter", () => {
+    expect(normalized({ vatRates: [] }).filter).toEqual({});
+    expect(normalized({ vatRates: [null, "0", "7", "19", "reverse_charge", null] }).filter).toEqual(
+      { vatRates: [null, "0", "7", "19", "reverse_charge"] },
+    );
+    for (const rate of ["16", "", "ohne", 19, undefined]) {
+      expect(errorsOf({ vatRates: ["19", rate as never] })).toEqual([
+        { field: "vatRates", code: "invalidVatRate" },
       ]);
     }
   });

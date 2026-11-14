@@ -6,6 +6,7 @@ import {
   eq,
   gte,
   inArray,
+  isNull,
   lte,
   or,
   type SQL,
@@ -221,6 +222,17 @@ function filterCondition(filter: BookingFilter): SQL | undefined {
     conditions.push(inArray(bookings.categoryId, [...filter.categoryIds]));
   }
   if (filter.source !== undefined) conditions.push(eq(bookings.source, filter.source));
+  if (filter.vatRates !== undefined) {
+    // `IN` never matches NULL, so "no rate" needs its own `IS NULL`.
+    const rates = filter.vatRates.filter((rate) => rate !== null);
+    const withoutRate = rates.length < filter.vatRates.length;
+    conditions.push(
+      or(
+        rates.length > 0 ? inArray(bookings.vatRate, rates) : undefined,
+        withoutRate ? isNull(bookings.vatRate) : undefined,
+      ),
+    );
+  }
   if (filter.amountFrom !== undefined) conditions.push(gte(bookings.grossCents, filter.amountFrom));
   if (filter.amountTo !== undefined) conditions.push(lte(bookings.grossCents, filter.amountTo));
   return and(...conditions);
