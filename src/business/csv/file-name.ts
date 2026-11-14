@@ -1,3 +1,5 @@
+import { safeFileNamePart } from "../files";
+
 /** Parts of a suggested export file name; texts come from the UI (docs/i18n.md). */
 export interface CsvFileNameParts {
   /** What is exported, e.g. `"buchungen"`. */
@@ -14,12 +16,7 @@ export interface CsvFileNameParts {
   readonly toWord: string;
 }
 
-// Not allowed in Windows file names (plus control characters).
-const INVALID_FILE_NAME_CHARS = /[<>:"/\\|?*\p{Cc}]/gu;
-
-function safe(text: string): string {
-  return text.replace(INVALID_FILE_NAME_CHARS, "_");
-}
+const safe = safeFileNamePart;
 
 /**
  * Suggested name of an export file, after the exported period:

@@ -7,7 +7,7 @@ const plugins = vi.hoisted(() => ({
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: plugins.save }));
 vi.mock("@tauri-apps/plugin-fs", () => ({ writeTextFile: plugins.writeTextFile }));
 
-const { createTauriFileSaver } = await import("./tauri-file-saver");
+const { createTauriFileSaver, createTauriSavePathPicker } = await import("./tauri-file-saver");
 
 const request = {
   defaultFileName: "buchungen-2025-01-01_2025-12-31.csv",
@@ -44,5 +44,34 @@ describe("createTauriFileSaver", () => {
     plugins.save.mockResolvedValue("C:\\x.csv");
     plugins.writeTextFile.mockRejectedValue(new Error("locked"));
     await expect(createTauriFileSaver().saveTextFile(request)).rejects.toThrow("locked");
+  });
+});
+
+describe("createTauriSavePathPicker", () => {
+  beforeEach(() => {
+    plugins.save.mockReset();
+    plugins.writeTextFile.mockReset();
+  });
+
+  const pickRequest = {
+    defaultFileName: "belegwerk-backup-2026-11-14_1530.db",
+    filter: { name: "SQLite-Datenbank", extensions: ["db"] },
+  } as const;
+
+  it("returns the picked path without writing", async () => {
+    plugins.save.mockResolvedValue("C:\\Users\\Jörg\\Meine Sicherung.db");
+    expect(await createTauriSavePathPicker().pickSavePath(pickRequest)).toBe(
+      "C:\\Users\\Jörg\\Meine Sicherung.db",
+    );
+    expect(plugins.save).toHaveBeenCalledWith({
+      defaultPath: "belegwerk-backup-2026-11-14_1530.db",
+      filters: [{ name: "SQLite-Datenbank", extensions: ["db"] }],
+    });
+    expect(plugins.writeTextFile).not.toHaveBeenCalled();
+  });
+
+  it("returns null when the dialog is cancelled", async () => {
+    plugins.save.mockResolvedValue(null);
+    expect(await createTauriSavePathPicker().pickSavePath(pickRequest)).toBeNull();
   });
 });

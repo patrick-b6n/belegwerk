@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
+import { BackupSection } from "@/ui/backup/backup-section";
 import { Page } from "@/ui/layout/page";
 import { SettingsSection } from "@/ui/settings/settings-section";
 import { StripeSettingsSection } from "@/ui/stripe/stripe-settings-section";
@@ -8,7 +9,7 @@ import { TaxYearSettings } from "@/ui/tax-years/tax-year-settings";
 
 /**
  * The settings page: one {@link SettingsSection} per area, each loading its
- * own data: "Steuerjahre" (#20) and "Stripe" (#28).
+ * own data: "Steuerjahre" (#20), "Stripe" (#28) and "Datensicherung" (#32).
  */
 export const Route = createFileRoute("/einstellungen")({
   component: SettingsPage,
@@ -23,6 +24,9 @@ function SettingsPage() {
       </SettingsSection>
       <SettingsSection title={m.stripe_title()} description={m.stripe_description()}>
         <StripeSettingsSection />
+      </SettingsSection>
+      <SettingsSection title={m.backup_title()} description={m.backup_description()}>
+        <BackupSection />
       </SettingsSection>
     </Page>
   );
