@@ -1455,13 +1455,13 @@ Die App prüft beim Start und auf Wunsch, ob auf GitHub eine neuere Version
 liegt, und ersetzt auf Knopfdruck ihre `.exe`. Ablauf, Sicherheitsprüfungen
 und Release-Workflow: [Release](release.md#auto-update-71).
 
-| Datei                                    | Aufgabe                                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `src-tauri/src/updater.rs`               | Commands `check_for_update`, `install_update` (GitHub-API, Download, SHA-256, Austausch, Neustart)                        |
-| `src/business/updates/update-service.ts` | Port `Updater`, `UpdateError` (Codes), `createUpdateService({ updater })`, `downloadPercent`                              |
-| `src/business/updates/calver.ts`         | Versionsschema `YYYY-MM-DD-HHMM` ↔ SemVer `YYYY.MMDD.HHMM` (auch für `scripts/`, [Release](release.md#versionsschema-71)) |
-| `src/app/tauri-updater.ts`               | `createTauriUpdater()`: `invoke` der Commands (Fortschritt per `Channel`), `openUrl` aus `plugin-opener`                  |
-| `src/ui/updates/`                        | Hinweis in der Seitennavigation, Abschnitt „Updates“ in den Einstellungen, Texte zu Codes, Query/Mutations                |
+| Datei                                    | Aufgabe                                                                                                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src-tauri/src/updater.rs`               | Commands `check_for_update`, `install_update` (GitHub-API, Download, SHA-256, Austausch, Neustart)                                                       |
+| `src/business/updates/update-service.ts` | Port `Updater`, `UpdateError` (Codes), `createUpdateService({ updater })`, `downloadPercent`                                                             |
+| `src/business/updates/calver.ts`         | Versionsschema `YYYY-MM-DD-HHMM` (UTC) ↔ SemVer `YYYY.MMDD.HHMM`, nächste Release-Version (auch für `scripts/`, [Release](release.md#versionsschema-71)) |
+| `src/app/tauri-updater.ts`               | `createTauriUpdater()`: `invoke` der Commands (Fortschritt per `Channel`), `openUrl` aus `plugin-opener`                                                 |
+| `src/ui/updates/`                        | Hinweis in der Seitennavigation, Abschnitt „Updates“ in den Einstellungen, Texte zu Codes, Query/Mutations                                               |
 
 - **Rust statt WebView:** Netzwerk und Dateiaustausch laufen in Rust (keine
   CSP-Erweiterung, kein HTTP-Scope für GitHub). Die Commands sind im
@@ -1501,7 +1501,8 @@ und Release-Workflow: [Release](release.md#auto-update-71).
 
 Ausgeliefert wird eine einzelne, unsignierte `.exe` ohne Installer
 (`pnpm release`, Release-Profil, Version, Speicherorte, SmartScreen:
-[Release](release.md)); Releases entstehen per Tag, die App aktualisiert sich
+[Release](release.md)); jeder Push auf `main` erzeugt ein Release (Version
+= Zeit in UTC, Läufe nacheinander), die App aktualisiert sich
 daraus ([Auto-Update](#auto-update-71)). `tauri-plugin-single-instance` ist das erste Plugin in
 `src-tauri/src/lib.rs`: Ein zweiter Start beendet sich und holt das Fenster
 `main` der laufenden Instanz nach vorn – nie öffnen zwei Prozesse dieselbe

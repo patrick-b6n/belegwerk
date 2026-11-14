@@ -53,12 +53,13 @@ Belegwerk ist eine **einzelne `.exe`** ohne Installer und ohne
 Code-Signierung. Bezugsquellen:
 
 - **GitHub-Releases** (`belegwerk-<version>.exe` samt `.sha256`), entstehen
-  per `pnpm release:tag` ([Release](docs/release.md#release-veröffentlichen-71)).
-  Die Version ist Datum und Uhrzeit des Releases, z. B. `2026-11-14-2000`
+  automatisch bei jedem Push auf `main`
+  ([Release](docs/release.md#release-veröffentlichen-71-74)). Die Version ist
+  Datum und Uhrzeit des Releases in UTC, z. B. `2026-11-14-2000`
   ([Versionsschema](docs/release.md#versionsschema-71)).
 - **Selbst bauen** mit `pnpm release` (siehe [Entwicklung](#entwicklung) und
   [Release](docs/release.md)); legt `release/belegwerk-<version>.exe` samt
-  `.sha256` an.
+  `.sha256` an. Lokale Builds werden nicht veröffentlicht.
 - **Artefakt eines CI-Laufs** (nur zum Ausprobieren, 7 Tage aufbewahrt, siehe
   [CI](#ci)).
 
@@ -228,7 +229,6 @@ Fenster nach vorn (gleiche Datenbank) – vorher die `.exe` schließen.
 | `pnpm i18n:compile` | Paraglide-Messages nach `src/paraglide/` kompilieren                           |
 | `pnpm verify`       | `format:check`, `lint`, `typecheck`, `test` – vor jedem Commit/Release         |
 | `pnpm release`      | Release-`.exe` bauen und nach `release/` kopieren ([Release](docs/release.md)) |
-| `pnpm release:tag`  | Release veröffentlichen: Tag `v<YYYY-MM-DD-HHMM>` anlegen und pushen           |
 
 ### CI
 
@@ -239,10 +239,13 @@ passen (`pnpm db:generate` ohne Änderung), und `pnpm tauri build --no-bundle`.
 Die gebaute `.exe` steht 7 Tage als Artefakt des Laufs zum Ausprobieren
 bereit.
 
-Ein Tag `v<YYYY-MM-DD-HHMM>` (`pnpm release:tag`) startet
-[`.github/workflows/release.yml`](.github/workflows/release.yml): Tag prüfen,
-gleiche Prüfungen, Build mit der Version aus dem Tag und ein GitHub-Release
-mit `.exe` und `.sha256` ([Release](docs/release.md#release-veröffentlichen-71)).
+Jeder Push auf `main` startet zusätzlich
+[`.github/workflows/release.yml`](.github/workflows/release.yml) und erzeugt ein
+Release: gleiche Prüfungen, Version aus der aktuellen Zeit in UTC (echt größer
+als das letzte Release-Tag, sonst dieses + 1 Minute), Build und ein
+GitHub-Release mit `.exe` und `.sha256` samt Tag `v<YYYY-MM-DD-HHMM>` auf dem
+Commit. Die Läufe laufen nacheinander, keiner wird abgebrochen
+([Release](docs/release.md#release-veröffentlichen-71-74)).
 
 ## Architektur
 
@@ -279,4 +282,4 @@ Weiterführend:
 - [Datenmodell](docs/data-model.md) – Tabellen, EÜR-Positionen und -Berechnung, Migrationen, Backup
 - [i18n & Formatierung](docs/i18n.md) – Paraglide, Format-Helper
 - [Tests](docs/testing.md) – Vitest, Fakes, Persistence-Tests
-- [Release](docs/release.md) – Release per Tag, Auto-Update, `.exe` bauen, Version, Speicherorte
+- [Release](docs/release.md) – Release bei jedem Push auf `main`, Auto-Update, `.exe` bauen, Version, Speicherorte

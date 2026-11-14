@@ -16,8 +16,7 @@
     "tauri": "tauri",
     "db:generate": "drizzle-kit generate",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "release": "node scripts/release.ts",
-    "release:tag": "node scripts/release-tag.ts"
+    "release": "node scripts/release.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

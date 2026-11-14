@@ -1,8 +1,8 @@
-// Builds the single Belegwerk .exe (#33, #71): `pnpm release`.
+// Builds the single Belegwerk .exe (#33, #71, #74): `pnpm release`.
 //
-// The version is the build time (CalVer `YYYY-MM-DD-HHMM`, local time,
+// The version is the build time (CalVer `YYYY-MM-DD-HHMM`, UTC,
 // src/business/updates/calver.ts) or `--calver <YYYY-MM-DD-HHMM>` (the
-// release workflow passes the tag's). package.json gets the SemVer form
+// release workflow passes the version of scripts/release-version.ts). package.json gets the SemVer form
 // (`YYYY.MMDD.HHMM`) for the build only and is restored afterwards.
 //
 // `tauri build --no-bundle` (release profile, frontend embedded, no
