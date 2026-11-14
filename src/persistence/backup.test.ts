@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { BackupCheckError, writeDatabaseBackup } from "./backup";
 import { SqlConnection } from "./connection";
+import { openDatabase } from "./open-database";
+import { createBetterSqlite3Client } from "./__tests__/better-sqlite3-client";
 import { createTestDb } from "./__tests__/test-db";
 import type { SqlClient, SqlRow, SqlValue } from "./sql-client";
 
@@ -198,20 +200,64 @@ function fakeClient(quickCheck: string[], counts: { main: number; copy: number }
   return { client, statements };
 }
 
+describe("Database.mainFilePath", () => {
+  it("returns the path of the database file", async () => {
+    const path = join(dir, "belegwerk.db");
+    const sqlite = new Database(path);
+    try {
+      const { database } = await openDatabase(createBetterSqlite3Client(sqlite));
+      expect(await database.mainFilePath()).toBe(path);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("is empty for an in-memory database", async () => {
+    const { database } = await createTestDb();
+    expect(await database.mainFilePath()).toBe("");
+  });
+});
+
+describe("writeDatabaseBackup – leftovers", () => {
+  it("works with a transaction left open and a check database left attached", async () => {
+    const { database, sqlite } = await setup();
+    const other = join(dir, "anderes.db");
+    new Database(other).close();
+    sqlite.prepare("ATTACH DATABASE ? AS backup_check").run(other);
+    sqlite.exec("BEGIN");
+
+    const path = join(dir, "trotzdem.db");
+    await database.backupTo(path);
+
+    expect(sqlite.inTransaction).toBe(false);
+    expect(sqlite.prepare("PRAGMA database_list").all()).toEqual([
+      expect.objectContaining({ name: "main" }),
+    ]);
+    const copy = openBackup(path);
+    try {
+      expect(copy.prepare("SELECT count(*) AS n FROM bookings").get()).toEqual({ n: 1 });
+    } finally {
+      copy.close();
+    }
+  });
+});
+
 describe("writeDatabaseBackup – check", () => {
   it("binds the path and detaches after a successful check", async () => {
     const { client, statements } = fakeClient(["ok"], { main: 9, copy: 9 });
     await writeDatabaseBackup(new SqlConnection(client), "C:\\a b\\ä'.db");
     expect(statements.map((statement) => statement.sql)).toEqual([
+      "ROLLBACK",
       "VACUUM INTO ?",
+      "DETACH DATABASE backup_check",
       "ATTACH DATABASE ? AS backup_check",
       "PRAGMA backup_check.quick_check",
       "SELECT count(*) AS count FROM main.sqlite_schema",
       "SELECT count(*) AS count FROM backup_check.sqlite_schema",
       "DETACH DATABASE backup_check",
     ]);
-    expect(statements[0]?.params).toEqual(["C:\\a b\\ä'.db"]);
     expect(statements[1]?.params).toEqual(["C:\\a b\\ä'.db"]);
+    expect(statements[3]?.params).toEqual(["C:\\a b\\ä'.db"]);
   });
 
   it("fails if quick_check reports problems, and detaches", async () => {

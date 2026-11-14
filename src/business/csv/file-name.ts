@@ -16,8 +16,6 @@ export interface CsvFileNameParts {
   readonly toWord: string;
 }
 
-const safe = safeFileNamePart;
-
 /**
  * Suggested name of an export file, after the exported period:
  * `buchungen-2025-01-01_2025-12-31.csv`, `buchungen-ab-2025-01-01.csv`,
@@ -38,7 +36,7 @@ export function csvFileName({
   else if (dateFrom !== undefined) period = `${fromWord}-${dateFrom}`;
   else if (dateTo !== undefined) period = `${toWord}-${dateTo}`;
   else period = today;
-  return `${safe(base)}-${safe(period)}.csv`;
+  return `${safeFileNamePart(base)}-${safeFileNamePart(period)}.csv`;
 }
 
 /**
@@ -46,5 +44,5 @@ export function csvFileName({
  * characters Windows forbids in `base` become `_`.
  */
 export function yearCsvFileName(base: string, year: number): string {
-  return `${safe(base)}-${year}.csv`;
+  return `${safeFileNamePart(base)}-${year}.csv`;
 }

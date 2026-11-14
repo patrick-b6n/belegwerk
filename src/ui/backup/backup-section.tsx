@@ -1,5 +1,6 @@
 import { DatabaseBackup as BackupIcon, Loader2 } from "lucide-react";
 
+import { BackupWriteError } from "@/business/backup";
 import { m } from "@/paraglide/messages.js";
 import { Button } from "@/ui/components/ui/button";
 import { toast } from "@/ui/components/ui/toast";
@@ -19,8 +20,10 @@ const DATABASE_LOCATION = "%APPDATA%\\de.belegwerk.desktop\\belegwerk.db";
  *
  * - While the backup runs the button is disabled (still focusable) with a
  *   spinner.
- * - Success: toast with the file name. Cancelling the dialog shows nothing;
- *   errors show an error toast (details in the console).
+ * - Success: toast with the file name. Cancelling the dialog shows nothing.
+ *   A target in the app's data folder is refused (own error toast, nothing
+ *   written); other errors show an error toast – saying whether the target
+ *   file was emptied – with details in the console.
  */
 export function BackupSection() {
   const createBackup = useCreateBackup();
@@ -32,7 +35,12 @@ export function BackupSection() {
         fileNameBase: m.backup_file_base(),
         filterName: m.backup_file_type(),
       });
-      if (!result.saved) return;
+      if (!result.saved) {
+        if (result.reason === "targetInDatabaseFolder") {
+          toast.add({ title: m.backup_error_database_folder(), type: "error" });
+        }
+        return;
+      }
       toast.add({
         title: m.backup_saved_toast(),
         description: m.backup_saved({ fileName: result.fileName }),
@@ -40,7 +48,14 @@ export function BackupSection() {
       });
     } catch (error) {
       console.error("Backup failed", error);
-      toast.add({ title: m.backup_error(), type: "error" });
+      toast.add({
+        title: m.backup_error(),
+        description:
+          error instanceof BackupWriteError && error.targetCleared
+            ? m.backup_error_target_cleared()
+            : undefined,
+        type: "error",
+      });
     }
   };
 

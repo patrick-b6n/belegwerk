@@ -1,4 +1,4 @@
-import type { SqlConnection } from "./connection";
+import { rollbackQuietly, type SqlConnection } from "./connection";
 import type { SqlClient } from "./sql-client";
 
 /** Schema name under which the written backup is attached for the check. */
@@ -27,6 +27,9 @@ const CHECK_SCHEMA = "backup_check";
  */
 export async function writeDatabaseBackup(connection: SqlConnection, path: string): Promise<void> {
   await connection.exclusive(async (client) => {
+    // VACUUM fails inside a transaction. None is open between exclusive
+    // sections; this only guards against one left over (e.g. a WebView reload).
+    await rollbackQuietly(client);
     await client.execute("VACUUM INTO ?", [path]);
     await checkBackup(client, path);
   });
@@ -40,6 +43,9 @@ export class BackupCheckError extends Error {
 }
 
 async function checkBackup(client: SqlClient, path: string): Promise<void> {
+  // Defensive: a check database left attached (e.g. a failed DETACH) would
+  // make the ATTACH fail.
+  await client.execute(`DETACH DATABASE ${CHECK_SCHEMA}`).catch(() => undefined);
   await client.execute(`ATTACH DATABASE ? AS ${CHECK_SCHEMA}`, [path]);
   try {
     await checkAttached(client);
@@ -67,4 +73,16 @@ async function checkAttached(client: SqlClient): Promise<void> {
 async function countSchemaObjects(client: SqlClient, schema: string): Promise<number> {
   const [row] = await client.select(`SELECT count(*) AS count FROM ${schema}.sqlite_schema`);
   return Number(row?.count);
+}
+
+/**
+ * Path of the database file of the connection (`PRAGMA database_list`, row
+ * `main`): what the backup guard compares the target with. Empty for an
+ * in-memory database.
+ */
+export async function databaseFilePath(connection: SqlConnection): Promise<string> {
+  const rows = await connection.select("PRAGMA database_list");
+  const main = rows.find((row) => row.name === "main");
+  if (!main) throw new Error("PRAGMA database_list returned no main database");
+  return String(main.file ?? "");
 }

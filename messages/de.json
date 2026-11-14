@@ -535,5 +535,7 @@
   "backup_file_type": "SQLite-Datenbank",
   "backup_saved_toast": "Backup erstellt",
   "backup_saved": "Gespeichert als {fileName}",
+  "backup_error_database_folder": "Das Backup kann nicht im Datenordner der App gespeichert werden – bitte einen anderen Ort wählen.",
+  "backup_error_target_cleared": "Die Zieldatei wurde geleert.",
   "backup_error": "Das Backup konnte nicht erstellt werden. Ist die Zieldatei noch in einem anderen Programm geöffnet, oder ist der Speicherplatz voll?"
 }

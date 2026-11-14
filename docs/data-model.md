@@ -437,6 +437,16 @@ SQLite-Datei, Vorschlag `belegwerk-backup-YYYY-MM-DD_HHMM.db`) und prüft sie
 ([Architektur](architecture.md#datensicherung-32)). Das Backup enthält alle
 Daten einschließlich des Stripe-Schlüssels (Klartext).
 
+**Backups nie im Datenordner der App speichern**
+(`%APPDATA%\de.belegwerk.desktop` und darunter): Die App lehnt ein solches
+Ziel vor jedem Schreibzugriff ab („Das Backup kann nicht im Datenordner der
+App gespeichert werden …“), weil das Überschreiben von `belegwerk.db` oder
+ihrem Journal die laufende Datenbank zerstören würde. Der Ordner würde zudem
+beim Deinstallieren oder Zurücksetzen mit gelöscht. Nicht erkannt werden
+Umwege über symbolische Links, Junctions, Hardlinks, zugeordnete Laufwerke
+oder 8.3-Kurznamen des Ordners
+([Architektur](architecture.md#datensicherung-32)).
+
 **Wiederherstellen (manuell)** – Vorlage für das README (#34):
 
 1. Belegwerk schließen (das Fenster schließen; es darf kein Prozess
