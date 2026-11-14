@@ -60,7 +60,7 @@ import { useStripeSettings } from "./stripe-queries";
  * permission, and the defaults of imported bookings (VAT rate, category of
  * fees and of fee refunds).
  */
-export function StripeSettings() {
+export function StripeSettingsSection() {
   const settings = useStripeSettings();
   const categories = useCategoryList();
 

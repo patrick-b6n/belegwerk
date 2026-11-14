@@ -1,16 +1,20 @@
 /**
- * UI texts of the "Stripe" settings (#28): key mode and the texts of the
- * service's error codes (docs/i18n.md: business returns codes, the UI
- * translates them).
+ * UI texts of the "Stripe" settings (#28) and the import dialog (#31): key
+ * mode and the texts of the services' error codes (docs/i18n.md: business
+ * returns codes, the UI translates them).
  */
 import type {
   StripeApiKeyErrorCode,
   StripeClientError,
   StripeDefaultsFieldError,
+  StripeImportFieldError,
   StripeKeyMode,
   TestStripeConnectionResult,
 } from "@/business/stripe";
 import { m } from "@/paraglide/messages.js";
+import { bookingErrorMessage } from "@/ui/bookings/booking-messages";
+
+import type { StripeImportFailureRow } from "./stripe-import-model";
 
 /** "Live" or "Test". */
 export function keyModeLabel(mode: StripeKeyMode): string {
@@ -105,4 +109,43 @@ export function testConnectionMessage(result: TestStripeConnectionResult): strin
   return result.reason === "noApiKey"
     ? m.stripe_test_connection_no_key()
     : stripeClientErrorMessage(result.error);
+}
+
+/** Message of an invalid import period (client check or service). */
+export function importFieldErrorMessage(error: StripeImportFieldError): string {
+  switch (error.code) {
+    case "required":
+      return error.field === "from"
+        ? m.stripe_import_error_from_required()
+        : m.stripe_import_error_to_required();
+    case "invalidDate":
+      return m.stripe_import_error_invalid_date();
+    case "beforeFrom":
+      return m.stripe_import_error_before_from();
+    case "inFuture":
+      return m.stripe_import_error_in_future();
+  }
+  throw new Error(`No message for Stripe import error ${JSON.stringify(error)}`);
+}
+
+/** "Fee" or "Rückerstattung". */
+export function importKindLabel(kind: StripeImportFailureRow["kind"]): string {
+  return kind === "fee" ? m.stripe_import_kind_fee() : m.stripe_import_kind_refund();
+}
+
+/** Why a fee or refund was not booked; for `invalidBooking` with the booking's field errors. */
+export function importFailureReason(row: Pick<StripeImportFailureRow, "code" | "errors">): string {
+  switch (row.code) {
+    case "unsupportedCurrency":
+      return m.stripe_import_failure_unsupported_currency();
+    case "zeroAmount":
+      return m.stripe_import_failure_zero_amount();
+    case "amountTooLarge":
+      return m.stripe_import_failure_amount_too_large();
+    case "invalidBooking":
+      return m.stripe_import_failure_invalid_booking({
+        errors: [...new Set(row.errors.map(bookingErrorMessage))].join(" "),
+      });
+  }
+  throw new Error(`No message for Stripe import failure ${String(row.code)}`);
 }

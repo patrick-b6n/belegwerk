@@ -728,7 +728,7 @@ Entscheidungen und Ergebnisform:
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`, `euerExport`, `stripeSettings`), keine Repositories und
+nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`, `euerExport`, `stripeSettings`, `stripeImport`), keine Repositories und
 keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
@@ -769,7 +769,8 @@ ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
 (`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`,
 `useTaxYearList()`) und `euerQueryKeys` (`src/ui/euer/euer-queries.ts`,
 `useEuer(year)`, #26) und `stripeQueryKeys` (`src/ui/stripe/stripe-queries.ts`,
-`useStripeSettings()`, #28; nur maskierter Schlüssel im Cache).
+`useStripeSettings()`, #28; nur maskierter Schlüssel im Cache) und
+`stripeImportQueryKeys` (ebenda, `useStripeImportStatus()`, #31).
 Buchungs-Mutationen (`useBookingMutations()`, #18) invalidieren
 `bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`),
 `taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen) und
@@ -1216,7 +1217,7 @@ in `tax-year-mutations.ts`):
   `taxYearQueryKeys.all`, so aktualisiert sich der Hinweis nach dem
   Korrigieren einer Buchung.
 
-**Stripe** (`src/ui/stripe/stripe-settings.tsx`; reine Logik getestet in
+**Stripe** (`src/ui/stripe/stripe-settings-section.tsx`, `StripeSettingsSection`; reine Logik getestet in
 `stripe-settings-model.ts`, Texte in `stripe-messages.ts`, Hooks in
 `stripe-queries.ts`/`stripe-mutations.ts`):
 
@@ -1243,6 +1244,57 @@ in `tax-year-mutations.ts`):
   aktuellen Kategorienliste berechnet (`validateStripeDefaults`,
   `suggestStripeDefaults`) – Kategorie-Mutationen müssen die Stripe-Keys
   daher nicht invalidieren.
+
+### Stripe-Import-Dialog (#31)
+
+„Stripe importieren“ im Kopf der Buchungsliste (neben „CSV exportieren“)
+öffnet einen Dialog (`src/ui/stripe/stripe-import-dialog.tsx`). Reine Logik
+(Default-Zeitraum, Client-Prüfungen, Ergebnis → Zusammenfassung, Beträge
+fremder Währungen, Link-Filter) liegt getestet in `stripe-import-model.ts`,
+Texte zu Codes in `stripe-messages.ts`.
+
+- **Voraussetzungen:** Ohne Schlüssel (`useStripeSettings().apiKey === null`)
+  oder mit fehlenden/ungültigen Standardwerten (`validateStripeDefaults`
+  gegen die aktuelle Kategorienliste) zeigt der Dialog nur einen Hinweis und
+  „Zu den Einstellungen“, kein Formular.
+- **Test-Schlüssel** (`mode: "test"`): Warnung, dass Test-Fees als echte
+  Buchungen in Buchhaltung und EÜR landen, plus Pflicht-Checkbox „trotzdem
+  importieren“ (Client-Prüfung wie ein Feld). Bewusst kein Verbot: zum
+  Ausprobieren nützlich; die Buchungen lassen sich über Quelle Stripe finden
+  und löschen. Die Zusammenfassung wiederholt den Hinweis (`keyMode` des
+  Ergebnisses).
+- **Zeitraum:** zwei Datumsfelder (TanStack Form, gleiches
+  Validierungsmuster wie die anderen Formulare). Default
+  `defaultImportPeriod(status, heute)`: von `lastImportTo` (derselbe Tag
+  noch einmal), ohne bisherigen Import vom 1. Januar des laufenden Jahres,
+  bis heute; „heute“ ist der Kalendertag in Europe/Berlin
+  (`berlinTodayIsoDate`), wie die Prüfung `inFuture` des Service. Ein
+  gespeichertes Ende nach heute (Uhr zurückgestellt) beginnt heute. Darüber
+  „Letzter Import: TT.MM.JJJJ, HH:MM (bis TT.MM.JJJJ)“. Client-Prüfungen
+  spiegeln den Service (`required`, `invalidDate`, `inFuture` vor
+  `beforeFrom`); dessen Feldfehler erscheinen als `onServer` am Feld.
+- **Ablauf:** `useStripeImport()` (`useMutation`, Variablen nur der
+  Zeitraum). Während des Imports ist der Dialog nicht schließbar (kein
+  Schließen-Button, Escape/Klick daneben ignoriert, `aria-busy`), der Button
+  zeigt Spinner und „Importiere …“ und behält den Fokus – der Import ist
+  alles oder nichts und nicht abbrechbar.
+- **Ergebnis:** „X neu, Y übersprungen“ (ggf. „, Z nicht gebucht“), darunter
+  je Fees/Rückerstattungen, dann eine Tabelle der nicht gebuchten Einträge
+  (Art, Stripe-ID, Datum, Betrag in ihrer Währung, Grund; bei
+  `invalidBooking` die Feldfehler des Buchungs-Service). „Buchungen
+  anzeigen“ führt zur Liste mit `von`/`bis` = Zeitraum und `quelle=stripe`.
+  Der Fokus springt auf die Überschrift des Ergebnisses; eine stets
+  vorhandene `role="status"`-Region kündigt Fortschritt und Ergebnis an.
+- **Fehler:** `noApiKey`/`invalidDefaults` → Hinweis mit Link zu den
+  Einstellungen (die Einstellungen werden neu geladen, der Dialog wechselt
+  ggf. auf den Hinweis), `stripe` → `stripeClientErrorMessage`,
+  `settingsChanged` → „erneut importieren“; unerwartete Fehler → Toast und
+  Meldung (nichts gebucht). Meldungen als `role="alert"`, fokussiert.
+- **Invalidierung** nach Erfolg: `bookingQueryKeys.all`,
+  `categoryQueryKeys.all` (`bookingCount`), `taxYearQueryKeys.all` (Jahre mit
+  Buchungen), `euerQueryKeys.all` und `stripeImportQueryKeys.all` (Status →
+  nächster Default-Zeitraum); nach `noApiKey`/`invalidDefaults`/
+  `settingsChanged` `stripeQueryKeys.all`.
 
 ## Content Security Policy
 
