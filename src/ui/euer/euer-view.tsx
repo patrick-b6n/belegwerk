@@ -170,7 +170,8 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
             <span>{label}</span>
           ) : (
             <>
-              {/* The count as tooltip and, for screen readers, as description. */}
+              {/* The count as tooltip and, for screen readers, as description
+                  (a hidden element still names it, without being read twice). */}
               <Link
                 to="/buchungen"
                 search={search}
@@ -180,7 +181,7 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
               >
                 {label}
               </Link>
-              <span id={countId} className="sr-only">
+              <span id={countId} hidden>
                 {countText}
               </span>
             </>

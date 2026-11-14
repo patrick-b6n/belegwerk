@@ -808,7 +808,8 @@ Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
   „Für {Jahr} gibt es keine Positionen in der EÜR.“
 - **Barrierefreiheit:** fehlende Zeilennummer sichtbar „–“ (`aria-hidden`)
   plus `sr-only` „ohne Zeile“; die Buchungsanzahl einer Position steht im
-  Tooltip und per `aria-describedby` als Beschreibung des Links.
+  Tooltip und per `aria-describedby` (verstecktes Element, wird nicht doppelt
+  vorgelesen) als Beschreibung des Links.
 
 ### CSV-Export der EÜR (#27)
 
