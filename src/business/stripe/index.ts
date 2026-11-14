@@ -28,4 +28,23 @@ export type {
   StripeSettings,
   StripeSettingsService,
   StripeSettingsServiceDependencies,
+  TestStripeConnectionResult,
 } from "./stripe-settings-service";
+export { STRIPE_FEE_REFUND_LOOKBACK_DAYS } from "./stripe-client";
+export type {
+  ListApplicationFeesRequest,
+  ListApplicationFeesResult,
+  StripeApplicationFee,
+  StripeClient,
+  StripeClientError,
+  StripeClientErrorCode,
+  StripeFeeRefund,
+  VerifyStripeAccessResult,
+} from "./stripe-client";
+export {
+  BOOKING_TIME_ZONE,
+  berlinStartOfDay,
+  bookingDateRangeToStripeCreated,
+  stripeCreatedToBookingDate,
+  subtractDays,
+} from "./stripe-dates";

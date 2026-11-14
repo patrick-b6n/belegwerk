@@ -10,6 +10,7 @@
  */
 import type { Category, VatRate } from "../model";
 import type { Repositories, UnitOfWork } from "../repositories";
+import type { StripeClient, StripeClientError } from "./stripe-client";
 import {
   maskStripeApiKey,
   parseStoredId,
@@ -62,14 +63,30 @@ export interface StripeSettingsService {
   deleteApiKey(): Promise<{ readonly ok: true; readonly deleted: boolean }>;
   /** Validates and stores all three defaults together (nothing on error). */
   setDefaults(input: StripeDefaultsInput): Promise<SetStripeDefaultsResult>;
+  /**
+   * Checks the stored key against Stripe ("Verbindung testen"): one request
+   * listing at most one application fee. Reads nothing else and writes
+   * nothing.
+   */
+  testConnection(): Promise<TestStripeConnectionResult>;
 }
+
+export type TestStripeConnectionResult =
+  /** Key valid with the needed permission; `livemode` of a listed fee, `null` without fees. */
+  | { readonly ok: true; readonly livemode: boolean | null }
+  /** No (valid) key stored. */
+  | { readonly ok: false; readonly reason: "noApiKey" }
+  /** Stripe refused or was not reachable; codes of the client. */
+  | { readonly ok: false; readonly reason: "stripe"; readonly error: StripeClientError };
 
 export interface StripeSettingsServiceDependencies {
   readonly unitOfWork: UnitOfWork;
+  readonly stripeClient: StripeClient;
 }
 
 export function createStripeSettingsService({
   unitOfWork,
+  stripeClient,
 }: StripeSettingsServiceDependencies): StripeSettingsService {
   return {
     get: () =>
@@ -114,6 +131,18 @@ export function createStripeSettingsService({
         await repos.settings.set(STRIPE_SETTING_KEYS.refundCategoryId, String(refundCategoryId));
         return { ok: true, defaults: { defaultVatRate, feeCategoryId, refundCategoryId } };
       }),
+
+    testConnection: async () => {
+      // Read in a unit of work, call Stripe outside of it: no transaction
+      // stays open during the HTTP request.
+      const stored = await unitOfWork.run((repos) =>
+        repos.settings.get(STRIPE_SETTING_KEYS.apiKey),
+      );
+      const key = validateStripeApiKey(stored);
+      if (!key.ok) return { ok: false, reason: "noApiKey" };
+      const result = await stripeClient.verifyAccess({ apiKey: key.apiKey });
+      return result.ok ? result : { ok: false, reason: "stripe", error: result.error };
+    },
   };
 }
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { createFakeStripeClient } from "../__tests__/fake-stripe-client";
 import { createInMemoryDatabase } from "../__tests__/in-memory-repositories";
 import type { CategoryInput } from "../model";
 import type { UnitOfWork } from "../repositories";
@@ -30,8 +31,9 @@ async function setup() {
     reducesIncome: true,
     isSystem: true,
   });
-  const service = createStripeSettingsService({ unitOfWork });
-  return { repositories, unitOfWork, service, sales, other, refund };
+  const stripeClient = createFakeStripeClient();
+  const service = createStripeSettingsService({ unitOfWork, stripeClient });
+  return { repositories, unitOfWork, service, stripeClient, sales, other, refund };
 }
 
 const emptyDefaults = { defaultVatRate: null, feeCategoryId: null, refundCategoryId: null };
@@ -99,7 +101,10 @@ describe("StripeSettingsService – API key", () => {
     const failing: UnitOfWork = {
       run: () => Promise.reject(new Error(`params: ${KEY}`)),
     };
-    const service = createStripeSettingsService({ unitOfWork: failing });
+    const service = createStripeSettingsService({
+      unitOfWork: failing,
+      stripeClient: createFakeStripeClient(),
+    });
     const error: unknown = await service.setApiKey(KEY).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(Error);
     expect(String(error)).not.toContain(KEY);
@@ -229,6 +234,34 @@ describe("loadStripeImportSettings", () => {
     expect(await unitOfWork.run(loadStripeImportSettings)).toEqual({
       ok: false,
       reason: "noApiKey",
+    });
+  });
+});
+
+describe("StripeSettingsService – testConnection", () => {
+  it("needs a stored valid key", async () => {
+    const { service, repositories } = await setup();
+    expect(await service.testConnection()).toEqual({ ok: false, reason: "noApiKey" });
+    await repositories.settings.set(STRIPE_SETTING_KEYS.apiKey, "sk_live_0123456789abc");
+    expect(await service.testConnection()).toEqual({ ok: false, reason: "noApiKey" });
+  });
+
+  it("verifies the stored key with the client", async () => {
+    const { service, stripeClient } = await setup();
+    const verify = vi.spyOn(stripeClient, "verifyAccess");
+    await service.setApiKey(KEY);
+    expect(await service.testConnection()).toEqual({ ok: true, livemode: null });
+    expect(verify).toHaveBeenCalledWith({ apiKey: KEY });
+  });
+
+  it("returns the client's error", async () => {
+    const { service, stripeClient } = await setup();
+    await service.setApiKey(KEY);
+    stripeClient.failWith = { code: "permissionDenied" };
+    expect(await service.testConnection()).toEqual({
+      ok: false,
+      reason: "stripe",
+      error: { code: "permissionDenied" },
     });
   });
 });

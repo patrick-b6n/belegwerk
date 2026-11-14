@@ -507,6 +507,82 @@ Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
   **Kleinunternehmer-Jahr** muss der Import `vatRate: null` übergeben,
   unabhängig vom Standard-Satz (sonst `vatRateNotAllowed`).
 
+## Stripe-Client (#29)
+
+Port `StripeClient` (`src/business/stripe/stripe-client.ts`), Implementierung
+`createStripeHttpClient()` in `src/app/stripe-http-client.ts` über
+`fetch` aus `tauri-plugin-http`; `createAppServices(database, clock,
+fileSaver, stripeClient)` verdrahtet ihn, Tests geben einen Fake
+(`src/business/__tests__/fake-stripe-client.ts`).
+
+- **`listApplicationFees({ apiKey, createdFrom, createdTo })`** – alle Fees mit
+  `createdFrom ≤ created ≤ createdTo` (Epoch-Sekunden, `created[gte]`/
+  `created[lte]`), neueste zuerst, `limit=100` und Cursor `starting_after`
+  solange `has_more`. Jede Fee mit **allen** Refunds: Stripe bettet die
+  Refund-Liste ein; ist sie abgeschnitten (`has_more`) oder fehlt sie, holt
+  der Client den Rest über `GET /v1/application_fees/{id}/refunds` (ebenfalls
+  paginiert). Ergebnis `{ ok: true, fees }` oder `{ ok: false, error }` –
+  alles oder nichts.
+- **Domänentypen:** Fee `{ id ("fee_…"), amount (Cent, ≥ 0), currency
+  (klein, "eur"), created (Epoch-Sekunden UTC), account ("acct_…"),
+  livemode, refunds }`, Refund `{ id ("fr_…"), amount, currency, created }`.
+  Jede Antwort wird geprüft; Abweichungen (kein JSON, falscher Typ, falsches
+  ID-Präfix, Großbuchstaben-Währung, `has_more` ohne Daten) →
+  `invalidResponse`.
+- **`verifyAccess({ apiKey })`** – eine Fee (`limit=1`), prüft Schlüssel und
+  Berechtigung; `{ ok: true, livemode }` (`null` ohne Fees). Genutzt von
+  `stripeSettings.testConnection()` („Verbindung testen“ in den
+  Einstellungen): liest den Schlüssel in einer Unit of Work und ruft Stripe
+  **außerhalb** davon auf; `noApiKey` oder `{ reason: "stripe", error }`.
+- **Fehlercodes** (`StripeClientError`, UI-Texte in
+  `src/ui/stripe/stripe-messages.ts`, `stripeClientErrorMessage`, auch für
+  #31): `invalidApiKey` (401), `permissionDenied` (403, z. B. fehlende
+  Berechtigung „Application fees: Lesen“), `rateLimited` (429 nach den
+  Wiederholungen, mit `retryAfterSeconds` aus `Retry-After` oder `null`),
+  `network` (nicht erreichbar, TLS, Proxy, vom HTTP-Scope abgelehnt),
+  `timeout` (30 s je Anfrage), `stripeError` (andere Status, mit Stripes
+  `error.code`/`error.message` oder `null`), `invalidResponse`.
+- **Rate Limit:** bis zu drei Versuche je Anfrage; gewartet wird
+  `Retry-After` (höchstens 10 s), sonst 1 s, 2 s.
+- **Schlüssel:** nur im Header `Authorization: Bearer …`, nie in der URL;
+  in keinem Ergebnis, Fehler oder Log (Fehler der Plugin-Aufrufe werden auf
+  Codes reduziert, ohne Meldung). `Stripe-Version` ist gepinnt
+  (`STRIPE_API_VERSION`, `2026-10-28.endive`) – die Validierung ist gegen
+  diese Version geschrieben.
+- **Tauri:** `tauri-plugin-http` (Rust, ohne Cookie-Store). Capability
+  `http:default` mit Scope **nur** `https://api.stripe.com/v1/application_fees*`
+  (Liste und Refunds-Unterressource; anderer Host, anderer Pfad, `http:` →
+  vom Plugin abgelehnt). Weiterleitungen: der Client setzt
+  `maxRedirections: 0`, zusätzlich prüft `plugins.http.scopeRedirects` in
+  `tauri.conf.json` jedes Weiterleitungsziel gegen den Scope. Die Anfrage
+  führt Rust aus, die WebView spricht nur über die IPC – **keine
+  CSP-Änderung** (`connect-src` bleibt bei `'self' ipc: http://ipc.localhost`).
+
+**Datum (`src/business/stripe/stripe-dates.ts`):** `created` ist ein
+Zeitpunkt (UTC). Buchungsdatum ist der Kalendertag in **Europe/Berlin**
+(`stripeCreatedToBookingDate`, per `Intl`, unabhängig von der Zeitzone des
+Rechners): 31.12. 23:30 UTC gehört zum 01.01. des Folgejahres.
+`bookingDateRangeToStripeCreated(from, to)` macht aus einem Zeitraum in
+Kalendertagen den `created`-Bereich (00:00:00 von `from` bis 23:59:59 von
+`to`, Berliner Zeit, auch an Tagen mit 23/25 Stunden).
+
+**Refunds und Zeitraum – Vorgabe für den Import (#30):** Stripe hat keine
+Liste aller Fee-Refunds nach Datum, nur Fees nach `created` und Refunds je
+Fee. Refunds bekommen ihr **eigenes** Datum (`refund.created`), nicht das der
+Fee. Damit ein Refund im Zeitraum auf einer älteren Fee nicht fehlt, holt der
+Import Fees ab `createdFrom − STRIPE_FEE_REFUND_LOOKBACK_DAYS` (180 Tage,
+`subtractDays`) und bucht dann
+
+- Fees mit `created` im Zeitraum,
+- Refunds mit `created` im Zeitraum (egal, wann ihre Fee erstellt wurde).
+
+Refunds außerhalb des Zeitraums bleiben für einen späteren Import liegen; der
+Duplikatschutz über die externe ID (`fee_…`/`fr_…`) verhindert Doppelungen.
+**Bekannte Grenze:** Ein Refund auf eine Fee, die mehr als 180 Tage vor dem
+Zeitraum erstellt wurde, wird nicht gefunden (in der Praxis selten – Refunds
+folgen der Erstattung der Zahlung). Mehr Rückblick kostet nur Anfragen
+(100 Fees je Seite).
+
 ## EÜR-Positionen (#13)
 
 `src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
@@ -1067,6 +1143,11 @@ in `tax-year-mutations.ts`):
   vorgewählt und ein Hinweis sagt „noch nicht gespeichert“; sind
   gespeicherte Werte inzwischen ungültig, listet ein Hinweis die Probleme.
   Service-Fehler erscheinen am Feld.
+- **Verbindung testen** (#29, nur mit gespeichertem Schlüssel):
+  `stripeSettings.testConnection()` als `useMutation` (keine Variablen, kein
+  Schlüssel im Cache); das Ergebnis steht als `role="status"` unter dem
+  Button (Texte `testConnectionMessage`/`stripeClientErrorMessage`). Ein neuer
+  Schlüssel setzt es zurück.
 - **Invalidierung:** nur `stripeQueryKeys.all`. Die Kategorien kommen aus
   `useCategoryList()`; Gültigkeit und Vorschläge werden in der UI aus der
   aktuellen Kategorienliste berechnet (`validateStripeDefaults`,
@@ -1088,9 +1169,10 @@ enthält die Shell kein `<style>` (CSS kommt als Datei).
 
 Im Dev-Modus (`pnpm tauri dev`, Seite vom Vite-Server) greift die CSP nicht –
 CSP-Probleme zeigen sich nur im gebauten Programm
-(`pnpm tauri build --no-bundle`). Braucht ein späteres Plugin weitere Ziele
-(z. B. `connect-src https://api.stripe.com` für den Stripe-Import (M6) über
-`tauri-plugin-http`), wird die CSP gezielt erweitert.
+(`pnpm tauri build --no-bundle`). Der Stripe-Client (#29) braucht keine
+Erweiterung: `tauri-plugin-http` führt die Anfrage in Rust aus, die WebView
+spricht nur über die IPC. Braucht ein späteres Feature echte Netzwerkziele
+der WebView, wird die CSP gezielt erweitert.
 
 ## Lint & Format
 

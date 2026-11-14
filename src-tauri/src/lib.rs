@@ -29,6 +29,10 @@ pub fn run() {
         // other paths (src-tauri/capabilities/default.json).
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Stripe client (#29): HTTPS performed in Rust, the WebView talks to
+        // it over the IPC. The capability allows only the Stripe API's
+        // application fee endpoints (src-tauri/capabilities/default.json).
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // Without a pool the frontend gets "database not loaded" and shows
             // its startup error screen; the cause is in the log.
