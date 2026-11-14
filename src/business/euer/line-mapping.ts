@@ -91,9 +91,8 @@ function withLabels(
  * (BStBl I 2025 S. 1652), "Standardisierte Einnahmenüberschussrechnung nach
  * § 60 Absatz 4 EStDV; Anlage EÜR 2025", with the attached form
  * (Vordruck 2025AnlEÜR801–803, "- August 2025 -") and "Anleitung zur Anlage
- * EÜR - August 2025 - Version 1.9.1.1". Published by the BMF
- * (www.bundesfinanzministerium.de, BMF-Schreiben/Einkommensteuer); copy used:
- * https://www.steuerschroeder.de/blog/wp-content/uploads/2025/09/2025-08-29-anlage-EUER-2025.pdf
+ * EÜR - August 2025 - Version 1.9.1.1":
+ * https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Einkommensteuer/2025-08-29-anlage-EUER-2025.pdf?__blob=publicationFile&v=3
  */
 const ANLAGE_EUER_2025 = withLabels(
   {
