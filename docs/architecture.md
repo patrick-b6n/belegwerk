@@ -769,7 +769,7 @@ Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
   (amtlich aus `describePosition`, ohne Mapping der Anzeigename der
   Position), Betrag (`formatCurrency`, rechtsbündig, `tabular-nums`), je mit
   Summenzeile. Zeile 13 (nachrichtlich) folgt Zeile 12, eingerückt, mit
-  „davon“ und Betrag in Klammern; sie zählt nicht zur Summe. Bewirtung zeigt
+  „nachrichtlich“ und Betrag in Klammern; sie zählt nicht zur Summe. Bewirtung zeigt
   unter der Bezeichnung Gesamt, „nicht abziehbar“ und „abziehbar“; der
   Betrag der Zeile ist der abziehbare Teil.
 - **Ergebnis:** Summe Einnahmen, Summe Ausgaben und Gewinn bzw. Verlust mit

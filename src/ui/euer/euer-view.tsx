@@ -154,14 +154,6 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
       </TableCell>
       <TableCell className={cn("align-top whitespace-normal", informational && "pl-6")}>
         <div className="flex items-baseline gap-2">
-          {informational && (
-            <span
-              title={m.euer_informational_title()}
-              className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground"
-            >
-              {m.euer_informational()}
-            </span>
-          )}
           {search === undefined ? (
             <span>{label}</span>
           ) : (
@@ -173,10 +165,18 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
                   ? m.euer_line_bookings_one()
                   : m.euer_line_bookings_other({ count: String(count) })
               }
-              className="underline-offset-4 hover:underline focus-visible:underline"
+              className="underline decoration-muted-foreground/40 underline-offset-4 hover:decoration-foreground focus-visible:decoration-foreground"
             >
               {label}
             </Link>
+          )}
+          {informational && (
+            <span
+              title={m.euer_informational_title()}
+              className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground"
+            >
+              {m.euer_informational()}
+            </span>
           )}
         </div>
         {line.entertainment && (
@@ -212,18 +212,18 @@ function EuerResultSummary({ result }: Readonly<{ result: EuerResult }>) {
       <h2 id={headingId} className="font-heading text-lg font-semibold">
         {m.euer_result_title()}
       </h2>
-      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 rounded-lg border p-4 text-sm">
+      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-lg border p-4 text-sm">
         <dt>{m.euer_income_total()}</dt>
-        <dd className={AMOUNT}>{formatCurrency(incomeCents)}</dd>
+        <dd className={cn(AMOUNT, "pl-6")}>{formatCurrency(incomeCents)}</dd>
         <dt>{m.euer_expenses_total()}</dt>
-        <dd className={AMOUNT}>{formatCurrency(expenseCents)}</dd>
+        <dd className={cn(AMOUNT, "pl-6")}>{formatCurrency(expenseCents)}</dd>
         <dt data-result={kind} className="border-t pt-1 font-semibold">
           {resultLabel}
         </dt>
         <dd
           className={cn(
             AMOUNT,
-            "border-t pt-1 font-semibold",
+            "border-t pt-1 pl-6 font-semibold",
             kind === "profit" && "text-emerald-700 dark:text-emerald-400",
             kind === "loss" && "text-rose-700 dark:text-rose-400",
           )}
