@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { m } from "@/paraglide/messages.js";
 import { Page } from "@/ui/layout/page";
 import { SettingsSection } from "@/ui/settings/settings-section";
-import { StripeSettings } from "@/ui/stripe/stripe-settings";
+import { StripeSettingsSection } from "@/ui/stripe/stripe-settings-section";
 import { TaxYearSettings } from "@/ui/tax-years/tax-year-settings";
 
 /**
@@ -22,7 +22,7 @@ function SettingsPage() {
         <TaxYearSettings />
       </SettingsSection>
       <SettingsSection title={m.stripe_title()} description={m.stripe_description()}>
-        <StripeSettings />
+        <StripeSettingsSection />
       </SettingsSection>
     </Page>
   );
