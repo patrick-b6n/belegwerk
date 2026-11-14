@@ -46,6 +46,13 @@ export type {
 } from "./booking-service";
 export type { BookingSort, BookingSortField, SortDirection } from "../repositories";
 export { textSearchCharClasses } from "./text-search";
+export {
+  BOOKING_TEXT_SUGGESTION_FIELDS,
+  DEFAULT_BOOKING_TEXT_SUGGESTION_LIMIT,
+  MAX_BOOKING_TEXT_SUGGESTION_LIMIT,
+  rankBookingTextSuggestions,
+} from "./booking-text-suggestions";
+export type { BookingTextField, BookingTextSuggestionRequest } from "./booking-text-suggestions";
 export { BOOKING_CSV_COLUMNS, bookingsToCsv } from "./booking-csv";
 export type { BookingCsvColumn, BookingCsvLabels } from "./booking-csv";
 export { createBookingExportService } from "./booking-export-service";

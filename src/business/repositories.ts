@@ -78,6 +78,26 @@ export interface BookingRepository {
    * text: `"0"`, `"19"`, `"7"`, `"reverse_charge"`).
    */
   sumByCategoryAndVatRate(year: number): Promise<BookingGroupSums[]>;
+  /**
+   * The distinct values of the text `field` per booking type, with how often
+   * and until when they were used, in one aggregate query – the input of the
+   * text suggestions of the booking form. Values are compared exactly
+   * (case-sensitive, as stored); ordered by type, then value by code point.
+   */
+  listTextUsage(field: BookingTextField): Promise<BookingTextUsage[]>;
+}
+
+/** Text fields of a booking with suggestions from earlier bookings. */
+export type BookingTextField = "description" | "counterparty";
+
+/** One group of {@link BookingRepository.listTextUsage}. */
+export interface BookingTextUsage {
+  readonly text: string;
+  readonly type: BookingType;
+  /** Number of bookings of `type` with this exact text (≥ 1). */
+  readonly count: number;
+  /** Latest booking date (`YYYY-MM-DD`) of these bookings. */
+  readonly lastDate: string;
 }
 
 /** One group of {@link BookingRepository.sumByCategoryAndVatRate}. */

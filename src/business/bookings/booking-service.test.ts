@@ -852,3 +852,65 @@ describe("BookingService and constraint errors", () => {
     ).rejects.toThrow("disk I/O error");
   });
 });
+
+describe("BookingService.suggestTexts", () => {
+  it("returns nothing without bookings", async () => {
+    const { service } = await setup();
+    expect(await service.suggestTexts({ field: "description" })).toEqual([]);
+  });
+
+  it("suggests earlier texts, frequent and recent first, one per text ignoring case", async () => {
+    const { service, create } = await setup();
+    await create({ date: "2025-01-10", description: "Beratung", counterparty: "Müller GmbH" });
+    await create({ date: "2025-02-10", description: "beratung", counterparty: "MÜLLER GmbH" });
+    await create({ date: "2025-03-01", description: "Workshop", counterparty: "Schmidt AG" });
+    await create({ date: "2025-01-05", description: "  Beratung  ", counterparty: "Müller GmbH" });
+
+    expect(await service.suggestTexts({ field: "description" })).toEqual(["Beratung", "Workshop"]);
+    expect(await service.suggestTexts({ field: "counterparty" })).toEqual([
+      "Müller GmbH",
+      "Schmidt AG",
+    ]);
+  });
+
+  it("puts texts of the given type first, then the other type's", async () => {
+    const { service, create, expense } = await setup();
+    await create({ counterparty: "Kunde GmbH" });
+    await create({ counterparty: "Kunde GmbH" });
+    await create({
+      type: "expense",
+      categoryId: expense.id,
+      counterparty: "Telekom",
+    });
+
+    expect(await service.suggestTexts({ field: "counterparty", type: "expense" })).toEqual([
+      "Telekom",
+      "Kunde GmbH",
+    ]);
+    expect(await service.suggestTexts({ field: "counterparty", type: "income" })).toEqual([
+      "Kunde GmbH",
+      "Telekom",
+    ]);
+  });
+
+  it("limits the number of suggestions", async () => {
+    const { service, create } = await setup();
+    for (const description of ["A", "B", "C"]) await create({ description });
+    expect(await service.suggestTexts({ field: "description", limit: 2 })).toHaveLength(2);
+  });
+
+  it("rejects an unknown field, type or limit as a programmer error", async () => {
+    const { service } = await setup();
+    await expect(
+      service.suggestTexts({ field: "note" as unknown as "description" }),
+    ).rejects.toThrow(RangeError);
+    await expect(
+      service.suggestTexts({ field: "description", type: "other" as unknown as BookingType }),
+    ).rejects.toThrow(RangeError);
+    for (const limit of [0, 1.5, 1001, Number.NaN]) {
+      await expect(service.suggestTexts({ field: "description", limit })).rejects.toThrow(
+        RangeError,
+      );
+    }
+  });
+});

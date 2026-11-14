@@ -21,6 +21,7 @@ import type {
   BookingRepository,
   BookingSort,
   BookingSortField,
+  BookingTextField,
   Clock,
 } from "@/business/repositories";
 
@@ -185,8 +186,29 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
         .orderBy(asc(bookings.categoryId), asc(bookings.type), asc(bookings.vatRate));
       return rows.map((row) => ({ ...row }));
     },
+
+    listTextUsage: async (field) => {
+      const column = TEXT_COLUMNS[field];
+      // Grouped by the stored value (BINARY collation: exact, case-sensitive).
+      const rows = await db
+        .select({
+          text: sql<string>`${column}`.as("usage_text"),
+          type: bookings.type,
+          count: count().as("usage_count"),
+          lastDate: sql<string>`max(${bookings.date})`.as("last_date"),
+        })
+        .from(bookings)
+        .groupBy(column, bookings.type)
+        .orderBy(asc(bookings.type), asc(column));
+      return rows.map((row) => ({ ...row }));
+    },
   };
 }
+
+const TEXT_COLUMNS = {
+  description: bookings.description,
+  counterparty: bookings.counterparty,
+} as const satisfies Record<BookingTextField, SQLWrapper>;
 
 /** Integer sum of a column within a group (groups are never empty, so never NULL). */
 function sumOf(column: SQLWrapper) {

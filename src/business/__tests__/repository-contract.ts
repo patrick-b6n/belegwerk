@@ -465,6 +465,71 @@ export function describeRepositoryContract(
       });
     });
 
+    describe("booking text usage", () => {
+      it("returns nothing without bookings", async () => {
+        expect(await repos.bookings.listTextUsage("description")).toEqual([]);
+        expect(await repos.bookings.listTextUsage("counterparty")).toEqual([]);
+      });
+
+      it("groups exact values per type with count and latest date", async () => {
+        const income = await insertCategory();
+        const expense = await insertCategory({
+          name: "Telefon",
+          type: "expense",
+          euerPosition: "TELEKOMMUNIKATION",
+        });
+        const addText = (
+          type: "income" | "expense",
+          date: string,
+          description: string,
+          counterparty: string,
+        ) =>
+          add({
+            type,
+            categoryId: type === "income" ? income.id : expense.id,
+            date,
+            description,
+            counterparty,
+          });
+        await addText("income", "2025-01-10", "Beratung", "Müller GmbH");
+        await addText("income", "2025-03-02", "Beratung", "Müller GmbH");
+        await addText("income", "2025-02-01", "beratung", "MÜLLER GmbH");
+        await addText("expense", "2025-02-15", "Beratung", "Telekom");
+        await addText("income", "2024-12-31", "Äpfel", "Zoo");
+
+        // Ordered by type, then by code point ("Ä" after ASCII letters).
+        expect(await repos.bookings.listTextUsage("description")).toEqual([
+          { text: "Beratung", type: "expense", count: 1, lastDate: "2025-02-15" },
+          { text: "Beratung", type: "income", count: 2, lastDate: "2025-03-02" },
+          { text: "beratung", type: "income", count: 1, lastDate: "2025-02-01" },
+          { text: "Äpfel", type: "income", count: 1, lastDate: "2024-12-31" },
+        ]);
+        expect(await repos.bookings.listTextUsage("counterparty")).toEqual([
+          { text: "Telekom", type: "expense", count: 1, lastDate: "2025-02-15" },
+          { text: "MÜLLER GmbH", type: "income", count: 1, lastDate: "2025-02-01" },
+          { text: "Müller GmbH", type: "income", count: 2, lastDate: "2025-03-02" },
+          { text: "Zoo", type: "income", count: 1, lastDate: "2024-12-31" },
+        ]);
+      });
+
+      it("reflects updates and deletions", async () => {
+        const first = await add({ description: "Alt" });
+        await add({ description: "Alt" });
+        await repos.bookings.update(first.id, { ...booking(first.categoryId), description: "Neu" });
+        const usage = async () =>
+          (await repos.bookings.listTextUsage("description")).map(({ text, count }) => ({
+            text,
+            count,
+          }));
+        expect(await usage()).toEqual([
+          { text: "Alt", count: 1 },
+          { text: "Neu", count: 1 },
+        ]);
+        await repos.bookings.delete(first.id);
+        expect(await usage()).toEqual([{ text: "Alt", count: 1 }]);
+      });
+    });
+
     describe("booking search", () => {
       const NEWEST: BookingSort = { field: "date", direction: "desc" };
 

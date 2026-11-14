@@ -14,6 +14,8 @@ import {
   type BookingRepository,
   type BookingSearchCriteria,
   type BookingSort,
+  type BookingTextField,
+  type BookingTextUsage,
   type CategoryRepository,
   type Clock,
   ConstraintViolationError,
@@ -280,6 +282,23 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
           a.categoryId - b.categoryId ||
           compareCodePoints(a.type, b.type) ||
           compareNullableText(a.vatRate, b.vatRate),
+      );
+    }),
+    listTextUsage: op((field: BookingTextField) => {
+      const groups = new Map<string, BookingTextUsage>();
+      for (const booking of state().bookings.values()) {
+        const text = booking[field];
+        const key = JSON.stringify([booking.type, text]);
+        const group = groups.get(key);
+        groups.set(key, {
+          text,
+          type: booking.type,
+          count: (group?.count ?? 0) + 1,
+          lastDate: group && group.lastDate > booking.date ? group.lastDate : booking.date,
+        });
+      }
+      return [...groups.values()].toSorted(
+        (a, b) => compareCodePoints(a.type, b.type) || compareCodePoints(a.text, b.text),
       );
     }),
   };
