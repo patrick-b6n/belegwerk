@@ -50,9 +50,13 @@ Kalenderjahr.
 ## Installation
 
 Belegwerk ist eine **einzelne `.exe`** ohne Installer, ohne Code-Signierung
-und ohne Auto-Update. Selbst bauen: siehe [Entwicklung](#entwicklung) und
-[Release](docs/release.md) (`pnpm release` legt
-`release/belegwerk-<version>.exe` samt `.sha256` an).
+und ohne Auto-Update. Bezugsquellen:
+
+- **Selbst bauen** mit `pnpm release` (siehe [Entwicklung](#entwicklung) und
+  [Release](docs/release.md)); legt `release/belegwerk-<version>.exe` samt
+  `.sha256` an.
+- **Artefakt eines CI-Laufs** (nur zum Ausprobieren, 7 Tage aufbewahrt, siehe
+  [CI](#ci)).
 
 - **Starten:** Die `.exe` an einen beliebigen Ort legen und starten; sie
   braucht keine weiteren Dateien.
@@ -96,8 +100,8 @@ anschließend.
 - **Nie im Datenordner der App speichern** (`%APPDATA%\de.belegwerk.desktop`
   und darunter). Die App lehnt ein solches Ziel ab – es würde die laufende
   Datenbank gefährden und beim Deinstallieren mit gelöscht. Umwege über
-  symbolische Links, Junctions, Netzlaufwerke auf den eigenen Rechner o. Ä.
-  erkennt sie nicht.
+  symbolische Links, Junctions, Hardlinks, zugeordnete Laufwerke oder
+  UNC-Pfade auf den eigenen Rechner (`\\localhost\C$\…`) erkennt sie nicht.
 - **Das Backup enthält alle Daten, auch den Stripe-Schlüssel im Klartext.**
   Backups entsprechend sicher aufbewahren.
 
@@ -235,6 +239,8 @@ src/ui ─────┤                   (Composition Root)     │ verdrahte
             │                        │                 ▼
             └──► src/business ◄──────┴────────── src/persistence
 ```
+
+Pfeile = „importiert aus“.
 
 | Layer             | Inhalt                                                                                   |
 | ----------------- | ---------------------------------------------------------------------------------------- |
