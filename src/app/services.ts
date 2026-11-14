@@ -22,12 +22,14 @@ import {
   type StripeSettingsService,
 } from "@/business/stripe";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
+import { createUpdateService, type Updater, type UpdateService } from "@/business/updates";
 import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
 
 import { createStripeHttpClient } from "./stripe-http-client";
 import { createTauriDatabaseBackup } from "./tauri-database-backup";
 import { createTauriFileSaver, createTauriSavePathPicker } from "./tauri-file-saver";
+import { createTauriUpdater } from "./tauri-updater";
 
 /**
  * What UI and routes get from the composition root: services only – never
@@ -50,6 +52,8 @@ export interface AppServices {
   /** Stripe import of application fees and fee refunds (#30) and its status for #31. */
   readonly stripeImport: StripeImportService;
   readonly taxYears: TaxYearService;
+  /** Auto-update from GitHub releases (#71): check, install, release notes. */
+  readonly updates: UpdateService;
 }
 
 const systemClock: Clock = () => new Date();
@@ -61,6 +65,7 @@ export function createAppServices(
   stripeClient: StripeClient = createStripeHttpClient(),
   savePathPicker: SavePathPicker = createTauriSavePathPicker(),
   databaseBackup: DatabaseBackup = createTauriDatabaseBackup(database),
+  updater: Updater = createTauriUpdater(),
 ): AppServices {
   const unitOfWork = createUnitOfWork(database, clock);
   const bookings = createBookingService({ unitOfWork });
@@ -75,5 +80,6 @@ export function createAppServices(
     stripeSettings: createStripeSettingsService({ unitOfWork, stripeClient }),
     stripeImport: createStripeImportService({ unitOfWork, stripeClient, clock }),
     taxYears: createTaxYearService({ unitOfWork }),
+    updates: createUpdateService({ updater }),
   };
 }

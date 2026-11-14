@@ -1,6 +1,8 @@
 # Architektur
 
-Tauri v2 ist nur Host; die gesamte Logik läuft in TypeScript im WebView. Der
+Tauri v2 ist nur Host; die gesamte Logik läuft in TypeScript im WebView –
+einzige Ausnahme ist das Auto-Update ([#71](#auto-update-71)), dessen
+Netzwerkzugriff und Dateiaustausch in Rust laufen. Der
 Code unter `src/` ist in Layer gegliedert, deren Abhängigkeiten nur in eine
 Richtung zeigen. Die Grenzen werden per **oxlint** (`no-restricted-imports`)
 erzwungen, siehe [`.oxlintrc.json`](../.oxlintrc.json).
@@ -718,7 +720,7 @@ Entscheidungen und Ergebnisform:
 | `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
 | `/euer`                 | EÜR-Jahresansicht; Jahr als Search-Param `jahr` (#26)               |
 | `/kategorien`           | Kategorienverwaltung                                                |
-| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe, Datensicherung)                 |
+| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe, Datensicherung, Updates)        |
 | alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
@@ -743,7 +745,7 @@ Entscheidungen und Ergebnisform:
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`, `euerExport`, `stripeSettings`, `stripeImport`), keine Repositories und
+nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`, `euerExport`, `stripeSettings`, `stripeImport`, `backup`, `updates`), keine Repositories und
 keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
@@ -1229,7 +1231,8 @@ Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
 Überschrift und Beschreibung per `aria-labelledby`/`aria-describedby`). Jeder
 Abschnitt lädt seine Daten selbst und zeigt eigene Lade-/Fehlerzustände; der
 Abschnitt „Stripe“ (#28) folgt als weiterer `SettingsSection` darunter,
-danach „Datensicherung“ ([#32](#datensicherung-32)).
+danach „Datensicherung“ ([#32](#datensicherung-32)) und „Updates“
+([#71](#auto-update-71)).
 
 **Steuerjahre** (`src/ui/tax-years/tax-year-settings.tsx`; reine Logik
 getestet in `tax-year-model.ts`, Texte in `tax-year-messages.ts`, Mutationen
@@ -1446,11 +1449,60 @@ manuell ([Datenmodell](data-model.md#backup-und-wiederherstellung-32)).
   und ein Kurzhinweis zur Wiederherstellung. Es werden keine Daten
   geändert, also nichts invalidiert.
 
+### Auto-Update (#71)
+
+Die App prüft beim Start und auf Wunsch, ob auf GitHub eine neuere Version
+liegt, und ersetzt auf Knopfdruck ihre `.exe`. Ablauf, Sicherheitsprüfungen
+und Release-Workflow: [Release](release.md#auto-update-71).
+
+| Datei                                    | Aufgabe                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `src-tauri/src/updater.rs`               | Commands `check_for_update`, `install_update` (GitHub-API, Download, SHA-256, Austausch, Neustart)                        |
+| `src/business/updates/update-service.ts` | Port `Updater`, `UpdateError` (Codes), `createUpdateService({ updater })`, `downloadPercent`                              |
+| `src/business/updates/calver.ts`         | Versionsschema `YYYY-MM-DD-HHMM` ↔ SemVer `YYYY.MMDD.HHMM` (auch für `scripts/`, [Release](release.md#versionsschema-71)) |
+| `src/app/tauri-updater.ts`               | `createTauriUpdater()`: `invoke` der Commands (Fortschritt per `Channel`), `openUrl` aus `plugin-opener`                  |
+| `src/ui/updates/`                        | Hinweis in der Seitennavigation, Abschnitt „Updates“ in den Einstellungen, Texte zu Codes, Query/Mutations                |
+
+- **Rust statt WebView:** Netzwerk und Dateiaustausch laufen in Rust (keine
+  CSP-Erweiterung, kein HTTP-Scope für GitHub). Die Commands sind im
+  App-Manifest deklariert (`src-tauri/build.rs`) und nur über die
+  Permissions `allow-check-for-update`/`allow-install-update` der Capability
+  aufrufbar. `install_update` fragt GitHub selbst und nimmt keine URLs aus
+  der WebView an.
+- **Versionen** liefert Rust schon als CalVer (`currentVersion`,
+  `latestVersion`, z. B. `2026-11-14-2000`; in der Entwicklung `0.0.0`); die
+  UI zeigt sie unverändert.
+- **Fehler** kommen als `{ kind, message }` aus Rust; `createTauriUpdater`
+  macht daraus einen `UpdateError` mit `kind` (unbekannte Fehler:
+  `unexpected`), die UI übersetzt `kind` (`update-messages.ts`).
+- **Start-Prüfung:** `useBackgroundUpdateCheck()` (Query
+  `["updates", "check"]`, einmal pro Programmlauf, `staleTime: Infinity`)
+  ruft `updates.checkInBackground()`: Fehler werden nur protokolliert
+  (Konsole, Rust-Log), Ergebnis `null`, kein Hinweis. Der Hinweis
+  (`UpdateNotice`, über „Einstellungen“ in der Seitennavigation) erscheint
+  nur bei `updateAvailable`; „Hinweis ausblenden“ blendet ihn für diese
+  Version bis zum nächsten Start aus.
+- **„Nach Updates suchen“** (`UpdateSection`): Mutation, Ergebnis als
+  `role="status"` (aktuell / neuere Version / Fehler); ein Erfolg schreibt es
+  auch in die Query, sodass der Hinweis folgt.
+- **„Jetzt aktualisieren“** (`UpdateActions`, in Hinweis und Einstellungen):
+  Mutation mit Key `["updates", "install"]`; während des Laufs ist der Button
+  deaktiviert (fokussierbar) mit Spinner und Prozentangabe, darunter ein
+  Fortschrittsbalken. Läuft ein Update schon an der anderen Stelle, ist der
+  Button ebenfalls deaktiviert. Erfolg: die App startet neu (die Mutation
+  endet nicht). Fehler: Meldung (`role="alert"`) mit dem Zusatz, dass die
+  installierte Version unverändert ist.
+- **Release-Notes** öffnen im Standardbrowser über `tauri-plugin-opener`;
+  die Capability erlaubt nur
+  `https://github.com/patrick-b6n/belegwerk-next/releases/*`, Adapter und
+  Rust prüfen dasselbe Präfix.
+
 ## Release und Einzelinstanz (#33)
 
 Ausgeliefert wird eine einzelne, unsignierte `.exe` ohne Installer
 (`pnpm release`, Release-Profil, Version, Speicherorte, SmartScreen:
-[Release](release.md)). `tauri-plugin-single-instance` ist das erste Plugin in
+[Release](release.md)); Releases entstehen per Tag, die App aktualisiert sich
+daraus ([Auto-Update](#auto-update-71)). `tauri-plugin-single-instance` ist das erste Plugin in
 `src-tauri/src/lib.rs`: Ein zweiter Start beendet sich und holt das Fenster
 `main` der laufenden Instanz nach vorn – nie öffnen zwei Prozesse dieselbe
 Datenbank. Das Plugin hat keine JS-API, also keine Capability.
@@ -1472,7 +1524,8 @@ Im Dev-Modus (`pnpm tauri dev`, Seite vom Vite-Server) greift die CSP nicht –
 CSP-Probleme zeigen sich nur im gebauten Programm
 (`pnpm tauri build --no-bundle` bzw. `pnpm release`). Der Stripe-Client (#29) braucht keine
 Erweiterung: `tauri-plugin-http` führt die Anfrage in Rust aus, die WebView
-spricht nur über die IPC. Braucht ein späteres Feature echte Netzwerkziele
+spricht nur über die IPC. Ebenso das Auto-Update (#71): GitHub-API und
+Download laufen in Rust. Braucht ein späteres Feature echte Netzwerkziele
 der WebView, wird die CSP gezielt erweitert.
 
 ## Lint & Format
