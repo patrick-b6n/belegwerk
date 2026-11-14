@@ -39,6 +39,7 @@ import {
   defaultsErrorMessage,
   defaultsFieldLabel,
   keyModeLabel,
+  testConnectionMessage,
 } from "./stripe-messages";
 import {
   defaultsFormValues,
@@ -148,6 +149,7 @@ function ApiKeyPanel({ apiKey }: Readonly<{ apiKey: StripeApiKeyInfo | null }>) 
       ) : (
         <p className="text-sm text-muted-foreground">{m.stripe_key_none()}</p>
       )}
+      {apiKey && !editing && <TestConnection key={apiKey.masked} />}
       {(!apiKey || editing) && (
         <ApiKeyForm
           replacing={apiKey !== null}
@@ -281,6 +283,46 @@ function ApiKeyForm({ replacing, onDone }: Readonly<{ replacing: boolean; onDone
         )}
       </form.Field>
     </form>
+  );
+}
+
+/**
+ * "Verbindung testen" (#29): lists one application fee with the stored key
+ * and shows the outcome below the button. Keyed by the masked key, so a new
+ * key starts without an old result.
+ */
+function TestConnection() {
+  const { testConnection } = useStripeSettingsMutations();
+  const { data, error, isPending } = testConnection;
+  const failed = error !== null || (data !== undefined && !data.ok);
+  const message =
+    error !== null
+      ? m.stripe_test_connection_error()
+      : data === undefined
+        ? null
+        : testConnectionMessage(data);
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button
+        variant="outline"
+        disabled={isPending}
+        onClick={() =>
+          testConnection.mutate(undefined, {
+            // No details: nothing about the request (headers) belongs in the log.
+            onError: () => console.error("Stripe connection test failed"),
+          })
+        }
+      >
+        {isPending ? m.stripe_test_connection_running() : m.stripe_test_connection()}
+      </Button>
+      <p
+        role="status"
+        className={failed ? "max-w-3xl text-sm text-destructive" : "max-w-3xl text-sm"}
+      >
+        {isPending ? null : message}
+      </p>
+    </div>
   );
 }
 

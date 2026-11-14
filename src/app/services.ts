@@ -13,11 +13,16 @@ import {
 } from "@/business/euer";
 import type { FileSaver } from "@/business/files";
 import type { Clock } from "@/business/repositories";
-import { createStripeSettingsService, type StripeSettingsService } from "@/business/stripe";
+import {
+  createStripeSettingsService,
+  type StripeClient,
+  type StripeSettingsService,
+} from "@/business/stripe";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
 import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
 
+import { createStripeHttpClient } from "./stripe-http-client";
 import { createTauriFileSaver } from "./tauri-file-saver";
 
 /**
@@ -34,7 +39,7 @@ export interface AppServices {
   readonly euer: EuerService;
   /** CSV export of the EÜR (#27): save dialog and file via `FileSaver`. */
   readonly euerExport: EuerExportService;
-  /** Stripe key (masked only) and import defaults (#28). */
+  /** Stripe key (masked only), import defaults (#28) and the connection test (#29). */
   readonly stripeSettings: StripeSettingsService;
   readonly taxYears: TaxYearService;
 }
@@ -45,6 +50,7 @@ export function createAppServices(
   database: Database,
   clock: Clock = systemClock,
   fileSaver: FileSaver = createTauriFileSaver(),
+  stripeClient: StripeClient = createStripeHttpClient(),
 ): AppServices {
   const unitOfWork = createUnitOfWork(database, clock);
   const bookings = createBookingService({ unitOfWork });
@@ -55,7 +61,7 @@ export function createAppServices(
     categories: createCategoryService({ unitOfWork }),
     euer,
     euerExport: createEuerExportService({ euer, fileSaver }),
-    stripeSettings: createStripeSettingsService({ unitOfWork }),
+    stripeSettings: createStripeSettingsService({ unitOfWork, stripeClient }),
     taxYears: createTaxYearService({ unitOfWork }),
   };
 }

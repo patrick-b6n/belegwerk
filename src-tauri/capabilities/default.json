@@ -9,6 +9,10 @@
     "sql:allow-execute",
     "sql:allow-select",
     "dialog:allow-save",
-    "fs:allow-write-text-file"
+    "fs:allow-write-text-file",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://api.stripe.com/v1/application_fees*" }]
+    }
   ]
 }
