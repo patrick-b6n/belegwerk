@@ -486,7 +486,8 @@ Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
   refundCategoryId })`, alle drei zusammen; `validateStripeDefaults`, auch
   gegen gespeicherte Werte nutzbar): USt-Satz ein `VatRate` (`required`,
   `invalidVatRate`) – er gilt nur in **regelbesteuerten** Jahren, `null` gibt
-  es nicht; Fee-Kategorie existiert, nicht archiviert, Einnahme; Refund-Kategorie
+  es nicht; Fee-Kategorie existiert, nicht archiviert, Einnahme und keine
+  Finanzamt-Kategorie (USt-Erstattung, `categoryTaxOffice`); Refund-Kategorie
   existiert, nicht archiviert, Ausgabe und „mindert Einnahmen“ (Codes
   `required`, `categoryNotFound`, `categoryArchived`, `categoryTypeMismatch`,
   `categoryNotRevenueReduction`). Gespeicherte Werte, die nicht lesbar sind
@@ -1059,9 +1060,10 @@ in `tax-year-mutations.ts`):
   Client-Prüfung per `validateStripeApiKey`; mit Schlüssel die maskierte
   Form, Modus (Live/Test), „Ändern“ (Feld plus „Abbrechen“) und „Entfernen“
   (Alert-Dialog, Fokus auf „Abbrechen“; die Standardwerte bleiben).
-- **Standardwerte:** USt-Satz und zwei Kategorie-Selects (Fees: Einnahme;
+- **Standardwerte:** USt-Satz und zwei Kategorie-Selects (Fees: Einnahme
+  ohne Finanzamt-Kategorie;
   Refunds: Ausgabe mit „mindert Einnahmen“; ohne archivierte außer der
-  gespeicherten, markiert). Ohne gespeicherte Werte sind die Vorschläge
+  gespeicherten und der gewählten, markiert). Ohne gespeicherte Werte sind die Vorschläge
   vorgewählt und ein Hinweis sagt „noch nicht gespeichert“; sind
   gespeicherte Werte inzwischen ungültig, listet ein Hinweis die Probleme.
   Service-Fehler erscheinen am Feld.
