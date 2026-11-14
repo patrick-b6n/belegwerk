@@ -12,10 +12,10 @@ import { isTaxYear, type TaxYearFieldError, type TaxYearOverview } from "@/busin
 /** Errors the form detects itself. */
 export type TaxYearClientError = "required" | "invalidYear";
 
-/** The years, newest first (the current and recent years are the relevant ones). */
-export function sortYearsDescending(years: readonly TaxYearOverview[]): TaxYearOverview[] {
+/** The years, oldest first (chronological, like a calendar). */
+export function sortYearsAscending(years: readonly TaxYearOverview[]): TaxYearOverview[] {
   const sorted = [...years];
-  sorted.sort((a, b) => b.year - a.year);
+  sorted.sort((a, b) => a.year - b.year);
   return sorted;
 }
 

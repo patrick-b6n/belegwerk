@@ -40,7 +40,7 @@ import {
 import {
   checkYear,
   parseYear,
-  sortYearsDescending,
+  sortYearsAscending,
   suggestedYear,
   yearError,
 } from "./tax-year-model";
@@ -49,7 +49,7 @@ import { useTaxYearList } from "./tax-year-queries";
 
 /**
  * The "Steuerjahre" section of the settings page (#20): all years with a
- * record or bookings (newest first), each with its status and a
+ * record or bookings (oldest first), each with its status and a
  * Kleinunternehmer switch, plus "Add year".
  */
 export function TaxYearSettings() {
@@ -74,7 +74,7 @@ export function TaxYearSettings() {
       </div>
     );
   }
-  const years = sortYearsDescending(data);
+  const years = sortYearsAscending(data);
   const listed = years.map((taxYear) => taxYear.year);
   return (
     <div className="flex flex-col gap-6">

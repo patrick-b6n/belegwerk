@@ -69,12 +69,12 @@ erfolgreich ohne Release, mit einem Hinweis im Log – etwa beim Re-run eines
 alten Laufs oder wenn `main` während des Builds weitergerückt ist. Die Commits
 veröffentlicht dann der neuere Lauf; ein älterer Stand wird nie „Latest“.
 
-**Nacheinander:** Alle Läufe auf `main` teilen sich eine Concurrency-Gruppe
-(`<workflow>-<ref>`) ohne Abbruch (`cancel-in-progress: false`). Ein zweiter Push wartet, bis das
-vorige Release angelegt ist, und sieht dessen Tag beim Bestimmen der
-Version. Wartet schon ein Lauf und kommt ein weiterer Push, ersetzt GitHub
-den wartenden durch den neuen (nur der jeweils neueste wartende Lauf bleibt);
-dessen Release enthält dann auch die Commits des übersprungenen.
+**Nur ein Lauf:** Alle Läufe auf `main` teilen sich eine Concurrency-Gruppe
+(`<workflow>-<ref>`) mit `cancel-in-progress: true`. Ein neuer Push bricht
+den laufenden (oder wartenden) Lauf ab; das Release des neuen Laufs enthält
+dann auch dessen Commits. Ein abgebrochener Lauf hat noch keinen Tag angelegt,
+die Version bestimmt der neue Lauf aus den vorhandenen Tags. Ebenso bricht in
+CI ein neuer Push auf einen Pull Request dessen laufende Prüfung ab.
 
 Der Job hat als einziger `contents: write`; der Checkout speichert keine
 Zugangsdaten (`persist-credentials: false`), `gh` nutzt das `GITHUB_TOKEN`.

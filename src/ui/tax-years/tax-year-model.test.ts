@@ -5,7 +5,7 @@ import type { TaxYearOverview } from "@/business/tax-years";
 import {
   checkYear,
   parseYear,
-  sortYearsDescending,
+  sortYearsAscending,
   suggestedYear,
   yearError,
 } from "./tax-year-model";
@@ -17,10 +17,10 @@ const overview = (year: number): TaxYearOverview => ({
   mismatchedBookings: 0,
 });
 
-describe("sortYearsDescending", () => {
-  it("puts the newest year first without changing the input", () => {
+describe("sortYearsAscending", () => {
+  it("puts the oldest year first without changing the input", () => {
     const years = [overview(2023), overview(2025), overview(2024)];
-    expect(sortYearsDescending(years).map((y) => y.year)).toEqual([2025, 2024, 2023]);
+    expect(sortYearsAscending(years).map((y) => y.year)).toEqual([2023, 2024, 2025]);
     expect(years.map((y) => y.year)).toEqual([2023, 2025, 2024]);
   });
 });
