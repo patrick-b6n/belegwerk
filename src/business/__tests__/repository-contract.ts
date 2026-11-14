@@ -626,6 +626,8 @@ export function describeRepositoryContract(
         expect(await search({ vatRates: [null, "0", "7", "19", "reverse_charge"] })).toHaveLength(
           5,
         );
+        // An empty list is no filter (the service drops it anyway).
+        expect(await search({ vatRates: [] })).toHaveLength(5);
         expect(await repos.bookings.summarize({ vatRates: [null, "19"] })).toEqual({
           count: 2,
           incomeCents: 2000,

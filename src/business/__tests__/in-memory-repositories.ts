@@ -289,7 +289,9 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
 function matches(filter: BookingFilter): (booking: Booking) => boolean {
   const text = filter.text === undefined ? undefined : containsRegExp(filter.text);
   const categoryIds = filter.categoryIds && new Set(filter.categoryIds);
-  const vatRates = filter.vatRates && new Set(filter.vatRates);
+  // An empty list filters nothing, as in SQL (`or()` without conditions).
+  const vatRates =
+    filter.vatRates && filter.vatRates.length > 0 ? new Set(filter.vatRates) : undefined;
   return (booking) =>
     (text === undefined ||
       [booking.description, booking.counterparty, booking.reference, booking.note].some(
