@@ -67,8 +67,8 @@ Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB – bis auf d
 - **Quelle 2025:** amtlicher Vordruck Anlage EÜR 2025 (2025AnlEÜR801–803,
   „August 2025“) und „Anleitung zur Anlage EÜR – August 2025 – Version
   1.9.1.1“, bekanntgegeben mit BMF-Schreiben vom 29.08.2025, GZ IV C 6 -
-  S 2142/00023/010/001 (BStBl I 2025 S. 1652). Genutzte Kopie:
-  <https://www.steuerschroeder.de/blog/wp-content/uploads/2025/09/2025-08-29-anlage-EUER-2025.pdf>.
+  S 2142/00023/010/001 (BStBl I 2025 S. 1652):
+  <https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Einkommensteuer/2025-08-29-anlage-EUER-2025.pdf?__blob=publicationFile&v=3>.
   Alle Zeilen im Mapping sind gegen den Vordruck geprüft.
 - **Quelle 2026:** amtlicher Vordruck Anlage EÜR 2026 (2026AnlEÜR801–803,
   „August 2026“) und „Anleitung zur Anlage EÜR – August 2026 – Version
