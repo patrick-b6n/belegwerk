@@ -451,6 +451,62 @@ Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes
   hat (der Buchungs-Service prüft gegen den aktuellen Status). Ein hartes
   Verbot ließe nur Löschen und Neuerfassen aller Buchungen des Jahres.
 
+## Stripe-Einstellungen (#28)
+
+`src/business/stripe` – `createStripeSettingsService({ unitOfWork })` mit
+`get()`, `setApiKey(key)`, `deleteApiKey()`, `setDefaults(input)`, in
+`AppServices` als `stripeSettings`. Gleiche Konventionen wie die anderen
+Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
+
+- **Speicherung** in der Key/Value-Tabelle `settings`
+  (`STRIPE_SETTING_KEYS`): `stripe.apiKey` (Klartext, #1),
+  `stripe.defaultVatRate` (`VatRate`), `stripe.feeCategoryId`,
+  `stripe.refundCategoryId` (ID als Dezimaltext). Reserviert für den Import
+  (#30): `stripe.lastImportAt` (`toISOString()` des letzten Imports, Default
+  des Zeitraums in #31).
+- **Der Schlüssel erreicht die UI nie:** `get()` liefert
+  `{ apiKey: { masked, mode } | null, defaults }` – maskiert als Präfix plus
+  die letzten vier Zeichen (`rk_live_…AbCd`), `mode` aus dem Präfix
+  (`live`/`test`). Den vollen Schlüssel liest nur der Import mit
+  `loadStripeImportSettings(repos)` **in seiner eigenen Unit of Work**
+  (Business-intern, nicht Teil von `AppServices`). Schlägt das Speichern
+  fehl, wirft `setApiKey` einen Fehler ohne Ursache – Drizzles Meldung
+  enthielte die gebundenen Parameter, also den Schlüssel. Die UI speichert
+  ihn ohne `useMutation` (TanStack Query behielte die Variablen im Cache),
+  leert das Feld danach und protokolliert keine Fehlerdetails.
+- **Schlüssel-Validierung** (`validateStripeApiKey`, auch vom Formular
+  genutzt): getrimmt (`trimText`), dann nur Restricted Keys
+  `rk_live_`/`rk_test_` mit 10–247 Buchstaben/Ziffern. Codes: `required`,
+  `secretKeyNotAllowed` (`sk_…`: Vollzugriff aufs Stripe-Konto – die App
+  speichert bewusst nur eingeschränkte Leseschlüssel),
+  `publishableKeyNotAllowed` (`pk_…`), `invalidKey`. Benötigte Berechtigung:
+  „Application fees: Lesen“ (Connect; Fee-Refunds sind Unterressource der
+  Application Fees), sonst „Keine“.
+- **Standardwerte** (`setDefaults({ defaultVatRate, feeCategoryId,
+  refundCategoryId })`, alle drei zusammen; `validateStripeDefaults`, auch
+  gegen gespeicherte Werte nutzbar): USt-Satz ein `VatRate` (`required`,
+  `invalidVatRate`) – er gilt nur in **regelbesteuerten** Jahren, `null` gibt
+  es nicht; Fee-Kategorie existiert, nicht archiviert, Einnahme und keine
+  Finanzamt-Kategorie (USt-Erstattung, `categoryTaxOffice`); Refund-Kategorie
+  existiert, nicht archiviert, Ausgabe und „mindert Einnahmen“ (Codes
+  `required`, `categoryNotFound`, `categoryArchived`, `categoryTypeMismatch`,
+  `categoryNotRevenueReduction`). Gespeicherte Werte, die nicht lesbar sind
+  (bearbeitete DB), gelten als nicht gesetzt.
+- **Vorschläge** (`suggestStripeDefaults(categories)`, nie automatisch
+  gespeichert; das Formular wählt sie vor): Fees → erste nicht archivierte
+  Einnahme-Kategorie auf `BETRIEBSEINNAHMEN_UST_PFLICHTIG` („Umsatzerlöse“),
+  Refunds → bevorzugt die System-Erlösminderung („Erlösminderung /
+  Rückerstattung“), gefunden über Position und Flag, **nie am Namen**;
+  USt 19 % (Plattform-Fee an inländische Connected Accounts – der Nutzer
+  bestätigt; EU-Ausland: Reverse Charge, Drittland: 0 %).
+- **Für den Import (#30):** `loadStripeImportSettings(repos)` liefert
+  `{ ok: true, apiKey, defaultVatRate, feeCategory, refundCategory }`,
+  `noApiKey` oder `invalidDefaults` mit Codes – gespeicherte Werte werden neu
+  geprüft (Kategorie inzwischen archiviert, gelöscht, geändert). Der Import
+  bucht über den Buchungs-Service, der die Jahresregel durchsetzt: In einem
+  **Kleinunternehmer-Jahr** muss der Import `vatRate: null` übergeben,
+  unabhängig vom Standard-Satz (sonst `vatRateNotAllowed`).
+
 ## EÜR-Positionen (#13)
 
 `src/business/euer` enthält die stabilen EÜR-Positionen, das Zeilen-Mapping
@@ -481,7 +537,7 @@ Entscheidungen und Ergebnisform:
 | `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
 | `/euer`                 | EÜR-Jahresansicht; Jahr als Search-Param `jahr` (#26)               |
 | `/kategorien`           | Kategorienverwaltung                                                |
-| `/einstellungen`        | Einstellungen (Steuerjahre, später Stripe)                          |
+| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe)                                 |
 | alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
@@ -506,7 +562,7 @@ Entscheidungen und Ergebnisform:
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`), keine Repositories und
+nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`, `euerExport`, `stripeSettings`), keine Repositories und
 keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
@@ -546,7 +602,8 @@ ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
 `useCategoryList()`) und `taxYearQueryKeys`
 (`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`,
 `useTaxYearList()`) und `euerQueryKeys` (`src/ui/euer/euer-queries.ts`,
-`useEuer(year)`, #26).
+`useEuer(year)`, #26) und `stripeQueryKeys` (`src/ui/stripe/stripe-queries.ts`,
+`useStripeSettings()`, #28; nur maskierter Schlüssel im Cache).
 Buchungs-Mutationen (`useBookingMutations()`, #18) invalidieren
 `bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`),
 `taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen) und
@@ -964,7 +1021,7 @@ Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
 (`SettingsSection` aus `src/ui/settings/settings-section.tsx`: `<section>` mit
 Überschrift und Beschreibung per `aria-labelledby`/`aria-describedby`). Jeder
 Abschnitt lädt seine Daten selbst und zeigt eigene Lade-/Fehlerzustände; der
-Abschnitt „Stripe“ (#28) kommt als weiterer `SettingsSection` darunter.
+Abschnitt „Stripe“ (#28) folgt als weiterer `SettingsSection` darunter.
 
 **Steuerjahre** (`src/ui/tax-years/tax-year-settings.tsx`; reine Logik
 getestet in `tax-year-model.ts`, Texte in `tax-year-messages.ts`, Mutationen
@@ -992,6 +1049,29 @@ in `tax-year-mutations.ts`):
   Kategorien ändern sich nicht; Buchungs-Mutationen invalidieren ihrerseits
   `taxYearQueryKeys.all`, so aktualisiert sich der Hinweis nach dem
   Korrigieren einer Buchung.
+
+**Stripe** (`src/ui/stripe/stripe-settings.tsx`; reine Logik getestet in
+`stripe-settings-model.ts`, Texte in `stripe-messages.ts`, Hooks in
+`stripe-queries.ts`/`stripe-mutations.ts`):
+
+- **API-Schlüssel:** Hinweis zur benötigten Berechtigung („Application
+  fees: Lesen“) und wo der Schlüssel angelegt wird. Ohne Schlüssel ein
+  Passwortfeld (`autocomplete="off"`, ohne Rechtschreibprüfung) mit
+  Client-Prüfung per `validateStripeApiKey`; mit Schlüssel die maskierte
+  Form, Modus (Live/Test), „Ändern“ (Feld plus „Abbrechen“) und „Entfernen“
+  (Alert-Dialog, Fokus auf „Abbrechen“; die Standardwerte bleiben).
+- **Standardwerte:** USt-Satz und zwei Kategorie-Selects (Fees: Einnahme
+  ohne Finanzamt-Kategorie;
+  Refunds: Ausgabe mit „mindert Einnahmen“; ohne archivierte außer der
+  gespeicherten und der gewählten, markiert). Ohne gespeicherte Werte sind die Vorschläge
+  vorgewählt und ein Hinweis sagt „noch nicht gespeichert“; sind
+  gespeicherte Werte inzwischen ungültig, listet ein Hinweis die Probleme.
+  Service-Fehler erscheinen am Feld.
+- **Invalidierung:** nur `stripeQueryKeys.all`. Die Kategorien kommen aus
+  `useCategoryList()`; Gültigkeit und Vorschläge werden in der UI aus der
+  aktuellen Kategorienliste berechnet (`validateStripeDefaults`,
+  `suggestStripeDefaults`) – Kategorie-Mutationen müssen die Stripe-Keys
+  daher nicht invalidieren.
 
 ## Content Security Policy
 
