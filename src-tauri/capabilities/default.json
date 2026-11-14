@@ -16,6 +16,12 @@
         { "url": "https://api.stripe.com/v1/application_fees" },
         { "url": "https://api.stripe.com/v1/application_fees/*" }
       ]
+    },
+    "allow-check-for-update",
+    "allow-install-update",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://github.com/patrick-b6n/belegwerk-next/releases/*" }]
     }
   ]
 }

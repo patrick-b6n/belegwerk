@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 import iconUrl from "@/ui/assets/brand/icon.svg";
 import wordmarkUrl from "@/ui/assets/brand/wordmark.svg";
+import { UpdateNotice } from "@/ui/updates/update-notice";
 
 /** Id of the scrolling content area (scroll reset in src/router.tsx, skip link). */
 export const APP_CONTENT_ID = "app-content";
@@ -46,7 +47,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         </div>
         <nav aria-label={m.nav_label()} className="flex flex-1 flex-col">
           <NavList items={mainItems} />
-          <div className="mt-auto">
+          <div className="mt-auto flex flex-col gap-3">
+            {/* Newer version available (#71); background check at startup. */}
+            <UpdateNotice />
             <NavList items={footerItems} />
           </div>
         </nav>

@@ -1,0 +1,92 @@
+name: Release
+
+# Ein Tag `v<YYYY-MM-DD-HHMM>` (`pnpm release:tag`) baut die .exe und legt ein GitHub-Release an (#71).
+# Die App prüft beim Start das neueste Release und aktualisiert sich daraus
+# (docs/release.md).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build & Release (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      # gh release create
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Version kommt aus "packageManager" in package.json (pnpm 12).
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      # Tag `v<YYYY-MM-DD-HHMM>` (CalVer, `pnpm release:tag`); daraus die
+      # Version. Andere Tags brechen ab.
+      - name: Version aus dem Tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          calver=$(node --input-type=module -e "
+            import { calVerFromTag, calVerToSemVer } from './src/business/updates/calver.ts';
+            const calVer = calVerFromTag(process.env.TAG);
+            if (!calVer) { console.error('Tag ' + process.env.TAG + ' ist nicht v<YYYY-MM-DD-HHMM>.'); process.exit(1); }
+            console.log(calVer);
+          ")
+          echo "VERSION=$calver" >> "$GITHUB_ENV"
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      # Nur lesen: der Cache von main reicht, ein Tag-Lauf speichert keinen.
+      - name: Cargo-Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify
+        run: pnpm verify
+
+      # Setzt die SemVer-Form der Version (YYYY.MMDD.HHMM) für den Build in
+      # package.json (nicht committet), tauri build --no-bundle, kopiert nach
+      # release/belegwerk-<version>.exe, schreibt die Prüfsumme und prüft die
+      # Dateiversion der .exe (scripts/release.ts).
+      - name: Build
+        run: node scripts/release.ts --calver "$env:VERSION"
+
+      - name: GitHub-Release anlegen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Belegwerk $VERSION" \
+            --generate-notes \
+            --verify-tag \
+            "release/belegwerk-$VERSION.exe" \
+            "release/belegwerk-$VERSION.exe.sha256"

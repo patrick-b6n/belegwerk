@@ -1,9 +1,12 @@
-//! Tauri host. Registers plugins only; all application logic lives in the
-//! TypeScript frontend.
+//! Tauri host. Registers plugins; all application logic lives in the
+//! TypeScript frontend. The only own commands are the auto-update (#71,
+//! [`updater`]): network access and replacing the exe belong in Rust.
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tauri::Manager;
 use tauri_plugin_sql::{DbInstances, DbPool};
+
+mod updater;
 
 /// Name under which the database is registered with `tauri-plugin-sql`. The
 /// frontend opens it with `Database.get(DB_NAME)` (src/persistence).
@@ -43,7 +46,16 @@ pub fn run() {
         // it over the IPC. The capability allows only the Stripe API's
         // application fee endpoints (src-tauri/capabilities/default.json).
         .plugin(tauri_plugin_http::init())
+        // Release notes of an update (#71) in the default browser; the
+        // capability allows only this repository's release pages.
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            updater::check_for_update,
+            updater::install_update
+        ])
         .setup(|app| {
+            // Leftovers of an update (#71): the previous exe (`.old`).
+            updater::cleanup_after_update();
             // Without a pool the frontend gets "database not loaded" and shows
             // its startup error screen; the cause is in the log.
             if let Err(error) = tauri::async_runtime::block_on(register_database(app.handle())) {

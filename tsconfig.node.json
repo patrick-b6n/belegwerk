@@ -16,6 +16,8 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // scripts/ import src/business/updates/calver.ts; Node needs the extension.
+    "allowImportingTsExtensions": true
   }
 }

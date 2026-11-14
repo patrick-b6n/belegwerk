@@ -6,10 +6,12 @@ import { Page } from "@/ui/layout/page";
 import { SettingsSection } from "@/ui/settings/settings-section";
 import { StripeSettingsSection } from "@/ui/stripe/stripe-settings-section";
 import { TaxYearSettings } from "@/ui/tax-years/tax-year-settings";
+import { UpdateSection } from "@/ui/updates/update-section";
 
 /**
  * The settings page: one {@link SettingsSection} per area, each loading its
- * own data: "Steuerjahre" (#20), "Stripe" (#28) and "Datensicherung" (#32).
+ * own data: "Steuerjahre" (#20), "Stripe" (#28), "Datensicherung" (#32) and
+ * "Updates" (#71).
  */
 export const Route = createFileRoute("/einstellungen")({
   component: SettingsPage,
@@ -27,6 +29,9 @@ function SettingsPage() {
       </SettingsSection>
       <SettingsSection title={m.backup_title()} description={m.backup_description()}>
         <BackupSection />
+      </SettingsSection>
+      <SettingsSection title={m.update_title()} description={m.update_description()}>
+        <UpdateSection />
       </SettingsSection>
     </Page>
   );

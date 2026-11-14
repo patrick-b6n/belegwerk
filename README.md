@@ -49,9 +49,13 @@ Kalenderjahr.
 
 ## Installation
 
-Belegwerk ist eine **einzelne `.exe`** ohne Installer, ohne Code-Signierung
-und ohne Auto-Update. Bezugsquellen:
+Belegwerk ist eine **einzelne `.exe`** ohne Installer und ohne
+Code-Signierung. Bezugsquellen:
 
+- **GitHub-Releases** (`belegwerk-<version>.exe` samt `.sha256`), entstehen
+  per `pnpm release:tag` ([Release](docs/release.md#release-veröffentlichen-71)).
+  Die Version ist Datum und Uhrzeit des Releases, z. B. `2026-11-14-2000`
+  ([Versionsschema](docs/release.md#versionsschema-71)).
 - **Selbst bauen** mit `pnpm release` (siehe [Entwicklung](#entwicklung) und
   [Release](docs/release.md)); legt `release/belegwerk-<version>.exe` samt
   `.sha256` an.
@@ -70,9 +74,16 @@ und ohne Auto-Update. Bezugsquellen:
   sich.
 - **Eine Instanz:** Ein zweiter Start holt das laufende Fenster nach vorn,
   statt eine zweite Instanz zu öffnen.
-- **Aktualisieren:** Die alte `.exe` durch die neue ersetzen. Die Daten
-  bleiben erhalten; ausstehende Datenbank-Migrationen laufen beim Start.
-  Vorher ein Backup erstellen.
+- **Aktualisieren:** Belegwerk prüft beim Start, ob auf GitHub eine neuere
+  Version veröffentlicht ist, und zeigt dann in der Seitennavigation einen
+  Hinweis; „Jetzt aktualisieren“ lädt sie herunter, prüft die Prüfsumme,
+  ersetzt die `.exe` und startet neu. Manuell: Einstellungen → „Nach Updates
+  suchen“. Bei Fehlern bleibt die alte Version unverändert. Die `.exe` muss
+  dafür in einem Ordner mit Schreibrechten liegen
+  ([Auto-Update](docs/release.md#auto-update-71)). Von Hand geht es weiterhin:
+  App schließen, die alte `.exe` durch die neue ersetzen. Die Daten bleiben
+  erhalten; ausstehende Datenbank-Migrationen laufen beim Start. Vorher ein
+  Backup erstellen.
 - **Deinstallieren:** Backup erstellen, `.exe` löschen, optional die
   Datenordner (siehe unten) löschen.
 
@@ -215,6 +226,7 @@ Fenster nach vorn (gleiche Datenbank) – vorher die `.exe` schließen.
 | `pnpm i18n:compile` | Paraglide-Messages nach `src/paraglide/` kompilieren                           |
 | `pnpm verify`       | `format:check`, `lint`, `typecheck`, `test` – vor jedem Commit/Release         |
 | `pnpm release`      | Release-`.exe` bauen und nach `release/` kopieren ([Release](docs/release.md)) |
+| `pnpm release:tag`  | Release veröffentlichen: Tag `v<YYYY-MM-DD-HHMM>` anlegen und pushen           |
 
 ### CI
 
@@ -225,9 +237,14 @@ passen (`pnpm db:generate` ohne Änderung), und `pnpm tauri build --no-bundle`.
 Die gebaute `.exe` steht 7 Tage als Artefakt des Laufs zum Ausprobieren
 bereit.
 
+Ein Tag `v<YYYY-MM-DD-HHMM>` (`pnpm release:tag`) startet
+[`.github/workflows/release.yml`](.github/workflows/release.yml): Tag prüfen,
+gleiche Prüfungen, Build mit der Version aus dem Tag und ein GitHub-Release
+mit `.exe` und `.sha256` ([Release](docs/release.md#release-veröffentlichen-71)).
+
 ## Architektur
 
-Tauri v2 ist nur Host (Fenster, SQLite, Dateidialoge, HTTP); die gesamte Logik
+Tauri v2 ist nur Host (Fenster, SQLite, Dateidialoge, HTTP, Auto-Update); die gesamte Logik
 läuft in TypeScript im WebView – TanStack Start im SPA-Modus mit TanStack
 Router/Query/Table/Form, shadcn/ui und Tailwind. Persistenz über
 `tauri-plugin-sql` und Drizzle ORM (`sqlite-proxy`), Texte über Paraglide JS
@@ -260,4 +277,4 @@ Weiterführend:
 - [Datenmodell](docs/data-model.md) – Tabellen, EÜR-Positionen und -Berechnung, Migrationen, Backup
 - [i18n & Formatierung](docs/i18n.md) – Paraglide, Format-Helper
 - [Tests](docs/testing.md) – Vitest, Fakes, Persistence-Tests
-- [Release](docs/release.md) – `.exe` bauen, Version, Speicherorte
+- [Release](docs/release.md) – Release per Tag, Auto-Update, `.exe` bauen, Version, Speicherorte
