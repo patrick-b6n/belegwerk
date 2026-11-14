@@ -30,6 +30,7 @@ import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingTable } from "@/ui/bookings/booking-table";
 import { useCategoryList } from "@/ui/categories/category-queries";
 import { Page, PagePlaceholder } from "@/ui/layout/page";
+import { StripeImportButton } from "@/ui/stripe/stripe-import-dialog";
 import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
 /**
@@ -38,7 +39,8 @@ import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
  * params of this route (`validateBookingSearch`, schema in
  * `booking-filter-model.ts`) and go into the list query
  * (`BookingService.list(query)`, #21): sorting and paging happen in SQL.
- * "CSV exportieren" (#24) saves all bookings of the filters in that order.
+ * "CSV exportieren" (#24) saves all bookings of the filters in that order;
+ * "Stripe importieren" (#31) opens the import dialog.
  */
 export const Route = createFileRoute("/buchungen/")({
   validateSearch: validateBookingSearch,
@@ -107,6 +109,7 @@ function BookingsPage() {
             total={list.data?.ok && !list.isPlaceholderData ? list.data.total : undefined}
             invalid={!normalized.ok}
           />
+          <StripeImportButton />
           <Link to="/buchungen/neu" className={buttonVariants()}>
             <Plus aria-hidden />
             {m.bookings_new()}

@@ -21,3 +21,22 @@ export function useStripeSettings() {
     queryFn: () => stripeSettings.get(),
   });
 }
+
+/**
+ * TanStack Query keys of the Stripe import (#31). The status changes only
+ * with an import (`useStripeImport` invalidates it).
+ */
+export const stripeImportQueryKeys = {
+  all: ["stripeImport"] as const,
+  /** Last import (`StripeImportService.getStatus`), for the default period. */
+  status: () => [...stripeImportQueryKeys.all, "status"] as const,
+};
+
+/** When the last import ran and up to which day („seit dem letzten Import“). */
+export function useStripeImportStatus() {
+  const { stripeImport } = useAppServices();
+  return useQuery({
+    queryKey: stripeImportQueryKeys.status(),
+    queryFn: () => stripeImport.getStatus(),
+  });
+}
