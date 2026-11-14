@@ -729,8 +729,13 @@ Entscheidungen und Ergebnisform:
   eine URL für die Liste samt Search-Params, und die Navigation markiert sie
   eindeutig als aktiv.
 - Das Layout (`src/ui/layout/app-shell.tsx`) rendert die Root-Route um das
-  `<Outlet />`. Seiten nutzen `Page` aus `src/ui/layout/page.tsx` und setzen
-  den Dokumenttitel über `head` (`m.page_title({ page })`).
+  `<Outlet />`: oben eine Leiste (Logo, Hauptnavigation, Update-Hinweis,
+  Einstellungen), darunter der Inhalt als abgerundete Fläche; Leiste und ein
+  schmaler Rand in der Sidebar-Farbe rahmen ihn ein. Seiten nutzen `Page` aus
+  `src/ui/layout/page.tsx` (kompakte Kopfzeile mit Titel und Aktionen, volle
+  Breite; Formulare begrenzen ihre Breite selbst; `fill` für Seiten mit
+  eigenem Scrollbereich wie die Buchungsliste) und setzen den Dokumenttitel
+  über `head` (`m.page_title({ page })`).
 - Gescrollt wird der Inhaltsbereich (`#app-content`), nicht das Fenster;
   der Router setzt ihn bei Navigation zurück (`scrollToTopSelectors`).
   Ein Skip-Link springt dorthin.
@@ -826,7 +831,9 @@ Buchung kurz als „nicht gefunden“.
 ### Filter und Suche (#22)
 
 Suchfeld und Filterleiste (`src/ui/bookings/booking-filter-bar.tsx`) über der
-Liste. Die reine Logik – URL-Schema, Abbildung auf `BookingQuery`,
+Liste, kompakt in einer (umbrechenden) Zeile: Die Labels der Auswahlfelder
+sind nur für Screenreader, der Trigger nennt den Filter selbst („Art: Alle“)
+und ist hervorgehoben, solange der Filter aktiv ist. Die reine Logik – URL-Schema, Abbildung auf `BookingQuery`,
 Schnellwahl-Zeiträume, Kategorie-Optionen – liegt getestet in
 `booking-filter-model.ts`.
 
@@ -898,7 +905,7 @@ optional; Standardwerte stehen nie in der URL):
   neue Suche lädt, bleibt das alte Ergebnis gedimmt stehen (nur ein
   erfolgreiches, `placeholderData`); ein ungültiger Filter fragt nicht ab
   (`enabled: false`).
-- **Zurücksetzen** leert alle Filter (deaktiviert, wenn keiner aktiv ist;
+- **Zurücksetzen** leert alle Filter (nur sichtbar, wenn einer aktiv ist;
   daneben „N Filter aktiv“), baut die Filterleiste neu auf und setzt den
   Fokus ins Suchfeld.
 - **Zurücksetzen** behält Sortierung und Seitengröße (#23), die Seite geht
@@ -933,13 +940,18 @@ optional; Standardwerte stehen nie in der URL):
   und einen Pfeil, der Tooltip nennt die Aktion („Nach Brutto aufsteigend
   sortieren“), die Caption die aktuelle Sortierung. Keine TanStack-Sortierung:
   die Zeilen kommen sortiert aus SQL.
-- **Pagination** (`booking-pagination.tsx`, `<nav>`) unter der Tabelle:
+- **Scrollen:** Die Tabelle scrollt in ihrem eigenen Kasten, der
+  Spaltenkopf bleibt oben stehen (`sticky`); Summen und Pagination stehen
+  fest in der Fußzeile des Kastens.
+- **Pagination** (`booking-pagination.tsx`, `<nav>`) rechts in der Fußzeile:
   „51–100 von 120“, „Pro Seite“, Erste/Vorherige/Nächste/Letzte (Icons mit
   `aria-label`, deaktiviert am Rand, aber fokussierbar – der Fokus bleibt nach „Letzte Seite“ stehen), „Seite X von Y“ (`aria-live`).
-- **Summenzeilen** im `tfoot`: Einnahmen, Ausgaben, Saldo (brutto) des
-  **gesamten** gefilterten Bestands (`sums`), unter der Brutto-Spalte; der
-  Text daneben sagt „nicht nur dieser Seite“. Der Saldo hat Vorzeichen und
-  Wort („Überschuss“/„Fehlbetrag“), nicht nur Farbe.
+- **Summen** (`BookingSumsSummary`) links in der Fußzeile: Einnahmen,
+  Ausgaben, Saldo (brutto) des **gesamten** gefilterten Bestands (`sums`);
+  Gruppenname und Tooltip sagen „nicht nur dieser Seite“. Der Saldo hat
+  Vorzeichen und Wort („Überschuss“/„Fehlbetrag“), nicht nur Farbe. Die
+  Trefferzahl („N Buchungen gefunden“) ist ein `role="status"` nur für
+  Screenreader; sichtbar steht sie in der Pagination („1–50 von 120“).
 - **CSV-Export (#24):** `bookingSearchToQuery(search)` plus
   `sort: bookingSearchSort(search)` und `pageSize: "all"` – derselbe Filter
   und dieselbe Sortierung wie die Liste, alle Seiten (siehe
@@ -1461,7 +1473,7 @@ und Release-Workflow: [Release](release.md#auto-update-71).
 | `src/business/updates/update-service.ts` | Port `Updater`, `UpdateError` (Codes), `createUpdateService({ updater })`, `downloadPercent`                                                             |
 | `src/business/updates/calver.ts`         | Versionsschema `YYYY-MM-DD-HHMM` (UTC) ↔ SemVer `YYYY.MMDD.HHMM`, nächste Release-Version (auch für `scripts/`, [Release](release.md#versionsschema-71)) |
 | `src/app/tauri-updater.ts`               | `createTauriUpdater()`: `invoke` der Commands (Fortschritt per `Channel`), `openUrl` aus `plugin-opener`                                                 |
-| `src/ui/updates/`                        | Hinweis in der Seitennavigation, Abschnitt „Updates“ in den Einstellungen, Texte zu Codes, Query/Mutations                                               |
+| `src/ui/updates/`                        | Hinweis in der oberen Leiste, Abschnitt „Updates“ in den Einstellungen, Texte zu Codes, Query/Mutations                                                  |
 
 - **Rust statt WebView:** Netzwerk und Dateiaustausch laufen in Rust (keine
   CSP-Erweiterung, kein HTTP-Scope für GitHub). Die Commands sind im
@@ -1479,8 +1491,9 @@ und Release-Workflow: [Release](release.md#auto-update-71).
   `["updates", "check"]`, einmal pro Programmlauf, `staleTime: Infinity`)
   ruft `updates.checkInBackground()`: Fehler werden nur protokolliert
   (Konsole, Rust-Log), Ergebnis `null`, kein Hinweis. Der Hinweis
-  (`UpdateNotice`, über „Einstellungen“ in der Seitennavigation) erscheint
-  nur bei `updateAvailable`; „Hinweis ausblenden“ blendet ihn für diese
+  (`UpdateNotice`, links von „Einstellungen“ in der oberen Leiste: ein
+  Badge „Update verfügbar“, das Version und Aktionen in einem Popover zeigt)
+  erscheint nur bei `updateAvailable`; „Hinweis ausblenden“ blendet ihn für diese
   Version bis zum nächsten Start aus.
 - **„Nach Updates suchen“** (`UpdateSection`): Mutation, Ergebnis als
   `role="status"` (aktuell / neuere Version / Fehler); ein Erfolg schreibt es

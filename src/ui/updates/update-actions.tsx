@@ -10,7 +10,7 @@ import { useInstallUpdate, useOpenReleaseNotes } from "./update-queries";
 
 /**
  * "Release-Notes" and "Jetzt aktualisieren" for a newer version (#71), used
- * by the notice in the side navigation and by the settings section.
+ * by the notice in the top bar and by the settings section.
  *
  * - The release notes open in the default browser.
  * - While the update runs the button is disabled (still focusable) with a

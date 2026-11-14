@@ -49,8 +49,13 @@ function EuerPage() {
     <Page
       title={m.euer_title()}
       actions={
-        <div className="flex flex-wrap items-end gap-2">
-          <FormField id="euer-year" label={m.euer_year_label()} errors={[]} className="w-28">
+        <div className="flex flex-wrap items-center gap-2">
+          <FormField
+            id="euer-year"
+            label={m.euer_year_label()}
+            errors={[]}
+            className="w-auto flex-row items-center gap-2 *:w-auto"
+          >
             {(control) => (
               <Select<string>
                 items={yearOptions.map((option) => ({
@@ -85,7 +90,7 @@ function EuerPage() {
         </div>
       }
     >
-      <p className="-mt-3 max-w-3xl text-sm text-muted-foreground">{m.euer_description()}</p>
+      <p className="max-w-3xl text-sm text-muted-foreground">{m.euer_description()}</p>
       <EuerYear year={year} />
     </Page>
   );
