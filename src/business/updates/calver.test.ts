@@ -7,6 +7,8 @@ import {
   compareCalVer,
   displayVersion,
   latestCalVerOfTags,
+  nextMinuteCalVer,
+  nextReleaseCalVer,
   parseCalVer,
   semVerToCalVer,
 } from "./calver";
@@ -67,9 +69,58 @@ describe("calVerToSemVer / semVerToCalVer", () => {
 });
 
 describe("calVerFromDate", () => {
-  it("uses the local wall-clock time", () => {
-    expect(calVerFromDate(new Date(2026, 10, 14, 20, 0, 59))).toBe("2026-11-14-2000");
-    expect(calVerFromDate(new Date(2026, 0, 5, 9, 30))).toBe("2026-01-05-0930");
+  it.each([
+    ["2026-11-14T20:00:59Z", "2026-11-14-2000"],
+    ["2026-01-05T09:30:00Z", "2026-01-05-0930"],
+    ["2026-12-31T23:59:00Z", "2026-12-31-2359"],
+    ["2027-01-01T00:00:00Z", "2027-01-01-0000"],
+  ])("uses UTC: %s is %s", (instant, calVer) => {
+    expect(calVerFromDate(new Date(instant))).toBe(calVer);
+  });
+
+  it("does not depend on the offset the instant is written with", () => {
+    // 20:00 in Berlin in winter (CET, UTC+1) and in summer (CEST, UTC+2).
+    expect(calVerFromDate(new Date("2026-11-14T20:00:00+01:00"))).toBe("2026-11-14-1900");
+    expect(calVerFromDate(new Date("2026-07-15T20:00:00+02:00"))).toBe("2026-07-15-1800");
+  });
+});
+
+describe("nextMinuteCalVer", () => {
+  it.each([
+    ["2026-11-14-2000", "2026-11-14-2001"],
+    ["2026-11-14-2059", "2026-11-14-2100"],
+    ["2026-11-14-2359", "2026-11-15-0000"],
+    ["2026-04-30-2359", "2026-05-01-0000"],
+    ["2026-02-28-2359", "2026-03-01-0000"],
+    ["2028-02-28-2359", "2028-02-29-0000"],
+    ["2028-02-29-2359", "2028-03-01-0000"],
+    ["2026-12-31-2359", "2027-01-01-0000"],
+  ])("%s → %s", (calVer, next) => {
+    expect(nextMinuteCalVer(calVer)).toBe(next);
+    expect(compareCalVer(next, calVer)).toBeGreaterThan(0);
+  });
+
+  it("throws for an invalid CalVer and after 9999", () => {
+    expect(() => nextMinuteCalVer("2026-13-01-0000")).toThrow(/Invalid CalVer/);
+    expect(() => nextMinuteCalVer("9999-12-31-2359")).toThrow(/No CalVer/);
+  });
+});
+
+describe("nextReleaseCalVer", () => {
+  it("takes the current time if there is no release yet", () => {
+    expect(nextReleaseCalVer("2026-11-14-2000", null)).toBe("2026-11-14-2000");
+  });
+
+  it("takes the current time if it is newer than the latest release", () => {
+    expect(nextReleaseCalVer("2026-11-14-2001", "2026-11-14-2000")).toBe("2026-11-14-2001");
+  });
+
+  it.each([
+    ["the same minute", "2026-11-14-2000", "2026-11-14-2000", "2026-11-14-2001"],
+    ["a clock behind", "2026-11-14-1958", "2026-11-14-2000", "2026-11-14-2001"],
+    ["the end of the year", "2026-12-31-2359", "2026-12-31-2359", "2027-01-01-0000"],
+  ])("counts on from the latest release for %s", (_case, now, latest, next) => {
+    expect(nextReleaseCalVer(now, latest)).toBe(next);
   });
 });
 

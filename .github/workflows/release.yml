@@ -1,22 +1,27 @@
 name: Release
 
-# Ein Tag `v<YYYY-MM-DD-HHMM>` (`pnpm release:tag`) baut die .exe und legt ein GitHub-Release an (#71).
-# Die App prüft beim Start das neueste Release und aktualisiert sich daraus
-# (docs/release.md).
+# Jeder Push auf main baut die .exe und legt ein GitHub-Release mit dem Tag
+# `v<YYYY-MM-DD-HHMM>` an (#71, #74). Die App prüft beim Start das neueste
+# Release und aktualisiert sich daraus (docs/release.md).
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# Eine Gruppe für alle Läufe: Releases entstehen nacheinander, keiner wird
+# abgebrochen (die Version hängt vom zuletzt angelegten Tag ab).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
   release:
     name: Build & Release (windows-latest)
+    # workflow_dispatch geht auf jedem Branch; Releases nur von main.
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -39,25 +44,11 @@ jobs:
         with:
           node-version: 26
 
-      # Tag `v<YYYY-MM-DD-HHMM>` (CalVer, `pnpm release:tag`); daraus die
-      # Version. Andere Tags brechen ab.
-      - name: Version aus dem Tag
-        shell: bash
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          calver=$(node --input-type=module -e "
-            import { calVerFromTag, calVerToSemVer } from './src/business/updates/calver.ts';
-            const calVer = calVerFromTag(process.env.TAG);
-            if (!calVer) { console.error('Tag ' + process.env.TAG + ' ist nicht v<YYYY-MM-DD-HHMM>.'); process.exit(1); }
-            console.log(calVer);
-          ")
-          echo "VERSION=$calver" >> "$GITHUB_ENV"
-
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
 
-      # Nur lesen: der Cache von main reicht, ein Tag-Lauf speichert keinen.
+      # Nur lesen: CI (ci.yml) speichert den Cache von main; der Release-Lauf
+      # baut im selben Profil und speichert keinen zweiten.
       - name: Cargo-Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -70,6 +61,23 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+      # Version erst nach dem Verify bilden, direkt vor Build und Release:
+      # aktuelle Zeit in UTC. Ist sie nicht echt größer als das höchste
+      # vorhandene Tag `v<YYYY-MM-DD-HHMM>` (zwei Pushes in derselben Minute,
+      # Uhr geht nach), wird es höchstes Tag + 1 Minute
+      # (scripts/release-version.ts). Die Tags kommen über die API, der
+      # Checkout bleibt flach.
+      - name: Version bestimmen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tags=$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" \
+            --jq '.[].ref | ltrimstr("refs/tags/")')
+          version=$(printf '%s\n' "$tags" | node scripts/release-version.ts)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
       # Setzt die SemVer-Form der Version (YYYY.MMDD.HHMM) für den Build in
       # package.json (nicht committet), tauri build --no-bundle, kopiert nach
       # release/belegwerk-<version>.exe, schreibt die Prüfsumme und prüft die
@@ -77,16 +85,19 @@ jobs:
       - name: Build
         run: node scripts/release.ts --calver "$env:VERSION"
 
+      # Legt das Tag `v<version>` auf den gebauten Commit an. Kein Pre-release,
+      # ausdrücklich „Latest“: die App liest `releases/latest`. `gh` lädt die
+      # Assets hoch, bevor es das Release veröffentlicht.
       - name: GitHub-Release anlegen
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$TAG" \
+          gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --title "Belegwerk $VERSION" \
             --generate-notes \
-            --verify-tag \
+            --latest \
             "release/belegwerk-$VERSION.exe" \
             "release/belegwerk-$VERSION.exe.sha256"

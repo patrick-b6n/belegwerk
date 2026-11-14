@@ -7,6 +7,8 @@ export {
   displayVersion,
   formatCalVer,
   latestCalVerOfTags,
+  nextMinuteCalVer,
+  nextReleaseCalVer,
   parseCalVer,
   semVerToCalVer,
 } from "./calver";

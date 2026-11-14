@@ -1,15 +1,20 @@
-# Release (#33, #71)
+# Release (#33, #71, #74)
 
 Belegwerk wird als **einzelne `.exe`** ausgeliefert – kein Installer (kein
-NSIS/MSI), keine Code-Signierung. Releases entstehen per Git-Tag auf GitHub;
-die App aktualisiert sich daraus selbst ([Auto-Update](#auto-update-71)).
+NSIS/MSI), keine Code-Signierung. **Jeder Push auf `main` erzeugt ein
+GitHub-Release**; die App aktualisiert sich daraus selbst
+([Auto-Update](#auto-update-71)).
 
 ## Versionsschema (#71)
 
-Versionen sind **Datum und Uhrzeit des Releases** (CalVer, Ortszeit, ohne
+Versionen sind **Datum und Uhrzeit des Releases in UTC** (CalVer, ohne
 Trenner zwischen Stunde und Minute): `YYYY-MM-DD-HHMM`, z. B.
-`2026-11-14-2000` für den 14.11.2026, 20:00 Uhr. So heißen Tag
-(`v2026-11-14-2000`), Release, Assets (`belegwerk-2026-11-14-2000.exe`) und
+`2026-11-14-2000` für den 14.11.2026, 20:00 Uhr UTC. Das gilt für
+veröffentlichte Releases und lokale Builds gleichermaßen, unabhängig von der
+Zeitzone des Rechners und ohne Sprünge bei der Zeitumstellung. Die Uhrzeit
+ist also **nicht die deutsche Ortszeit**: Ein Release um 20:00 Uhr in Berlin
+heißt im Winter (MEZ, UTC+1) `…-1900`, im Sommer (MESZ, UTC+2) `…-1800`.
+So heißen Tag (`v2026-11-14-2000`), Release, Assets (`belegwerk-2026-11-14-2000.exe`) und
 so zeigt die App (Einstellungen, Update-Hinweis, Protokoll) die Version.
 
 Tauri und die Windows-Dateiversion brauchen SemVer mit Zahlen bis 65535 ohne
@@ -23,35 +28,49 @@ mit Tests.
 **Niemand pflegt die Version von Hand.** In `package.json` steht committet
 der Platzhalter `0.0.0` (Entwicklung; gilt im Updater als älter als jedes
 Release, installiert wird in Debug-Builds trotzdem nicht). Die Version
-entsteht beim Taggen bzw. Bauen; die `version` in `src-tauri/Cargo.toml` wird
-nicht verwendet.
+entsteht im Release-Workflow bzw. beim lokalen Bauen; die `version` in
+`src-tauri/Cargo.toml` wird nicht verwendet.
 
-## Release veröffentlichen (#71)
+## Release veröffentlichen (#71, #74)
 
-1. Alles ist auf `main` gemergt; lokal `main` auschecken und pullen.
-2. `pnpm release:tag` (`scripts/release-tag.ts`): prüft, dass das
-   Arbeitsverzeichnis sauber ist, `main` ausgecheckt ist und `origin/main`
-   entspricht (nach `git fetch`), bildet aus der aktuellen Ortszeit die
-   Version, legt den Tag `v<YYYY-MM-DD-HHMM>` an und pusht ihn. Die Version
-   ist der Zeitpunkt, zu dem der Tag entsteht. Es bricht ab, wenn die neue
-   Version nicht echt größer ist als alle vorhandenen Release-Tags (lokal
-   nach `git fetch --tags` und auf `origin`, verglichen in SemVer-Form) –
-   etwa bei falsch gehender Uhr oder zweimal in derselben Minute.
-3. Der Push startet `.github/workflows/release.yml` (windows-latest, gleiches
-   Setup wie CI):
-   - prüft das Format des Tags (`v` + gültiges Datum/Uhrzeit, sonst Abbruch)
-     und bildet daraus die Version,
-   - führt `pnpm verify` aus,
-   - baut mit `node scripts/release.ts --calver <version>`: setzt die
-     SemVer-Form in `package.json` (nur im Checkout von CI, nicht
-     committet), gleiches Release-Profil wie CI, prüft die Dateiversion der
-     `.exe`,
-   - legt mit `gh release create --generate-notes` das GitHub-Release
-     „Belegwerk `<version>`“ an, mit den Assets `belegwerk-<version>.exe` und
-     `belegwerk-<version>.exe.sha256`. `gh` lädt die Assets hoch, bevor es das
-     Release veröffentlicht – die App sieht also nie ein Release ohne Assets.
+Es gibt keinen manuellen Schritt: **Jeder Push auf `main`** (also jeder
+gemergte Pull Request) startet `.github/workflows/release.yml`
+(windows-latest, gleiches Setup wie CI). Von Hand lässt sich der Workflow
+über „Run workflow“ (`workflow_dispatch`) starten – nur auf `main`, auf
+anderen Branches wird der Job übersprungen.
 
-Der Job hat als einziger `contents: write`. Vorabversionen (in GitHub als
+1. `pnpm verify`.
+2. **Version bestimmen** (`scripts/release-version.ts`): die aktuelle Zeit
+   in **UTC** als `YYYY-MM-DD-HHMM` (`calVerFromDate`). Die vorhandenen
+   Tags `v*` holt der Workflow über die GitHub-API
+   (`git/matching-refs/tags/v`). Ist die Uhrzeit **nicht echt größer** als
+   das höchste Release-Tag (verglichen in SemVer-Form), wird die Version
+   **höchstes Tag + 1 Minute** (`nextReleaseCalVer`, mit Übertrag in Stunde,
+   Tag, Monat und Jahr) – etwa bei zwei Pushes in derselben Minute oder
+   einer nachgehenden Uhr. Der Lauf scheitert also nicht und wartet auch
+   nicht; die Version liegt dann höchstens ein paar Minuten vor der Uhrzeit.
+3. Build mit `node scripts/release.ts --calver <version>`: setzt die
+   SemVer-Form in `package.json` (nur im Checkout von CI, nicht committet),
+   gleiches Release-Profil wie CI, prüft die Dateiversion der `.exe`.
+4. `gh release create "v<version>" --target <commit> --generate-notes
+   --latest`: legt das Tag `v<version>` auf den gebauten Commit und das
+   GitHub-Release „Belegwerk `<version>`“ an, mit den Assets
+   `belegwerk-<version>.exe` und `belegwerk-<version>.exe.sha256`. Das
+   Release ist kein Pre-release und als „Latest“ markiert – genau das liest
+   die App (`releases/latest`). `gh` lädt die Assets hoch, bevor es das
+   Release veröffentlicht – die App sieht also nie ein Release ohne Assets.
+
+**Nacheinander:** Alle Läufe teilen sich eine Concurrency-Gruppe ohne
+Abbruch (`cancel-in-progress: false`). Ein zweiter Push wartet, bis das
+vorige Release angelegt ist, und sieht dessen Tag beim Bestimmen der
+Version. Wartet schon ein Lauf und kommt ein weiterer Push, ersetzt GitHub
+den wartenden durch den neuen (nur der jeweils neueste wartende Lauf bleibt);
+dessen Release enthält dann auch die Commits des übersprungenen.
+
+Der Job hat als einziger `contents: write`; der Checkout speichert keine
+Zugangsdaten (`persist-credentials: false`), `gh` nutzt das `GITHUB_TOKEN`.
+Den Cargo-Cache stellt der Job nur wieder her (von CI auf `main`
+gespeichert), er speichert keinen eigenen. Vorabversionen (in GitHub als
 „Pre-release“ markiert) und Entwürfe liefert die API unter
 `releases/latest` nicht aus; die App bietet sie also nicht an.
 
@@ -62,10 +81,13 @@ pnpm verify    # format:check, lint, typecheck, test
 pnpm release   # baut die .exe
 ```
 
+Lokale Builds werden **nicht veröffentlicht** – Releases entstehen nur im
+Workflow ([Release veröffentlichen](#release-veröffentlichen-71-74)).
+
 `pnpm release` (`scripts/release.ts`):
 
-1. Version = aktuelle Ortszeit (`YYYY-MM-DD-HHMM`) oder `--calver
-   <YYYY-MM-DD-HHMM>` (so ruft der Workflow es auf). Die SemVer-Form kommt
+1. Version = aktuelle Zeit in UTC (`YYYY-MM-DD-HHMM`, wie im Workflow) oder
+   `--calver <YYYY-MM-DD-HHMM>` (so ruft der Workflow es auf). Die SemVer-Form kommt
    für den Build in `package.json` und wird danach wiederhergestellt (auch
    bei Fehlern und Strg+C).
 2. `pnpm tauri build --no-bundle` – Frontend bauen (`pnpm build`,

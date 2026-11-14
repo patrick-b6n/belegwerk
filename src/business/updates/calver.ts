@@ -1,6 +1,7 @@
 /**
- * Version scheme (#71): Belegwerk versions are the local date and time of the
- * release, shown as `YYYY-MM-DD-HHMM` (e.g. `2026-11-14-2000`) – in the tag
+ * Version scheme (#71, #74): Belegwerk versions are the date and time of the
+ * release in UTC (published releases and local builds alike), shown as
+ * `YYYY-MM-DD-HHMM` (e.g. `2026-11-14-2000`) – in the tag
  * (`v2026-11-14-2000`), the asset names and the UI.
  *
  * Tauri and the Windows file version need SemVer with numeric parts of at
@@ -45,14 +46,17 @@ export function formatCalVer({ year, month, day, hour, minute }: CalVerParts): s
   return `${pad(year, 4)}-${pad(month)}-${pad(day)}-${pad(hour)}${pad(minute)}`;
 }
 
-/** The version of a point in time, in local wall-clock time. */
+/**
+ * The version of a point in time, in UTC – independent of the machine's time
+ * zone, without DST jumps (#74).
+ */
 export function calVerFromDate(date: Date): string {
   return formatCalVer({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-    minute: date.getMinutes(),
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
   });
 }
 
@@ -134,6 +138,33 @@ export function latestCalVerOfTags(tags: Iterable<string>): string | null {
     }
   }
   return latest;
+}
+
+/**
+ * The CalVer one minute after `calVer` (rolls over hour, day, month and
+ * year; leap years included). Pure calendar arithmetic in UTC.
+ *
+ * @throws if `calVer` is invalid or the result has no four-digit year.
+ */
+export function nextMinuteCalVer(calVer: string): string {
+  const parts = parseCalVer(calVer);
+  if (!parts) throw new Error(`Invalid CalVer ${JSON.stringify(calVer)}`);
+  const { year, month, day, hour, minute } = parts;
+  // Date.UTC normalises overflowing minutes.
+  const result = calVerFromDate(new Date(Date.UTC(year, month - 1, day, hour, minute + 1)));
+  if (!parseCalVer(result)) throw new Error(`No CalVer after ${calVer}`);
+  return result;
+}
+
+/**
+ * The version of a new release (#74): `now`, unless it is not strictly newer
+ * than the latest release `latest` (two releases in the same minute, a clock
+ * running behind) – then one minute after
+ * `latest`. Always strictly newer than `latest`.
+ */
+export function nextReleaseCalVer(now: string, latest: string | null): string {
+  if (latest === null || compareCalVer(now, latest) > 0) return now;
+  return nextMinuteCalVer(latest);
 }
 
 /** How a package version is shown: CalVer, or unchanged (e.g. `0.0.0`). */
