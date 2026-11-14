@@ -245,7 +245,7 @@ Release: gleiche Prüfungen (inkl. Migrationen), Version aus der aktuellen
 Zeit in UTC (echt größer als das letzte Release-Tag, sonst dieses + 1
 Minute), Build und ein
 GitHub-Release mit `.exe` und `.sha256` samt Tag `v<YYYY-MM-DD-HHMM>` auf dem
-Commit. Die Läufe laufen nacheinander, keiner wird abgebrochen
+Commit. Es läuft nur ein Lauf; ein neuer Push bricht den laufenden ab
 ([Release](docs/release.md#release-veröffentlichen-71-74)).
 
 ## Architektur

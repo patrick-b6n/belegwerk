@@ -1250,7 +1250,7 @@ danach „Datensicherung“ ([#32](#datensicherung-32)) und „Updates“
 getestet in `tax-year-model.ts`, Texte in `tax-year-messages.ts`, Mutationen
 in `tax-year-mutations.ts`):
 
-- **Liste** aus `useTaxYearList()`, neueste Jahre zuerst: Jahr, Status
+- **Liste** aus `useTaxYearList()`, älteste Jahre zuerst: Jahr, Status
   (Regelbesteuerung / Kleinunternehmer § 19 UStG) und ein Schalter
   „Kleinunternehmer“ (shadcn `Switch`). Jahre ohne Datensatz tragen
   „Standard, nicht gespeichert“. Gibt es unpassende Buchungen
@@ -1517,7 +1517,7 @@ und Release-Workflow: [Release](release.md#auto-update-71).
 Ausgeliefert wird eine einzelne, unsignierte `.exe` ohne Installer
 (`pnpm release`, Release-Profil, Version, Speicherorte, SmartScreen:
 [Release](release.md)); jeder Push auf `main` erzeugt ein Release (Version
-= Zeit in UTC, Läufe nacheinander), die App aktualisiert sich
+= Zeit in UTC, ein neuer Push bricht den laufenden Lauf ab), die App aktualisiert sich
 daraus ([Auto-Update](#auto-update-71)). `tauri-plugin-single-instance` ist das erste Plugin in
 `src-tauri/src/lib.rs`: Ein zweiter Start beendet sich und holt das Fenster
 `main` der laufenden Instanz nach vorn – nie öffnen zwei Prozesse dieselbe

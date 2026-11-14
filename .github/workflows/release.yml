@@ -11,13 +11,14 @@ on:
 permissions:
   contents: read
 
-# One group per ref: releases from main are created one after another, none
-# is cancelled (the version depends on the most recently created tag). A
+# One group per ref: only one release run per ref at a time; a new push
+# cancels the running one. Its commits are part of the newer run's release,
+# and a cancelled run never created a tag, so the version stays consistent. A
 # workflow_dispatch on another branch lands in its own group and does not
-# displace a pending main run.
+# displace a main run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   release:
