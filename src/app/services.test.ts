@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { CSV_LINE_ENDING } from "@/business/csv";
+import type { FileSaver, SaveTextFileRequest } from "@/business/files";
 import { createTestDb } from "@/persistence/__tests__/test-db";
 
 import { createAppServices } from "./services";
 
 const NOW = new Date("2025-03-07T12:34:56.789Z");
 
-async function setup() {
+async function setup(fileSaver?: FileSaver) {
   const { database, sqlite } = await createTestDb();
-  const services = createAppServices(database, () => NOW);
+  const services = createAppServices(database, () => NOW, fileSaver);
   const categoryId = (type: string) =>
     (
       sqlite
@@ -123,6 +125,68 @@ describe("createAppServices – bookings on SQLite", () => {
     });
   });
 });
+
+// The CSV export (#24) through the composition root: the bookings of the
+// real search (SQLite), written by a fake save dialog.
+describe("createAppServices – CSV export on SQLite", () => {
+  it("exports every matching booking", async () => {
+    const requests: SaveTextFileRequest[] = [];
+    const { services, incomeId } = await setup({
+      saveTextFile: async (request) => {
+        requests.push(request);
+        return { saved: true, path: "C:\\Export\\buchungen.csv" };
+      },
+    });
+    for (const description of ["Müller", "Zeile;mit;Semikolon"]) {
+      await services.bookings.create({
+        date: "2025-03-01",
+        type: "income",
+        grossCents: 123456,
+        vatRate: "19",
+        categoryId: incomeId,
+        description,
+        counterparty: "Kunde",
+        reference: null,
+        note: null,
+      });
+    }
+    const result = await services.bookingExport.exportCsv({
+      query: { text: "e", sort: { field: "description", direction: "asc" }, pageSize: 1 },
+      labels: {
+        columns: {
+          date: "Datum",
+          type: "Art",
+          description: "Beschreibung",
+          counterparty: "Gegenpartei",
+          category: "Kategorie",
+          netCents: "Netto",
+          vatRate: "USt-Satz",
+          vatCents: "USt",
+          grossCents: "Brutto",
+          reference: "Referenz",
+          note: "Notiz",
+          source: "Quelle",
+          externalId: "Externe ID",
+        },
+        types: { income: "Einnahme", expense: "Ausgabe" },
+        vatRates: { "19": "19 %", "7": "7 %", "0": "0 %", reverse_charge: "Reverse Charge" },
+        sources: { manual: "Manuell", stripe: "Stripe" },
+      },
+      fileName: { base: "buchungen", today: "2025-03-07", fromWord: "ab", toWord: "bis" },
+      filterName: "CSV-Datei",
+    });
+    expect(result).toEqual({ ok: true, saved: true, fileName: "buchungen.csv", count: 2 });
+    const rows = (requests[0]?.content ?? "").split(CRLF);
+    expect(rows).toHaveLength(4);
+    expect(rows[1]).toMatch(
+      /^01\.03\.2025;Einnahme;Müller;Kunde;[^;]+;1037,45;19 %;197,11;1234,56;;;Manuell;$/,
+    );
+    expect(rows[2]).toContain(';"Zeile;mit;Semikolon";');
+    expect(rows[3]).toBe("");
+  });
+});
+
+const CRLF = CSV_LINE_ENDING;
 
 // The category service against SQLite with the seeded default categories.
 describe("createAppServices – categories on SQLite", () => {

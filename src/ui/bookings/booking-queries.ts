@@ -1,7 +1,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
-import type { BookingFormInput, BookingQuery } from "@/business/bookings";
+import type { BookingFormInput, BookingQuery, ExportBookingsCsvRequest } from "@/business/bookings";
 import { categoryQueryKeys } from "@/ui/categories/category-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
 
@@ -119,4 +119,17 @@ export function useBookingMutations() {
     onSettled,
   });
   return { create, update, remove };
+}
+
+/**
+ * CSV export of the booking list (#24): loads all matching bookings, opens
+ * the save dialog and writes the file (`BookingExportService.exportCsv`).
+ * Reads only, so nothing is invalidated. A cancelled dialog is a result
+ * (`saved: false`); a failed write rejects.
+ */
+export function useBookingCsvExport() {
+  const { bookingExport } = useAppServices();
+  return useMutation({
+    mutationFn: (request: ExportBookingsCsvRequest) => bookingExport.exportCsv(request),
+  });
 }

@@ -24,6 +24,7 @@ import {
   updateBookingSearch,
   validateBookingSearch,
 } from "@/ui/bookings/booking-filter-model";
+import { BookingExportButton } from "@/ui/bookings/booking-export-button";
 import { BookingPagination } from "@/ui/bookings/booking-pagination";
 import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingTable } from "@/ui/bookings/booking-table";
@@ -37,6 +38,7 @@ import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
  * params of this route (`validateBookingSearch`, schema in
  * `booking-filter-model.ts`) and go into the list query
  * (`BookingService.list(query)`, #21): sorting and paging happen in SQL.
+ * "CSV exportieren" (#24) saves all bookings of the filters in that order.
  */
 export const Route = createFileRoute("/buchungen/")({
   validateSearch: validateBookingSearch,
@@ -54,10 +56,17 @@ function BookingsPage() {
 
   const filterQuery = useMemo(() => bookingSearchToQuery(search), [search]);
   const listQuery = useMemo(() => bookingSearchToListQuery(search), [search]);
+  // CSV export (#24): the same filters and sort order, every page.
+  const exportQuery = useMemo(
+    () => ({ ...bookingSearchToQuery(search), sort: bookingSearchSort(search) }),
+    [search],
+  );
   // Sort order and page come from validated params; only filters can be invalid.
   const normalized = normalizeBookingQuery(filterQuery);
   const errors = normalized.ok ? [] : normalized.errors;
   const filtered = countActiveFilters(search) > 0;
+  // Same query (and cache entry) as the list below; for the export button's total.
+  const list = useBookingList(listQuery, { enabled: normalized.ok });
 
   // Patches apply to the current search (`prev`), not to the one of the last
   // render: two changes in a row (e.g. a debounced commit right after a
@@ -91,10 +100,18 @@ function BookingsPage() {
     <Page
       title={m.bookings_title()}
       actions={
-        <Link to="/buchungen/neu" className={buttonVariants()}>
-          <Plus aria-hidden />
-          {m.bookings_new()}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <BookingExportButton
+            query={exportQuery}
+            // Not from the previous search's placeholder: its total may differ.
+            total={list.data?.ok && !list.isPlaceholderData ? list.data.total : undefined}
+            invalid={!normalized.ok}
+          />
+          <Link to="/buchungen/neu" className={buttonVariants()}>
+            <Plus aria-hidden />
+            {m.bookings_new()}
+          </Link>
+        </div>
       }
     >
       <BookingFilterBar

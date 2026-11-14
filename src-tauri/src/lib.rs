@@ -24,6 +24,11 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_sql::Builder::new().build())
+        // CSV export (#24): save dialog, then writing the chosen file. The
+        // dialog adds the chosen path to the fs scope; capabilities grant no
+        // other paths (src-tauri/capabilities/default.json).
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // Without a pool the frontend gets "database not loaded" and shows
             // its startup error screen; the cause is in the log.
