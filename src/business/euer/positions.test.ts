@@ -4,6 +4,7 @@ import {
   EUER_POSITION_DEFINITIONS,
   EUER_POSITIONS,
   isEuerPosition,
+  isTaxOfficePayment,
   positionForTaxStatus,
 } from "./positions";
 
@@ -98,5 +99,14 @@ describe("positionForTaxStatus", () => {
     expect(positionForTaxStatus("UST_ERSTATTUNG", true)).toBe("UST_ERSTATTUNG");
     expect(positionForTaxStatus("TELEKOMMUNIKATION", true)).toBe("TELEKOMMUNIKATION");
     expect(positionForTaxStatus("UST_AN_FA", true)).toBe("UST_AN_FA");
+  });
+});
+
+describe("isTaxOfficePayment", () => {
+  it("is true only for VAT payments to and refunds from the tax office", () => {
+    const taxOffice = EUER_POSITIONS.filter((position) => isTaxOfficePayment(position));
+    expect(taxOffice).toEqual(["UST_ERSTATTUNG", "UST_AN_FA"]);
+    expect(isTaxOfficePayment("NOT_A_POSITION")).toBe(false);
+    expect(isTaxOfficePayment("")).toBe(false);
   });
 });

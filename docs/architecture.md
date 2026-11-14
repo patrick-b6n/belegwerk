@@ -119,8 +119,9 @@ gibt es nur in `src/persistence`.
   liefert die passenden Buchungen sortiert (optional ein Fenster),
   `summarize(filter)` Anzahl und Bruttosummen je Art aller passenden
   Buchungen – Filtern, Sortieren, Blättern und Summieren per SQL. Details
-  unter [Buchungssuche](#buchungssuche-21). EÜR-Summen (#25) kommen ebenso als
-  eigene Methode.
+  unter [Buchungssuche](#buchungssuche-21). Die EÜR (#25) liest
+  `sumByCategoryAndVatRate(year)`: Summen je Kategorie, Art und USt-Satz in
+  einer Aggregat-Abfrage.
 
 ### Transaktionen: nur über `UnitOfWork.run`
 
@@ -458,6 +459,17 @@ einer Kategorie (`validateCategoryPosition`). Die Standardkategorien legt die
 Migration `0001_default_categories` an. Details, Quellen und das Vorgehen für
 ein neues Steuerjahr: [Datenmodell](data-model.md#eür-positionen-13).
 
+## EÜR-Service (#25)
+
+`src/business/euer` – `createEuerService({ unitOfWork })` mit
+`calculate(year)`, in `AppServices` als `euer`. Eine Unit of Work liest den
+Steuerstatus (ohne Datensatz regelbesteuert, #16), alle Kategorien (inkl.
+archivierter) und `BookingRepository.sumByCategoryAndVatRate(year)`; die
+Rechnung selbst ist die reine Funktion `calculateEuer`. Ergebnis
+`{ ok: true, euer }` oder `invalidYear` (ohne Datenbankzugriff). Regeln,
+Entscheidungen und Ergebnisform:
+[Datenmodell](data-model.md#eür-berechnung-25).
+
 ## App-Shell & Routen
 
 | Route                   | Bereich                                                             |
@@ -765,6 +777,11 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   Flackern).
 - **Vorschau** Netto/USt/Brutto live mit `calculateBookingAmounts`, „–“
   solange Betrag oder Satz ungültig sind.
+- **USt-Kategorien des Finanzamts:** Wählt der Nutzer eine Kategorie mit
+  `UST_AN_FA` oder `UST_ERSTATTUNG` (`isTaxOfficePayment`), setzt das
+  Formular den USt-Satz auf `0` und zeigt (regelbesteuert) einen Hinweis;
+  der Satz bleibt änderbar, der Service prüft unverändert. Die EÜR zählt
+  solche Buchungen ohnehin brutto (#25).
 - **Kategorie:** nur Kategorien der Art, ohne archivierte – außer der
   bisherigen Kategorie der bearbeiteten Buchung und der gerade gewählten
   (wird sie währenddessen archiviert, bleibt sie markiert sichtbar und der

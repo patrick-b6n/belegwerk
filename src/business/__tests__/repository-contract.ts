@@ -311,6 +311,158 @@ export function describeRepositoryContract(
           withoutVatRate: 1,
         });
       });
+
+      it("sums a year's bookings by category, type and VAT rate", async () => {
+        expect(await repos.bookings.sumByCategoryAndVatRate(2025)).toEqual([]);
+        const sales = await insertCategory({ name: "Umsatz" });
+        const office = await insertCategory({
+          name: "Büro",
+          type: "expense",
+          euerPosition: "ARBEITSMITTEL",
+        });
+        const refund = await insertCategory({
+          name: "Erstattung",
+          type: "expense",
+          reducesIncome: true,
+        });
+        const noRate = { vatRate: null, netCents: 500, vatCents: 0, grossCents: 500 } as const;
+        // Outside the year.
+        await insertBooking({ categoryId: sales.id, date: "2024-12-31" });
+        await insertBooking({ categoryId: sales.id, date: "2026-01-01" });
+        // 19 %: per-booking amounts are summed as stored (not recomputed from gross).
+        await insertBooking({ categoryId: sales.id, date: "2025-01-01" });
+        await insertBooking({
+          categoryId: sales.id,
+          date: "2025-12-31",
+          grossCents: 1,
+          netCents: 1,
+          vatCents: 0,
+        });
+        await insertBooking({ categoryId: sales.id, date: "2025-06-01", ...noRate });
+        await insertBooking({ categoryId: sales.id, date: "2025-06-02", ...noRate });
+        await insertBooking({
+          categoryId: sales.id,
+          date: "2025-06-03",
+          vatRate: "reverse_charge",
+          ...amounts(2000),
+        });
+        await insertBooking({
+          categoryId: sales.id,
+          date: "2025-06-04",
+          vatRate: "0",
+          ...amounts(300),
+        });
+        await insertBooking({
+          categoryId: sales.id,
+          date: "2025-06-05",
+          vatRate: "7",
+          grossCents: 107,
+          netCents: 100,
+          vatCents: 7,
+        });
+        await insertBooking({
+          categoryId: office.id,
+          type: "expense",
+          date: "2025-02-01",
+          ...amounts(800),
+          vatRate: "0",
+        });
+        await insertBooking({ categoryId: refund.id, type: "expense", date: "2025-03-01" });
+
+        expect(await repos.bookings.sumByCategoryAndVatRate(2025)).toEqual([
+          {
+            categoryId: sales.id,
+            type: "income",
+            vatRate: null,
+            count: 2,
+            grossCents: 1000,
+            netCents: 1000,
+            vatCents: 0,
+          },
+          {
+            categoryId: sales.id,
+            type: "income",
+            vatRate: "0",
+            count: 1,
+            grossCents: 300,
+            netCents: 300,
+            vatCents: 0,
+          },
+          {
+            categoryId: sales.id,
+            type: "income",
+            vatRate: "19",
+            count: 2,
+            grossCents: 11901,
+            netCents: 10001,
+            vatCents: 1900,
+          },
+          {
+            categoryId: sales.id,
+            type: "income",
+            vatRate: "7",
+            count: 1,
+            grossCents: 107,
+            netCents: 100,
+            vatCents: 7,
+          },
+          {
+            categoryId: sales.id,
+            type: "income",
+            vatRate: "reverse_charge",
+            count: 1,
+            grossCents: 2000,
+            netCents: 2000,
+            vatCents: 0,
+          },
+          {
+            categoryId: office.id,
+            type: "expense",
+            vatRate: "0",
+            count: 1,
+            grossCents: 800,
+            netCents: 800,
+            vatCents: 0,
+          },
+          {
+            categoryId: refund.id,
+            type: "expense",
+            vatRate: "19",
+            count: 1,
+            grossCents: 11900,
+            netCents: 10000,
+            vatCents: 1900,
+          },
+        ]);
+        expect(await repos.bookings.sumByCategoryAndVatRate(2023)).toEqual([]);
+      });
+
+      it("groups a mismatched booking type separately and sums the year 9999", async () => {
+        const category = await insertCategory();
+        await insertBooking({ categoryId: category.id, date: "9999-12-31" });
+        await insertBooking({ categoryId: category.id, date: "9999-01-01", type: "expense" });
+
+        expect(await repos.bookings.sumByCategoryAndVatRate(9999)).toEqual([
+          expect.objectContaining({ categoryId: category.id, type: "expense", count: 1 }),
+          expect.objectContaining({ categoryId: category.id, type: "income", count: 1 }),
+        ]);
+      });
+
+      it("sums large amounts exactly", async () => {
+        const category = await insertCategory();
+        const max = 10_000_000_000;
+        for (let index = 0; index < 3; index += 1) {
+          await insertBooking({
+            categoryId: category.id,
+            date: "2025-05-05",
+            vatRate: "0",
+            ...amounts(max - index),
+          });
+        }
+        const [group] = await repos.bookings.sumByCategoryAndVatRate(2025);
+        expect(group).toMatchObject({ count: 3, grossCents: 3 * max - 3, netCents: 3 * max - 3 });
+        expect(Number.isInteger(group?.grossCents)).toBe(true);
+      });
     });
 
     describe("booking search", () => {

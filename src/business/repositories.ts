@@ -24,6 +24,7 @@ import type {
   CategoryChanges,
   CategoryInput,
   TaxYear,
+  VatRate,
 } from "./model";
 
 export interface BookingRepository {
@@ -68,6 +69,27 @@ export interface BookingRepository {
    * page) in one aggregate query (#21).
    */
   summarize(filter: BookingFilter): Promise<BookingTotals>;
+  /**
+   * Sums of the bookings dated in `year`, grouped by category, type and VAT
+   * rate (`null` is its own group) in one aggregate query – the input of the
+   * EÜR calculation (#25). The sums add the stored per-booking amounts
+   * (never recomputed from gross sums). Groups without bookings are absent;
+   * ordered by category id, type, VAT rate (`null` first, then by stored
+   * text: `"0"`, `"19"`, `"7"`, `"reverse_charge"`).
+   */
+  sumByCategoryAndVatRate(year: number): Promise<BookingGroupSums[]>;
+}
+
+/** One group of {@link BookingRepository.sumByCategoryAndVatRate}. */
+export interface BookingGroupSums {
+  readonly categoryId: number;
+  readonly type: BookingType;
+  readonly vatRate: VatRate | null;
+  /** Number of bookings in the group (≥ 1). */
+  readonly count: number;
+  readonly grossCents: number;
+  readonly netCents: number;
+  readonly vatCents: number;
 }
 
 /**

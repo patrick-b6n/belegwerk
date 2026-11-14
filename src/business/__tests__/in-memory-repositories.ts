@@ -10,6 +10,7 @@ import type {
 import { textSearchCharClasses } from "../bookings/text-search";
 import {
   type BookingFilter,
+  type BookingGroupSums,
   type BookingRepository,
   type BookingSearchCriteria,
   type BookingSort,
@@ -250,6 +251,37 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
       }
       return totals;
     }),
+    sumByCategoryAndVatRate: op((year: number) => {
+      const prefix = `${String(year).padStart(4, "0")}-`;
+      const groups = new Map<string, BookingGroupSums>();
+      for (const booking of state().bookings.values()) {
+        if (!booking.date.startsWith(prefix)) continue;
+        const { categoryId, type, vatRate } = booking;
+        const key = JSON.stringify([categoryId, type, vatRate]);
+        const group = groups.get(key) ?? {
+          categoryId,
+          type,
+          vatRate,
+          count: 0,
+          grossCents: 0,
+          netCents: 0,
+          vatCents: 0,
+        };
+        groups.set(key, {
+          ...group,
+          count: group.count + 1,
+          grossCents: group.grossCents + booking.grossCents,
+          netCents: group.netCents + booking.netCents,
+          vatCents: group.vatCents + booking.vatCents,
+        });
+      }
+      return [...groups.values()].toSorted(
+        (a, b) =>
+          a.categoryId - b.categoryId ||
+          compareCodePoints(a.type, b.type) ||
+          compareNullableText(a.vatRate, b.vatRate),
+      );
+    }),
   };
 }
 
@@ -319,6 +351,13 @@ function escapeRegExp(char: string): string {
 /** SQLite's `NOCASE`: folds ASCII letters only. */
 function nocase(value: string): string {
   return value.replace(/[A-Z]/gu, (char) => char.toLowerCase());
+}
+
+/** SQLite's order of a nullable text column: NULL first, then by code point. */
+function compareNullableText(a: string | null, b: string | null): number {
+  return a === null || b === null
+    ? Number(b === null) - Number(a === null)
+    : compareCodePoints(a, b);
 }
 
 function compare(a: string | number, b: string | number): number {

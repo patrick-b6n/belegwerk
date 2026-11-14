@@ -14,12 +14,14 @@ import {
   checkRequiredText,
   checkVatRate,
   formatAmountInput,
+  isTaxOfficeCategory,
   newBookingFormValues,
   previewAmounts,
   splitServiceErrors,
   taxYearOf,
   toBookingFormInput,
   todayIsoDate,
+  vatRateAfterCategoryChange,
 } from "./booking-form-model";
 
 const booking: Booking = {
@@ -255,5 +257,28 @@ describe("categoryOptions", () => {
     expect(categoryAfterTypeChange("2", income)).toBe("");
     expect(categoryAfterTypeChange("4", income)).toBe("4");
     expect(categoryAfterTypeChange("", income)).toBe("");
+  });
+});
+
+describe("tax-office categories", () => {
+  const categories = [
+    category(1, "Software", "expense"),
+    { ...category(2, "USt-Vorauszahlung", "expense"), euerPosition: "UST_AN_FA" },
+    { ...category(3, "USt-Erstattung", "income"), euerPosition: "UST_ERSTATTUNG" },
+  ];
+
+  it("recognizes them by position", () => {
+    expect(isTaxOfficeCategory("2", categories)).toBe(true);
+    expect(isTaxOfficeCategory("3", categories)).toBe(true);
+    expect(isTaxOfficeCategory("1", categories)).toBe(false);
+    expect(isTaxOfficeCategory("", categories)).toBe(false);
+    expect(isTaxOfficeCategory("99", categories)).toBe(false);
+  });
+
+  it("sets rate 0 when such a category is chosen, otherwise keeps the rate", () => {
+    expect(vatRateAfterCategoryChange("2", categories, "19")).toBe("0");
+    expect(vatRateAfterCategoryChange("3", categories, "")).toBe("0");
+    expect(vatRateAfterCategoryChange("1", categories, "19")).toBe("19");
+    expect(vatRateAfterCategoryChange("", categories, "7")).toBe("7");
   });
 });

@@ -145,6 +145,7 @@
   "booking_form_category_placeholder": "Kategorie wählen",
   "booking_form_category_archived": "{name} (archiviert)",
   "booking_form_category_none": "Für diese Art gibt es keine aktive Kategorie. Kategorien werden unter „Kategorien“ verwaltet.",
+  "booking_form_category_tax_office_hint": "Zahlungen an das bzw. Erstattungen vom Finanzamt enthalten keine USt (USt-Satz 0 %). Die EÜR zählt den vollen Betrag.",
   "booking_form_description_label": "Beschreibung",
   "booking_form_counterparty_label": "Gegenpartei",
   "booking_form_counterparty_description": "Kunde, Lieferant oder Zahlungsempfänger",

@@ -53,6 +53,7 @@ import {
   checkVatRate,
   type ClientFieldError,
   formatAmountInput,
+  isTaxOfficeCategory,
   newBookingFormValues,
   previewAmounts,
   splitServiceErrors,
@@ -60,6 +61,7 @@ import {
   toBookingFormInput,
   todayIsoDate,
   VAT_RATES,
+  vatRateAfterCategoryChange,
 } from "./booking-form-model";
 import { useBookingMutations } from "./booking-queries";
 
@@ -367,7 +369,13 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
                   <FormField
                     id={id("categoryId")}
                     label={m.booking_form_category_label()}
-                    description={options.length === 0 ? m.booking_form_category_none() : undefined}
+                    description={
+                      options.length === 0
+                        ? m.booking_form_category_none()
+                        : !smallBusiness && isTaxOfficeCategory(field.state.value, categories)
+                          ? m.booking_form_category_tax_office_hint()
+                          : undefined
+                    }
                     errors={field.state.meta.errors}
                     className="sm:col-span-2"
                   >
@@ -375,7 +383,14 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
                       <Select<string>
                         items={items}
                         value={field.state.value === "" ? null : field.state.value}
-                        onValueChange={(value) => field.handleChange(value ?? "")}
+                        onValueChange={(value) => {
+                          const next = value ?? "";
+                          field.handleChange(next);
+                          // Tax-office payments contain no VAT: suggest rate 0.
+                          const current = field.form.getFieldValue("vatRate");
+                          const rate = vatRateAfterCategoryChange(next, categories, current);
+                          if (rate !== current) field.form.setFieldValue("vatRate", rate);
+                        }}
                       >
                         <SelectTrigger
                           {...control}

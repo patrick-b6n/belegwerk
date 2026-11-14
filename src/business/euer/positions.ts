@@ -67,6 +67,12 @@ export interface EuerPositionDefinition {
    * this position instead (#25, see {@link positionForTaxStatus}).
    */
   readonly smallBusinessPosition?: EuerPosition;
+  /**
+   * VAT paid to or refunded by the tax office (lines 18 and 58/59): the full
+   * amount counts, these payments contain no VAT (#25). The booking form
+   * suggests rate 0 for such categories.
+   */
+  readonly taxOfficePayment?: boolean;
 }
 
 const income = { kind: "income", assignable: true } as const;
@@ -87,7 +93,7 @@ export const EUER_POSITION_DEFINITIONS: Readonly<Record<EuerPosition, EuerPositi
   BETRIEBSEINNAHMEN_UST_PFLICHTIG: turnover,
   BETRIEBSEINNAHMEN_UST_FREI: turnover,
   UST_VEREINNAHMT: { kind: "income", assignable: false },
-  UST_ERSTATTUNG: income,
+  UST_ERSTATTUNG: { ...income, taxOfficePayment: true },
   WAREN: expense,
   FREMDLEISTUNGEN: expense,
   GWG: expense,
@@ -102,7 +108,7 @@ export const EUER_POSITION_DEFINITIONS: Readonly<Record<EuerPosition, EuerPositi
   ARBEITSMITTEL: expense,
   WERBUNG: expense,
   VORSTEUER: { kind: "expense", assignable: false },
-  UST_AN_FA: expense,
+  UST_AN_FA: { ...expense, taxOfficePayment: true },
   SONSTIGE_AUSGABEN: expense,
   BEWIRTUNG: expense,
   VERPFLEGUNGSMEHRAUFWAND: expense,
@@ -114,6 +120,14 @@ const POSITION_SET: ReadonlySet<string> = new Set(EUER_POSITIONS);
 
 export function isEuerPosition(value: string): value is EuerPosition {
   return POSITION_SET.has(value);
+}
+
+/**
+ * Whether `position` (any string, e.g. a category's) is a VAT payment to or
+ * refund from the tax office – booked without VAT (#25).
+ */
+export function isTaxOfficePayment(position: string): boolean {
+  return isEuerPosition(position) && EUER_POSITION_DEFINITIONS[position].taxOfficePayment === true;
 }
 
 /**

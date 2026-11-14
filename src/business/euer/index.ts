@@ -6,6 +6,25 @@ export {
   EUER_POSITION_DEFINITIONS,
   EUER_POSITIONS,
   isEuerPosition,
+  isTaxOfficePayment,
   positionForTaxStatus,
 } from "./positions";
 export type { EuerPosition, EuerPositionDefinition } from "./positions";
+export {
+  calculateEuer,
+  ENTERTAINMENT_NON_DEDUCTIBLE_PERCENT,
+  splitEntertainment,
+} from "./calculate-euer";
+export type {
+  EntertainmentSplit,
+  EuerCategory,
+  EuerContribution,
+  EuerInput,
+  EuerReportLine,
+  EuerResult,
+  EuerTotals,
+  EuerWarning,
+  EuerWarningCode,
+} from "./calculate-euer";
+export { createEuerService } from "./euer-service";
+export type { CalculateEuerResult, EuerService, EuerServiceDependencies } from "./euer-service";
