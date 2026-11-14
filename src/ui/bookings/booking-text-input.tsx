@@ -11,7 +11,7 @@ import {
 } from "@/ui/components/ui/autocomplete";
 import type { ControlProps } from "@/ui/forms/form-field";
 
-import { filterTextSuggestions } from "./booking-form-model";
+import { filterTextSuggestions, prepareTextSuggestions } from "./booking-form-model";
 import { useBookingTextSuggestions } from "./booking-queries";
 
 /**
@@ -19,7 +19,8 @@ import { useBookingTextSuggestions } from "./booking-queries";
  * bookings (Base UI Autocomplete): any text can be typed, the suggestions
  * only help. They are filtered while typing (`filterTextSuggestions`);
  * arrow keys move through them, Enter takes the highlighted one, Escape
- * closes the list, Tab leaves the field as usual. Without a highlighted
+ * closes the list and never changes the text (Base UI would clear the input
+ * on Escape while the list is closed), Tab leaves the field as usual. Without a highlighted
  * suggestion, Enter submits the form. The list only opens when something
  * matches; suggestions appear once loaded, the field never waits for them.
  */
@@ -45,10 +46,11 @@ export function BookingTextInput({
   onBlur: () => void;
 }>) {
   const suggestions = useBookingTextSuggestions(field, type);
-  const items = useMemo(
-    () => filterTextSuggestions(suggestions.data ?? [], value),
-    [suggestions.data, value],
+  const prepared = useMemo(
+    () => prepareTextSuggestions(suggestions.data ?? []),
+    [suggestions.data],
   );
+  const items = useMemo(() => filterTextSuggestions(prepared, value), [prepared, value]);
   const [open, setOpen] = useState(false);
 
   return (
@@ -57,7 +59,12 @@ export function BookingTextInput({
       // Filtered above (umlauts, word starts first); the component shows them as given.
       filter={null}
       value={value}
-      onValueChange={(next) => onValueChange(next)}
+      onValueChange={(next, details) => {
+        // Escape with a closed list clears the input in Base UI (combobox
+        // semantics); in a free-text field it must keep what was typed.
+        if (details.reason === "escape-key") return;
+        onValueChange(next);
+      }}
       open={open && items.length > 0}
       onOpenChange={setOpen}
     >
@@ -66,7 +73,12 @@ export function BookingTextInput({
         required
         autoComplete="off"
         maxLength={maxLength}
-        onBlur={onBlur}
+        onBlur={() => {
+          // Leaving the field closes the list for good, so it does not
+          // reappear on the next match without a keystroke in the field.
+          setOpen(false);
+          onBlur();
+        }}
       />
       <AutocompleteContent>
         <AutocompleteList aria-label={listLabel}>

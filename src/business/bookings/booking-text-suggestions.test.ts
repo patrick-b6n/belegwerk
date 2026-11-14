@@ -93,7 +93,7 @@ describe("rankBookingTextSuggestions", () => {
   it("matches decomposed and composed umlauts as one text", () => {
     expect(
       rankBookingTextSuggestions(
-        [usage("Müller", 1, "2025-01-01"), usage("Müller", 1, "2025-01-01")],
+        [usage("Mu\u0308ller", 1, "2025-01-01"), usage("Müller", 1, "2025-01-01")],
         {},
       ),
     ).toEqual(["Müller"]);

@@ -298,6 +298,21 @@ export function vatRateAfterCategoryChange(
 /** Suggestions shown at once while typing (the service sends more to filter from). */
 export const SHOWN_TEXT_SUGGESTIONS = 50;
 
+/** A suggestion with its comparison key (see {@link prepareTextSuggestions}). */
+export interface PreparedTextSuggestion {
+  readonly text: string;
+  /** NFC, lower case (de). */
+  readonly key: string;
+}
+
+/**
+ * Computes the comparison keys of the suggestions once per list (not on
+ * every keystroke) for {@link filterTextSuggestions}.
+ */
+export function prepareTextSuggestions(suggestions: readonly string[]): PreparedTextSuggestion[] {
+  return suggestions.map((text) => ({ text, key: text.normalize("NFC").toLocaleLowerCase("de") }));
+}
+
 /**
  * The suggestions (`BookingService.suggestTexts`, most relevant first) that
  * match what is typed in description or counterparty: substring match
@@ -308,7 +323,7 @@ export const SHOWN_TEXT_SUGGESTIONS = 50;
  * At most `max`; a blank input matches all.
  */
 export function filterTextSuggestions(
-  suggestions: readonly string[],
+  suggestions: readonly PreparedTextSuggestion[],
   input: string,
   max: number = SHOWN_TEXT_SUGGESTIONS,
 ): string[] {
@@ -316,13 +331,12 @@ export function filterTextSuggestions(
   const query = typed.toLocaleLowerCase("de");
   const starts: string[] = [];
   const contains: string[] = [];
-  for (const suggestion of suggestions) {
-    if (suggestion === typed) continue;
-    const text = suggestion.normalize("NFC").toLocaleLowerCase("de");
-    const index = query === "" ? 0 : text.indexOf(query);
+  for (const { text, key } of suggestions) {
+    if (text === typed) continue;
+    const index = query === "" ? 0 : key.indexOf(query);
     if (index < 0) continue;
-    const wordStart = index === 0 || text.slice(0, index).search(/[\p{L}\p{N}]$/u) < 0;
-    (wordStart ? starts : contains).push(suggestion);
+    const wordStart = index === 0 || key.slice(0, index).search(/[\p{L}\p{N}]$/u) < 0;
+    (wordStart ? starts : contains).push(text);
     if (starts.length >= max) break;
   }
   return [...starts, ...contains].slice(0, max);

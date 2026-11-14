@@ -14,6 +14,7 @@ import {
   checkRequiredText,
   checkVatRate,
   filterTextSuggestions,
+  prepareTextSuggestions,
   formatAmountInput,
   isTaxOfficeCategory,
   newBookingFormValues,
@@ -285,10 +286,11 @@ describe("tax-office categories", () => {
 });
 
 describe("filterTextSuggestions", () => {
-  const suggestions = ["Müller GmbH", "Beratung Müller", "Schmüller", "Telekom", "MÜNZE AG"];
+  const list = ["Müller GmbH", "Beratung Müller", "Schmüller", "Telekom", "MÜNZE AG"];
+  const suggestions = prepareTextSuggestions(list);
 
   it("returns all suggestions (up to max) for a blank input", () => {
-    expect(filterTextSuggestions(suggestions, "  ")).toEqual(suggestions);
+    expect(filterTextSuggestions(suggestions, "  ")).toEqual(list);
     expect(filterTextSuggestions(suggestions, "", 2)).toEqual(["Müller GmbH", "Beratung Müller"]);
   });
 
@@ -309,7 +311,7 @@ describe("filterTextSuggestions", () => {
   });
 
   it("matches decomposed input", () => {
-    expect(filterTextSuggestions(suggestions, "münze")).toEqual(["MÜNZE AG"]);
+    expect(filterTextSuggestions(suggestions, "mu\u0308nze")).toEqual(["MÜNZE AG"]);
   });
 
   it("leaves out a suggestion equal to the input", () => {
@@ -318,7 +320,7 @@ describe("filterTextSuggestions", () => {
   });
 
   it("returns at most max suggestions", () => {
-    const many = Array.from({ length: 80 }, (_, index) => `Kunde ${index}`);
+    const many = prepareTextSuggestions(Array.from({ length: 80 }, (_, index) => `Kunde ${index}`));
     expect(filterTextSuggestions(many, "kunde")).toHaveLength(50);
     expect(filterTextSuggestions(many, "kunde", 3)).toEqual(["Kunde 0", "Kunde 1", "Kunde 2"]);
   });

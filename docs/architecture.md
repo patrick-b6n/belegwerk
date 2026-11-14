@@ -1168,8 +1168,12 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   Eingabe entfällt). Die Liste öffnet nur, wenn etwas passt (beim Tippen
   oder mit Pfeil runter) – kein „keine Vorschläge“-Popup bei jedem neuen
   Text. Pfeiltasten wählen, Enter übernimmt (ohne Absenden), Escape
-  schließt, Tab verlässt das Feld; ohne markierten Vorschlag sendet Enter
-  das Formular ab. Das Formular wartet nicht auf die Vorschläge.
+  schließt die Liste und ändert den Text nie (Base UI 1.9.0 leert bei
+  geschlossener Liste das Feld mit Grund `escape-key` – diese Änderung
+  ignoriert `BookingTextInput`), Tab verlässt das Feld und schließt die
+  Liste; ohne markierten Vorschlag sendet Enter das Formular ab. Das
+  Formular wartet nicht auf die Vorschläge; die Vergleichsschlüssel
+  (`prepareTextSuggestions`) werden einmal pro geladener Liste berechnet.
   **Komponente:** Base UI Autocomplete (`src/ui/components/ui/autocomplete.tsx`,
   Stil wie shadcns `combobox`; base-nova hat in shadcn 4.23.0 kein
   `autocomplete`) statt `<datalist>`: einheitliches Aussehen, eigene
