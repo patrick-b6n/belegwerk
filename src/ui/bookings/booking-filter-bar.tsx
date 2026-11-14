@@ -423,6 +423,7 @@ function SearchField({
             autoComplete="off"
             spellCheck={false}
             placeholder={m.bookings_filter_search_placeholder()}
+            title={m.bookings_filter_search_hint()}
             value={input.value}
             onChange={(event) => input.onChange(event.target.value)}
             onKeyDown={(event) => {
