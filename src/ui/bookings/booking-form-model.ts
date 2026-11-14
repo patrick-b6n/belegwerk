@@ -294,3 +294,36 @@ export function vatRateAfterCategoryChange(
 ): VatRate | "" {
   return isTaxOfficeCategory(categoryId, categories) ? "0" : vatRate;
 }
+
+/** Suggestions shown at once while typing (the service sends more to filter from). */
+export const SHOWN_TEXT_SUGGESTIONS = 50;
+
+/**
+ * The suggestions (`BookingService.suggestTexts`, most relevant first) that
+ * match what is typed in description or counterparty: substring match
+ * ignoring case, also for umlauts and decomposed input ("mü" finds
+ * "Müller", "MÜ" too). Suggestions that start with the input, or have a
+ * word starting with it, come before other matches; otherwise the order
+ * stays. A suggestion equal to the input is left out (nothing to complete).
+ * At most `max`; a blank input matches all.
+ */
+export function filterTextSuggestions(
+  suggestions: readonly string[],
+  input: string,
+  max: number = SHOWN_TEXT_SUGGESTIONS,
+): string[] {
+  const typed = trimText(input).normalize("NFC");
+  const query = typed.toLocaleLowerCase("de");
+  const starts: string[] = [];
+  const contains: string[] = [];
+  for (const suggestion of suggestions) {
+    if (suggestion === typed) continue;
+    const text = suggestion.normalize("NFC").toLocaleLowerCase("de");
+    const index = query === "" ? 0 : text.indexOf(query);
+    if (index < 0) continue;
+    const wordStart = index === 0 || text.slice(0, index).search(/[\p{L}\p{N}]$/u) < 0;
+    (wordStart ? starts : contains).push(suggestion);
+    if (starts.length >= max) break;
+  }
+  return [...starts, ...contains].slice(0, max);
+}

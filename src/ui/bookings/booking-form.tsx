@@ -64,6 +64,7 @@ import {
   vatRateAfterCategoryChange,
 } from "./booking-form-model";
 import { useBookingMutations } from "./booking-queries";
+import { BookingTextInput } from "./booking-text-input";
 
 const BOOKING_TYPES: readonly BookingType[] = ["expense", "income"];
 
@@ -145,6 +146,9 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       }
     },
   });
+
+  // Booking type: its texts are suggested first in description and counterparty.
+  const bookingType = useStore(form.store, (state) => state.values.type);
 
   // Tax status of the date's year: decides whether the VAT rate is shown.
   const date = useStore(form.store, (state) => state.values.date);
@@ -429,12 +433,14 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               className="sm:col-span-2"
             >
               {(control) => (
-                <Input
-                  {...control}
-                  required
+                <BookingTextInput
+                  field="description"
+                  type={bookingType}
+                  control={control}
                   maxLength={BOOKING_TEXT_MAX_LENGTH.description}
+                  listLabel={m.booking_form_description_suggestions()}
                   value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
+                  onValueChange={field.handleChange}
                   onBlur={field.handleBlur}
                 />
               )}
@@ -456,12 +462,14 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               errors={field.state.meta.errors}
             >
               {(control) => (
-                <Input
-                  {...control}
-                  required
+                <BookingTextInput
+                  field="counterparty"
+                  type={bookingType}
+                  control={control}
                   maxLength={BOOKING_TEXT_MAX_LENGTH.counterparty}
+                  listLabel={m.booking_form_counterparty_suggestions()}
                   value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
+                  onValueChange={field.handleChange}
                   onBlur={field.handleBlur}
                 />
               )}

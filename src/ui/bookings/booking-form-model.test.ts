@@ -13,6 +13,7 @@ import {
   checkDate,
   checkRequiredText,
   checkVatRate,
+  filterTextSuggestions,
   formatAmountInput,
   isTaxOfficeCategory,
   newBookingFormValues,
@@ -280,5 +281,45 @@ describe("tax-office categories", () => {
     expect(vatRateAfterCategoryChange("3", categories, "")).toBe("0");
     expect(vatRateAfterCategoryChange("1", categories, "19")).toBe("19");
     expect(vatRateAfterCategoryChange("", categories, "7")).toBe("7");
+  });
+});
+
+describe("filterTextSuggestions", () => {
+  const suggestions = ["Müller GmbH", "Beratung Müller", "Schmüller", "Telekom", "MÜNZE AG"];
+
+  it("returns all suggestions (up to max) for a blank input", () => {
+    expect(filterTextSuggestions(suggestions, "  ")).toEqual(suggestions);
+    expect(filterTextSuggestions(suggestions, "", 2)).toEqual(["Müller GmbH", "Beratung Müller"]);
+  });
+
+  it("matches substrings ignoring case, also umlauts; word starts first", () => {
+    expect(filterTextSuggestions(suggestions, "mü")).toEqual([
+      "Müller GmbH",
+      "Beratung Müller",
+      "MÜNZE AG",
+      "Schmüller",
+    ]);
+    expect(filterTextSuggestions(suggestions, "MÜLL")).toEqual([
+      "Müller GmbH",
+      "Beratung Müller",
+      "Schmüller",
+    ]);
+    expect(filterTextSuggestions(suggestions, "lek")).toEqual(["Telekom"]);
+    expect(filterTextSuggestions(suggestions, "xyz")).toEqual([]);
+  });
+
+  it("matches decomposed input", () => {
+    expect(filterTextSuggestions(suggestions, "münze")).toEqual(["MÜNZE AG"]);
+  });
+
+  it("leaves out a suggestion equal to the input", () => {
+    expect(filterTextSuggestions(suggestions, "Telekom ")).toEqual([]);
+    expect(filterTextSuggestions(suggestions, "telekom")).toEqual(["Telekom"]);
+  });
+
+  it("returns at most max suggestions", () => {
+    const many = Array.from({ length: 80 }, (_, index) => `Kunde ${index}`);
+    expect(filterTextSuggestions(many, "kunde")).toHaveLength(50);
+    expect(filterTextSuggestions(many, "kunde", 3)).toEqual(["Kunde 0", "Kunde 1", "Kunde 2"]);
   });
 });
