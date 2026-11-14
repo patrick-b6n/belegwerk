@@ -5,7 +5,12 @@ import {
   createBookingService,
 } from "@/business/bookings";
 import { type CategoryService, createCategoryService } from "@/business/categories";
-import { createEuerService, type EuerService } from "@/business/euer";
+import {
+  createEuerExportService,
+  createEuerService,
+  type EuerExportService,
+  type EuerService,
+} from "@/business/euer";
 import type { FileSaver } from "@/business/files";
 import type { Clock } from "@/business/repositories";
 import { createTaxYearService, type TaxYearService } from "@/business/tax-years";
@@ -26,6 +31,8 @@ export interface AppServices {
   readonly categories: CategoryService;
   /** EÜR of a year (#25). */
   readonly euer: EuerService;
+  /** CSV export of the EÜR (#27): save dialog and file via `FileSaver`. */
+  readonly euerExport: EuerExportService;
   readonly taxYears: TaxYearService;
 }
 
@@ -38,11 +45,13 @@ export function createAppServices(
 ): AppServices {
   const unitOfWork = createUnitOfWork(database, clock);
   const bookings = createBookingService({ unitOfWork });
+  const euer = createEuerService({ unitOfWork });
   return {
     bookings,
     bookingExport: createBookingExportService({ bookings, fileSaver }),
     categories: createCategoryService({ unitOfWork }),
-    euer: createEuerService({ unitOfWork }),
+    euer,
+    euerExport: createEuerExportService({ euer, fileSaver }),
     taxYears: createTaxYearService({ unitOfWork }),
   };
 }

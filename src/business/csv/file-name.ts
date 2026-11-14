@@ -43,3 +43,11 @@ export function csvFileName({
   else period = today;
   return `${safe(base)}-${safe(period)}.csv`;
 }
+
+/**
+ * Suggested name of a yearly export file (EÜR, #27): `euer-2025.csv`;
+ * characters Windows forbids in `base` become `_`.
+ */
+export function yearCsvFileName(base: string, year: number): string {
+  return `${safe(base)}-${year}.csv`;
+}

@@ -44,15 +44,18 @@ er wird daher als ganze Cent akzeptiert (siehe Test).
 
 ## EÜR-Positionen (#13)
 
-Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB):
+Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB – bis auf die Services, die über Unit of Work bzw. `FileSaver` laden und speichern):
 
-| Datei                  | Inhalt                                                                                                                              |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `positions.ts`         | `EUER_POSITIONS` (stabile Schlüssel), `EUER_POSITION_DEFINITIONS` (Seite, zuweisbar, Kleinunternehmer-Ziel), `positionForTaxStatus` |
-| `line-mapping.ts`      | `EUER_LINE_MAPPINGS` (Jahr → Position → Zeile + amtliche Bezeichnung), `describePosition(position, year)`, `hasLineMapping(year)`   |
-| `category-position.ts` | `validateCategoryPosition({ type, euerPosition, reducesIncome })` für den Kategorien-Service (#15)                                  |
-| `calculate-euer.ts`    | `calculateEuer({ year, smallBusiness, groups, categories })` – die EÜR-Berechnung (#25), rein                                       |
-| `euer-service.ts`      | `createEuerService({ unitOfWork })` mit `calculate(year)`: Status, Kategorien und Summen in einer Unit of Work                      |
+| Datei                    | Inhalt                                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `positions.ts`           | `EUER_POSITIONS` (stabile Schlüssel), `EUER_POSITION_DEFINITIONS` (Seite, zuweisbar, Kleinunternehmer-Ziel), `positionForTaxStatus` |
+| `line-mapping.ts`        | `EUER_LINE_MAPPINGS` (Jahr → Position → Zeile + amtliche Bezeichnung), `describePosition(position, year)`, `hasLineMapping(year)`   |
+| `category-position.ts`   | `validateCategoryPosition({ type, euerPosition, reducesIncome })` für den Kategorien-Service (#15)                                  |
+| `calculate-euer.ts`      | `calculateEuer({ year, smallBusiness, groups, categories })` – die EÜR-Berechnung (#25), rein                                       |
+| `euer-service.ts`        | `createEuerService({ unitOfWork })` mit `calculate(year)`: Status, Kategorien und Summen in einer Unit of Work                      |
+| `report-order.ts`        | `incomeInReportOrder(result)`: Einnahmezeilen in Formularreihenfolge, Zeile 13 nach Zeile 12 (Ansicht #26, Export #27)              |
+| `euer-csv.ts`            | `euerToCsv(result, labels)` – CSV der EÜR (#27, siehe docs/architecture.md)                                                         |
+| `euer-export-service.ts` | `createEuerExportService({ euer, fileSaver })` mit `exportCsv(…)`: berechnen, Speicherdialog, schreiben                             |
 
 - **Stabile Schlüssel.** Kategorien speichern nur den Schlüssel. Schlüssel
   werden nie umbenannt oder entfernt (sie stehen in der DB); neue Positionen
