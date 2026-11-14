@@ -151,17 +151,62 @@ function failureRow(failure: StripeImportFailure): StripeImportFailureRow {
 }
 
 /**
+ * Currencies whose smallest unit in Stripe is not 1/100. Stripe's own lists
+ * (docs.stripe.com/currencies), not CLDR's: Intl treats e.g. HUF, ISK, IDR
+ * or COP as having no decimals, but Stripe still sends ×100 amounts for them.
+ */
+const STRIPE_ZERO_DECIMAL_CURRENCIES: ReadonlySet<string> = new Set([
+  "bif",
+  "clp",
+  "djf",
+  "gnf",
+  "jpy",
+  "kmf",
+  "krw",
+  "mga",
+  "pyg",
+  "rwf",
+  "ugx",
+  "vnd",
+  "vuv",
+  "xaf",
+  "xof",
+  "xpf",
+]);
+const STRIPE_THREE_DECIMAL_CURRENCIES: ReadonlySet<string> = new Set([
+  "bhd",
+  "jod",
+  "kwd",
+  "omr",
+  "tnd",
+]);
+
+/** Decimals of Stripe's smallest unit of `currency` (lowercase): 0, 3 or 2. */
+export function stripeCurrencyDecimals(currency: string): number {
+  const code = currency.toLowerCase();
+  if (STRIPE_ZERO_DECIMAL_CURRENCIES.has(code)) return 0;
+  if (STRIPE_THREE_DECIMAL_CURRENCIES.has(code)) return 3;
+  return 2;
+}
+
+/**
  * An amount in Stripe's smallest unit of `currency` (lowercase ISO code),
  * formatted for de-DE: EUR as everywhere in the app, other currencies with
- * their own number of decimals (JPY has none). An unknown code is shown
- * as number and code.
+ * the decimals **Stripe** uses for them ({@link stripeCurrencyDecimals}:
+ * JPY none, KWD three, HUF two). An unknown code is shown as number and
+ * code.
  */
 export function formatStripeAmount(amount: number, currency: string): string {
   const code = currency.toUpperCase();
   if (code === "EUR") return formatCurrency(amount);
+  const digits = stripeCurrencyDecimals(currency);
   try {
-    const format = new Intl.NumberFormat("de-DE", { style: "currency", currency: code });
-    const digits = format.resolvedOptions().maximumFractionDigits ?? 2;
+    const format = new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
     return format.format(amount / 10 ** digits);
   } catch {
     return `${String(amount)} ${code}`;

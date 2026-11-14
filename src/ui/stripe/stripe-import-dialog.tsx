@@ -1,7 +1,8 @@
 import { useForm } from "@tanstack/react-form";
+import { cn } from "cn";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, CloudDownload, Loader2 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ComponentProps, useEffect, useId, useRef, useState } from "react";
 
 import { formatDate } from "@/business/format";
 import {
@@ -120,6 +121,10 @@ function StripeImportPanel({
   // Announced by screen readers: progress and the result (the region exists
   // before its text changes, so the change is read).
   const [announcement, setAnnouncement] = useState("");
+  // Set when an import starts: a settings hint shown afterwards replaced the
+  // form (the service reported `noApiKey`/`invalidDefaults` and the settings
+  // were reloaded), so it takes the focus of the form's unmounted alert.
+  const [attempted, setAttempted] = useState(false);
 
   let content;
   if (summary) {
@@ -145,9 +150,11 @@ function StripeImportPanel({
       </div>
     );
   } else if (settings.data.apiKey === null) {
-    content = <SettingsHint text={m.stripe_import_no_key()} onClose={onClose} />;
+    content = <SettingsHint text={m.stripe_import_no_key()} focus={attempted} onClose={onClose} />;
   } else if (validateStripeDefaults(settings.data.defaults, categories.data).length > 0) {
-    content = <SettingsHint text={m.stripe_import_invalid_defaults()} onClose={onClose} />;
+    content = (
+      <SettingsHint text={m.stripe_import_invalid_defaults()} focus={attempted} onClose={onClose} />
+    );
   } else {
     content = (
       <StripeImportForm
@@ -155,11 +162,14 @@ function StripeImportPanel({
         status={status.data}
         onRunningChange={(running) => {
           onBusyChange(running);
-          if (running) setAnnouncement(m.stripe_import_running());
+          if (running) {
+            setAttempted(true);
+            setAnnouncement(m.stripe_import_running());
+          }
         }}
         onDone={(result) => {
           setSummary(result);
-          setAnnouncement(`${m.stripe_import_done_title()}: ${countsText(result)}`);
+          setAnnouncement(m.stripe_import_done_announcement({ counts: countsText(result) }));
         }}
         onFailed={() => setAnnouncement("")}
         onCancel={onClose}
@@ -177,11 +187,14 @@ function StripeImportPanel({
   );
 }
 
-function Warning({ id, children }: Readonly<{ id?: string; children: ReactNode }>) {
+function Warning({ className, children, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
-      id={id}
-      className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+      {...props}
+      className={cn(
+        "flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200",
+        className,
+      )}
     >
       <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
       <div className="flex flex-col gap-1">{children}</div>
@@ -189,11 +202,23 @@ function Warning({ id, children }: Readonly<{ id?: string; children: ReactNode }
   );
 }
 
-/** No key or no valid defaults: explain and link to the settings. */
-function SettingsHint({ text, onClose }: Readonly<{ text: string; onClose: () => void }>) {
+/**
+ * No key or no valid defaults: explain and link to the settings. With
+ * `focus` (it replaced the form after an import attempt) it is an alert and
+ * takes the focus on mount.
+ */
+function SettingsHint({
+  text,
+  focus,
+  onClose,
+}: Readonly<{ text: string; focus: boolean; onClose: () => void }>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus) ref.current?.focus();
+  }, [focus]);
   return (
     <>
-      <Warning>
+      <Warning ref={ref} tabIndex={-1} role={focus ? "alert" : undefined} className="outline-none">
         <p>{text}</p>
       </Warning>
       <DialogFooter>
@@ -229,7 +254,9 @@ function StripeImportForm({
   const stripeImport = useStripeImport();
   const formRef = useRef<HTMLFormElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
-  // The latest period end the import accepts; fixed while the dialog is open.
+  // The latest period end the import accepts (max of the date fields, client
+  // check `inFuture`). Fixed when the dialog opens and kept while it is open
+  // (also across midnight); the service checks the real date on import.
   const [today] = useState(() => berlinTodayIsoDate());
   const [importError, setImportError] = useState<ImportError | null>(null);
   const testMode = keyMode === "test";
@@ -493,13 +520,11 @@ function describedBy(control: ControlProps, extra: string): string {
 }
 
 function countsText(summary: StripeImportSummary): string {
-  const counts = m.stripe_import_done_counts({
-    created: String(summary.created),
-    skipped: String(summary.skipped),
-  });
+  const created = String(summary.created);
+  const skipped = String(summary.skipped);
   return summary.failed > 0
-    ? `${counts}, ${m.stripe_import_done_failed({ count: String(summary.failed) })}`
-    : counts;
+    ? m.stripe_import_done_counts_failed({ created, skipped, failed: String(summary.failed) })
+    : m.stripe_import_done_counts({ created, skipped });
 }
 
 /** The result: counts, the entries not booked, a test-mode note and the way to the bookings. */

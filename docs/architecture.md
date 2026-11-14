@@ -1253,6 +1253,13 @@ in `tax-year-mutations.ts`):
 fremder Währungen, Link-Filter) liegt getestet in `stripe-import-model.ts`,
 Texte zu Codes in `stripe-messages.ts`.
 
+Beträge fremder Währungen (nur in der Liste der nicht gebuchten Einträge)
+rechnet `stripeCurrencyDecimals` mit **Stripes** Nachkommastellen um, nicht
+mit denen von CLDR/`Intl`: null Stellen nur für Stripes Zero-Decimal-Liste
+(`bif clp djf gnf jpy kmf krw mga pyg rwf ugx vnd vuv xaf xof xpf`), drei für
+`bhd jod kwd omr tnd`, sonst zwei – auch für HUF, ISK, IDR oder COP, die
+CLDR ohne Nachkommastellen führt, Stripe aber ×100 sendet.
+
 - **Voraussetzungen:** Ohne Schlüssel (`useStripeSettings().apiKey === null`)
   oder mit fehlenden/ungültigen Standardwerten (`validateStripeDefaults`
   gegen die aktuelle Kategorienliste) zeigt der Dialog nur einen Hinweis und
@@ -1286,15 +1293,21 @@ Texte zu Codes in `stripe-messages.ts`.
   Der Fokus springt auf die Überschrift des Ergebnisses; eine stets
   vorhandene `role="status"`-Region kündigt Fortschritt und Ergebnis an.
 - **Fehler:** `noApiKey`/`invalidDefaults` → Hinweis mit Link zu den
-  Einstellungen (die Einstellungen werden neu geladen, der Dialog wechselt
-  ggf. auf den Hinweis), `stripe` → `stripeClientErrorMessage`,
+  Einstellungen (Einstellungen und bei `invalidDefaults` auch die Kategorien
+  werden neu geladen; der Dialog wechselt dann auf den Hinweis, der den Fokus
+  übernimmt), `stripe` → `stripeClientErrorMessage`,
   `settingsChanged` → „erneut importieren“; unerwartete Fehler → Toast und
   Meldung (nichts gebucht). Meldungen als `role="alert"`, fokussiert.
 - **Invalidierung** nach Erfolg: `bookingQueryKeys.all`,
   `categoryQueryKeys.all` (`bookingCount`), `taxYearQueryKeys.all` (Jahre mit
   Buchungen), `euerQueryKeys.all` und `stripeImportQueryKeys.all` (Status →
   nächster Default-Zeitraum); nach `noApiKey`/`invalidDefaults`/
-  `settingsChanged` `stripeQueryKeys.all`.
+  `settingsChanged` `stripeQueryKeys.all`, nach `invalidDefaults` zusätzlich
+  `categoryQueryKeys.all` (die Gültigkeit der Standardwerte prüft die UI
+  gegen die Kategorienliste).
+- **„Heute“** wird beim Öffnen festgelegt und gilt, solange der Dialog offen
+  ist (Höchstwert der Datumsfelder, Client-Prüfung `inFuture`); maßgeblich
+  ist die Prüfung des Service zum Zeitpunkt des Imports.
 
 ## Content Security Policy
 

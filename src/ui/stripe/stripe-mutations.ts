@@ -60,8 +60,9 @@ export function useStripeSettingsMutations() {
  * a booking change (#18): bookings, the categories' `bookingCount`, the tax
  * years with bookings, the EÜR – and the import status (default period).
  * Missing key, invalid defaults or changed settings mean the cached settings
- * are stale: those invalidate `stripeQueryKeys.all`, so the dialog shows the
- * current state.
+ * are stale: those invalidate `stripeQueryKeys.all` (invalid defaults also
+ * `categoryQueryKeys.all`, against which the UI checks them), so the dialog
+ * shows the current state.
  */
 export function useStripeImport() {
   const { stripeImport } = useAppServices();
@@ -77,11 +78,12 @@ export function useStripeImport() {
             euerQueryKeys.all,
             stripeImportQueryKeys.all,
           ]
-        : result.reason === "noApiKey" ||
-            result.reason === "invalidDefaults" ||
-            result.reason === "settingsChanged"
-          ? [stripeQueryKeys.all]
-          : [];
+        : result.reason === "invalidDefaults"
+          ? // The UI checks the defaults against the category list.
+            [stripeQueryKeys.all, categoryQueryKeys.all]
+          : result.reason === "noApiKey" || result.reason === "settingsChanged"
+            ? [stripeQueryKeys.all]
+            : [];
       return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))).then(
         () => undefined,
       );

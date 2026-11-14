@@ -12,6 +12,7 @@ import {
   importedBookingsSearch,
   importErrorsByField,
   stripeImportFormValues,
+  stripeCurrencyDecimals,
   stripeImportSummary,
 } from "./stripe-import-model";
 
@@ -125,14 +126,34 @@ describe("importErrorsByField", () => {
   });
 });
 
+describe("stripeCurrencyDecimals", () => {
+  it.each([
+    ["jpy", 0],
+    ["krw", 0],
+    ["eur", 2],
+    ["huf", 2],
+    ["isk", 2],
+    ["idr", 2],
+    ["kwd", 3],
+    ["bhd", 3],
+  ] as const)("%s → %i", (currency, digits) => {
+    expect(stripeCurrencyDecimals(currency)).toBe(digits);
+  });
+});
+
 describe("formatStripeAmount", () => {
   it("formats EUR cents like the rest of the app", () => {
     expect(formatStripeAmount(150, "eur")).toBe("1,50 €");
   });
 
-  it("uses the decimals of other currencies", () => {
+  it("uses Stripe's decimals of other currencies, not CLDR's", () => {
     expect(formatStripeAmount(200, "usd")).toBe("2,00 $");
     expect(formatStripeAmount(500, "jpy")).toBe("500 ¥");
+    // Zero decimals in CLDR, but ×100 in Stripe.
+    expect(formatStripeAmount(10000, "huf")).toBe("100,00 HUF");
+    expect(formatStripeAmount(12345, "isk")).toBe("123,45 ISK");
+    // Three decimals.
+    expect(formatStripeAmount(1500, "kwd")).toBe("1,500 KWD");
   });
 
   it("shows an unknown code as number and code", () => {
