@@ -1,6 +1,6 @@
 /**
  * Pure logic of the "Steuerjahre" settings (#20): order of the list, the
- * suggested year of "Jahr hinzufügen" and the client-side check of the year
+ * suggested year of "Add year" and the client-side check of the year
  * input. No React, so it is unit-tested in Node.
  *
  * The business layer is the source of truth (`TaxYearService`): the client
@@ -20,7 +20,7 @@ export function sortYearsDescending(years: readonly TaxYearOverview[]): TaxYearO
 }
 
 /**
- * The year "Jahr hinzufügen" starts with: the current year if it is not
+ * The year "Add year" starts with: the current year if it is not
  * listed yet, else the next one (to set the status ahead of a new year), else
  * empty.
  */

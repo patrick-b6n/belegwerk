@@ -72,57 +72,57 @@ describe("validateBookingSearch", () => {
     expect(
       validateBookingSearch({
         q: "Müller",
-        von: "2025-01-01",
-        bis: "2025-12-31",
-        art: "ausgaben",
-        kategorie: [3, 7],
-        quelle: "stripe",
-        ust: ["19", "ohne"],
-        betragVon: 1000,
-        betragBis: 250000,
+        from: "2025-01-01",
+        to: "2025-12-31",
+        type: "expense",
+        category: [3, 7],
+        source: "stripe",
+        vat: ["19", "none"],
+        amountFrom: 1000,
+        amountTo: 250000,
       }),
     ).toEqual({
       q: "Müller",
-      von: "2025-01-01",
-      bis: "2025-12-31",
-      art: "ausgaben",
-      kategorie: [3, 7],
-      quelle: "stripe",
-      ust: ["ohne", "19"],
-      betragVon: 1000,
-      betragBis: 250000,
+      from: "2025-01-01",
+      to: "2025-12-31",
+      type: "expense",
+      category: [3, 7],
+      source: "stripe",
+      vat: ["none", "19"],
+      amountFrom: 1000,
+      amountTo: 250000,
     });
   });
 
   it("puts the params in a fixed order", () => {
-    const search = validateBookingSearch({ quelle: "manuell", q: "a", art: "einnahmen" });
-    expect(JSON.stringify(search)).toBe('{"q":"a","art":"einnahmen","quelle":"manuell"}');
+    const search = validateBookingSearch({ source: "manual", q: "a", type: "income" });
+    expect(JSON.stringify(search)).toBe('{"q":"a","type":"income","source":"manual"}');
   });
 
   it("sets dropped params to undefined, so raw values of the parent route do not show through", () => {
-    const search = validateBookingSearch({ art: "foo", kategorie: "abc" });
-    expect(Object.hasOwn(search, "art") && search.art === undefined).toBe(true);
-    expect(Object.hasOwn(search, "kategorie") && search.kategorie === undefined).toBe(true);
-    const raw = { art: "foo", kategorie: "abc" };
+    const search = validateBookingSearch({ type: "foo", category: "abc" });
+    expect(Object.hasOwn(search, "type") && search.type === undefined).toBe(true);
+    expect(Object.hasOwn(search, "category") && search.category === undefined).toBe(true);
+    const raw = { type: "foo", category: "abc" };
     expect({ ...raw, ...search }).toEqual({});
   });
 
   it("reads VAT rates as numbers or strings, sorted, without duplicates or unknown values", () => {
-    expect(validateBookingSearch({ ust: [19, 0, "rc", 19, "ohne", 7] })).toEqual({
-      ust: ["ohne", "0", "7", "19", "rc"],
+    expect(validateBookingSearch({ vat: [19, 0, "rc", 19, "none", 7] })).toEqual({
+      vat: ["none", "0", "7", "19", "rc"],
     });
-    expect(validateBookingSearch({ ust: 19 })).toEqual({ ust: ["19"] });
-    expect(validateBookingSearch({ ust: "rc" })).toEqual({ ust: ["rc"] });
-    expect(validateBookingSearch({ ust: [16, "reverse_charge", null, "__proto__", 7] })).toEqual({
-      ust: ["7"],
+    expect(validateBookingSearch({ vat: 19 })).toEqual({ vat: ["19"] });
+    expect(validateBookingSearch({ vat: "rc" })).toEqual({ vat: ["rc"] });
+    expect(validateBookingSearch({ vat: [16, "reverse_charge", null, "__proto__", 7] })).toEqual({
+      vat: ["7"],
     });
-    const dropped = validateBookingSearch({ ust: ["x"] });
-    expect(Object.hasOwn(dropped, "ust") && dropped.ust === undefined).toBe(true);
-    expect(validateBookingSearch({ ust: [] })).toEqual({});
+    const dropped = validateBookingSearch({ vat: ["x"] });
+    expect(Object.hasOwn(dropped, "vat") && dropped.vat === undefined).toBe(true);
+    expect(validateBookingSearch({ vat: [] })).toEqual({});
   });
 
   it("drops unknown params", () => {
-    expect(validateBookingSearch({ foo: "bar", page: 2 })).toEqual({});
+    expect(validateBookingSearch({ foo: "bar", limit: 2 })).toEqual({});
   });
 
   it("reads a numeric search text as text", () => {
@@ -144,72 +144,72 @@ describe("validateBookingSearch", () => {
   });
 
   it("drops impossible or malformed dates", () => {
-    expect(validateBookingSearch({ von: "2025-02-30" })).toEqual({});
-    expect(validateBookingSearch({ von: "2025-2-3" })).toEqual({});
-    expect(validateBookingSearch({ bis: "0999-12-31" })).toEqual({});
-    expect(validateBookingSearch({ bis: 20250101 })).toEqual({});
-    expect(validateBookingSearch({ von: "2024-02-29", bis: "2023-02-29" })).toEqual({
-      von: "2024-02-29",
+    expect(validateBookingSearch({ from: "2025-02-30" })).toEqual({});
+    expect(validateBookingSearch({ from: "2025-2-3" })).toEqual({});
+    expect(validateBookingSearch({ to: "0999-12-31" })).toEqual({});
+    expect(validateBookingSearch({ to: 20250101 })).toEqual({});
+    expect(validateBookingSearch({ from: "2024-02-29", to: "2023-02-29" })).toEqual({
+      from: "2024-02-29",
     });
   });
 
   it("keeps inverted ranges, so the error is shown", () => {
     expect(
-      validateBookingSearch({ von: "2025-12-31", bis: "2025-01-01", betragVon: 5, betragBis: 1 }),
-    ).toEqual({ von: "2025-12-31", bis: "2025-01-01", betragVon: 5, betragBis: 1 });
+      validateBookingSearch({ from: "2025-12-31", to: "2025-01-01", amountFrom: 5, amountTo: 1 }),
+    ).toEqual({ from: "2025-12-31", to: "2025-01-01", amountFrom: 5, amountTo: 1 });
   });
 
   it("drops unknown types and sources", () => {
-    expect(validateBookingSearch({ art: "income", quelle: "manual" })).toEqual({});
-    expect(validateBookingSearch({ art: "toString", quelle: "__proto__" })).toEqual({});
-    expect(validateBookingSearch({ art: 1, quelle: null })).toEqual({});
+    expect(validateBookingSearch({ type: "revenue", source: "import" })).toEqual({});
+    expect(validateBookingSearch({ type: "toString", source: "__proto__" })).toEqual({});
+    expect(validateBookingSearch({ type: 1, source: null })).toEqual({});
   });
 
   it("reads amounts as numbers or digit strings", () => {
-    expect(validateBookingSearch({ betragVon: "1000", betragBis: 0 })).toEqual({
-      betragVon: 1000,
-      betragBis: 0,
+    expect(validateBookingSearch({ amountFrom: "1000", amountTo: 0 })).toEqual({
+      amountFrom: 1000,
+      amountTo: 0,
     });
   });
 
   it("normalizes -0 to 0", () => {
-    const search = validateBookingSearch({ betragVon: -0 });
-    expect(Object.is(search.betragVon, 0)).toBe(true);
+    const search = validateBookingSearch({ amountFrom: -0 });
+    expect(Object.is(search.amountFrom, 0)).toBe(true);
   });
 
   it("drops amounts above the largest amount", () => {
-    expect(validateBookingSearch({ betragBis: MAX_AMOUNT_CENTS })).toEqual({
-      betragBis: MAX_AMOUNT_CENTS,
+    expect(validateBookingSearch({ amountTo: MAX_AMOUNT_CENTS })).toEqual({
+      amountTo: MAX_AMOUNT_CENTS,
     });
-    expect(validateBookingSearch({ betragVon: MAX_AMOUNT_CENTS + 1 })).toEqual({});
-    expect(validateBookingSearch({ betragBis: String(MAX_AMOUNT_CENTS + 1) })).toEqual({});
+    expect(validateBookingSearch({ amountFrom: MAX_AMOUNT_CENTS + 1 })).toEqual({});
+    expect(validateBookingSearch({ amountTo: String(MAX_AMOUNT_CENTS + 1) })).toEqual({});
   });
 
   it("drops amounts that are no integer cents ≥ 0", () => {
     for (const value of [-1, 1.5, "1,50", "1e3", "", Number.MAX_SAFE_INTEGER + 1, true]) {
-      expect(validateBookingSearch({ betragVon: value })).toEqual({});
+      expect(validateBookingSearch({ amountFrom: value })).toEqual({});
     }
   });
 
   it("reads categories from arrays, numbers and comma-separated strings", () => {
-    expect(validateBookingSearch({ kategorie: 4 })).toEqual({ kategorie: [4] });
-    expect(validateBookingSearch({ kategorie: "4" })).toEqual({ kategorie: [4] });
-    expect(validateBookingSearch({ kategorie: "4, 9" })).toEqual({ kategorie: [4, 9] });
-    expect(validateBookingSearch({ kategorie: ["4", 9] })).toEqual({ kategorie: [4, 9] });
+    expect(validateBookingSearch({ category: 4 })).toEqual({ category: [4] });
+    expect(validateBookingSearch({ category: "4" })).toEqual({ category: [4] });
+    expect(validateBookingSearch({ category: "4, 9" })).toEqual({ category: [4, 9] });
+    expect(validateBookingSearch({ category: ["4", 9] })).toEqual({ category: [4, 9] });
   });
 
   it("drops invalid and duplicate category ids", () => {
-    expect(validateBookingSearch({ kategorie: [0, -1, 2.5, "x", 3, 3, null] })).toEqual({
-      kategorie: [3],
+    expect(validateBookingSearch({ category: [0, -1, 2.5, "x", 3, 3, null] })).toEqual({
+      category: [3],
     });
-    expect(validateBookingSearch({ kategorie: [] })).toEqual({});
-    expect(validateBookingSearch({ kategorie: { a: 1 } })).toEqual({});
+    expect(validateBookingSearch({ category: [] })).toEqual({});
+    expect(validateBookingSearch({ category: { a: 1 } })).toEqual({});
   });
 
   it("never throws", () => {
     const weird: unknown[] = [undefined, null, {}, [], [[]], Symbol("x"), () => 1, 10n];
     for (const value of weird) {
-      for (const key of ["q", "von", "bis", "art", "kategorie", "quelle", "betragVon"]) {
+      for (const key of ["q", "from", "to", "type", "category", "source", "amountFrom"]) {
         expect(() => validateBookingSearch({ [key]: value })).not.toThrow();
       }
     }
@@ -221,21 +221,21 @@ describe("cleanBookingSearch / updateBookingSearch", () => {
     expect(
       cleanBookingSearch({
         q: " ",
-        von: "",
-        bis: undefined,
-        kategorie: [],
-        art: undefined,
-        ust: [],
+        from: "",
+        to: undefined,
+        category: [],
+        type: undefined,
+        vat: [],
       }),
     ).toEqual({});
-    expect(cleanBookingSearch({ ust: ["rc", "0", "rc"] })).toEqual({ ust: ["0", "rc"] });
+    expect(cleanBookingSearch({ vat: ["rc", "0", "rc"] })).toEqual({ vat: ["0", "rc"] });
   });
 
   it("applies a patch and removes params set to undefined", () => {
-    const search: BookingSearch = { q: "a", art: "ausgaben" };
-    expect(updateBookingSearch(search, { art: undefined, quelle: "stripe" })).toEqual({
+    const search: BookingSearch = { q: "a", type: "expense" };
+    expect(updateBookingSearch(search, { type: undefined, source: "stripe" })).toEqual({
       q: "a",
-      quelle: "stripe",
+      source: "stripe",
     });
   });
 });
@@ -249,14 +249,14 @@ describe("bookingSearchToQuery", () => {
     expect(
       bookingSearchToQuery({
         q: "Müller",
-        von: "2025-01-01",
-        bis: "2025-03-31",
-        art: "einnahmen",
-        kategorie: [1, 2],
-        quelle: "manuell",
-        ust: ["ohne", "19", "rc"],
-        betragVon: 100,
-        betragBis: 200,
+        from: "2025-01-01",
+        to: "2025-03-31",
+        type: "income",
+        category: [1, 2],
+        source: "manual",
+        vat: ["none", "19", "rc"],
+        amountFrom: 100,
+        amountTo: 200,
       }),
     ).toEqual({
       text: "Müller",
@@ -269,7 +269,7 @@ describe("bookingSearchToQuery", () => {
       amountFrom: 100,
       amountTo: 200,
     });
-    expect(bookingSearchToQuery({ art: "ausgaben", quelle: "stripe" })).toEqual({
+    expect(bookingSearchToQuery({ type: "expense", source: "stripe" })).toEqual({
       type: "expense",
       source: "stripe",
     });
@@ -278,12 +278,12 @@ describe("bookingSearchToQuery", () => {
   it("gives queries the business layer accepts for every validated URL", () => {
     const search = validateBookingSearch({
       q: "x",
-      von: "2024-02-29",
-      art: "einnahmen",
-      kategorie: "1,2",
-      quelle: "stripe",
-      ust: [0, "ohne"],
-      betragBis: "99",
+      from: "2024-02-29",
+      type: "income",
+      category: "1,2",
+      source: "stripe",
+      vat: [0, "none"],
+      amountTo: "99",
     });
     expect(normalizeBookingQuery(bookingSearchToQuery(search)).ok).toBe(true);
   });
@@ -291,7 +291,7 @@ describe("bookingSearchToQuery", () => {
   it("passes contradictions on to the business layer's validation", () => {
     const result = normalizeBookingQuery(
       bookingSearchToQuery(
-        validateBookingSearch({ von: "2025-02-01", bis: "2025-01-01", betragVon: 2, betragBis: 1 }),
+        validateBookingSearch({ from: "2025-02-01", to: "2025-01-01", amountFrom: 2, amountTo: 1 }),
       ),
     );
     expect(result).toEqual({
@@ -305,42 +305,40 @@ describe("bookingSearchToQuery", () => {
   });
 
   it("round-trips type and source params", () => {
-    expect(typeParam("income")).toBe("einnahmen");
-    expect(typeParam("expense")).toBe("ausgaben");
-    expect(sourceParam("manual")).toBe("manuell");
+    expect(typeParam("income")).toBe("income");
+    expect(typeParam("expense")).toBe("expense");
+    expect(sourceParam("manual")).toBe("manual");
     expect(sourceParam("stripe")).toBe("stripe");
   });
 
   it("round-trips VAT rate params", () => {
     for (const param of VAT_RATE_PARAMS) expect(vatRateParam(vatRateOfParam(param))).toBe(param);
-    expect(vatRateOfParam("ohne")).toBeNull();
+    expect(vatRateOfParam("none")).toBeNull();
     expect(vatRateOfParam("rc")).toBe("reverse_charge");
-    expect(vatRateParam(null)).toBe("ohne");
+    expect(vatRateParam(null)).toBe("none");
   });
 });
 
 describe("countActiveFilters / resetBookingFilters", () => {
   it("counts each filter once, ranges as one", () => {
     expect(countActiveFilters({})).toBe(0);
-    expect(countActiveFilters({ von: "2025-01-01", bis: "2025-12-31" })).toBe(1);
-    expect(countActiveFilters({ bis: "2025-12-31", betragVon: 5 })).toBe(2);
+    expect(countActiveFilters({ from: "2025-01-01", to: "2025-12-31" })).toBe(1);
+    expect(countActiveFilters({ to: "2025-12-31", amountFrom: 5 })).toBe(2);
     expect(
       countActiveFilters({
         q: "a",
-        von: "2025-01-01",
-        art: "ausgaben",
-        kategorie: [1, 2],
-        quelle: "stripe",
-        ust: ["19"],
-        betragBis: 3,
+        from: "2025-01-01",
+        type: "expense",
+        category: [1, 2],
+        source: "stripe",
+        vat: ["19"],
+        amountTo: 3,
       }),
     ).toBe(7);
   });
 
   it("removes every filter", () => {
-    expect(resetBookingFilters({ q: "a", art: "ausgaben", kategorie: [1], ust: ["7"] })).toEqual(
-      {},
-    );
+    expect(resetBookingFilters({ q: "a", type: "expense", category: [1], vat: ["7"] })).toEqual({});
   });
 });
 
@@ -658,57 +656,48 @@ describe("sort, page and page size params (#23)", () => {
     for (const field of BOOKING_SORT_FIELDS) {
       for (const direction of ["asc", "desc"] as const) {
         const param = sortParam({ field, direction });
-        expect(param).toMatch(/^[a-z]+-(auf|ab)$/);
+        expect(param).toMatch(/^[a-z]+-(asc|desc)$/);
         expect(parseSortParam(param)).toEqual({ field, direction });
       }
     }
-    expect(sortParam({ field: "grossCents", direction: "asc" })).toBe("brutto-auf");
-    expect(sortParam({ field: "date", direction: "desc" })).toBe("datum-ab");
+    expect(sortParam({ field: "grossCents", direction: "asc" })).toBe("gross-asc");
+    expect(sortParam({ field: "date", direction: "desc" })).toBe("date-desc");
   });
 
   it("rejects unknown sort params", () => {
-    for (const value of [
-      "",
-      "brutto",
-      "-auf",
-      "brutto-",
-      "brutto-hoch",
-      "grossCents-asc",
-      5,
-      null,
-    ]) {
+    for (const value of ["", "gross", "-asc", "gross-", "gross-hoch", "grossCents-asc", 5, null]) {
       expect(parseSortParam(value)).toBeUndefined();
     }
   });
 
   it("validates the params, dropping defaults and unreadable values", () => {
-    expect(validateBookingSearch({ sortierung: "brutto-auf", seite: 3, proSeite: 100 })).toEqual({
-      sortierung: "brutto-auf",
-      seite: 3,
-      proSeite: 100,
+    expect(validateBookingSearch({ sort: "gross-asc", page: 3, pageSize: 100 })).toEqual({
+      sort: "gross-asc",
+      page: 3,
+      pageSize: 100,
     });
-    expect(validateBookingSearch({ seite: "4", proSeite: "25" })).toEqual({
-      seite: 4,
-      proSeite: 25,
+    expect(validateBookingSearch({ page: "4", pageSize: "25" })).toEqual({
+      page: 4,
+      pageSize: 25,
     });
-    const dropped = validateBookingSearch({ sortierung: "datum-ab", seite: 1, proSeite: 50 });
+    const dropped = validateBookingSearch({ sort: "date-desc", page: 1, pageSize: 50 });
     expect(cleanBookingSearch(dropped)).toEqual({});
     for (const raw of [
-      { sortierung: "foo-auf" },
-      { seite: 0 },
-      { seite: -2 },
-      { seite: 2.5 },
-      { seite: "x" },
-      { proSeite: 30 },
-      { proSeite: 1000 },
-      { proSeite: "all" },
+      { sort: "foo-asc" },
+      { page: 0 },
+      { page: -2 },
+      { page: 2.5 },
+      { page: "x" },
+      { pageSize: 30 },
+      { pageSize: 1000 },
+      { pageSize: "all" },
     ]) {
       expect(cleanBookingSearch(validateBookingSearch(raw))).toEqual({});
     }
     // Every key is present (root-search merge, see validateBookingSearch).
-    const result = validateBookingSearch({ seite: "x" });
-    expect(Object.hasOwn(result, "seite")).toBe(true);
-    expect(result.seite).toBeUndefined();
+    const result = validateBookingSearch({ page: "x" });
+    expect(Object.hasOwn(result, "page")).toBe(true);
+    expect(result.page).toBeUndefined();
   });
 
   it("starts a new column in its initial direction and flips the sorted one", () => {
@@ -732,7 +721,7 @@ describe("sort, page and page size params (#23)", () => {
 
   it("writes params only for non-default values", () => {
     expect(sortSearchParam({ field: "date", direction: "desc" })).toBeUndefined();
-    expect(sortSearchParam({ field: "date", direction: "asc" })).toBe("datum-auf");
+    expect(sortSearchParam({ field: "date", direction: "asc" })).toBe("date-asc");
     expect(pageSearchParam(1)).toBeUndefined();
     expect(pageSearchParam(2)).toBe(2);
     expect(pageSizeSearchParam(50)).toBeUndefined();
@@ -747,10 +736,10 @@ describe("sort, page and page size params (#23)", () => {
     });
     expect(
       bookingSearchToListQuery({
-        art: "ausgaben",
-        sortierung: "kategorie-auf",
-        seite: 2,
-        proSeite: 25,
+        type: "expense",
+        sort: "category-asc",
+        page: 2,
+        pageSize: 25,
       }),
     ).toEqual({
       type: "expense",
@@ -759,35 +748,35 @@ describe("sort, page and page size params (#23)", () => {
       pageSize: 25,
     });
     expect(bookingSearchSort({})).toEqual({ field: "date", direction: "desc" });
-    expect(bookingSearchPage({ seite: 7 })).toBe(7);
-    expect(bookingSearchPageSize({ proSeite: 100 })).toBe(100);
+    expect(bookingSearchPage({ page: 7 })).toBe(7);
+    expect(bookingSearchPageSize({ pageSize: 100 })).toBe(100);
     for (const size of BOOKING_PAGE_SIZES) {
       expect(normalizeBookingQuery({ pageSize: size }).ok).toBe(true);
     }
   });
 
   it("goes back to page 1 when filters, sort order or page size change", () => {
-    const search: BookingSearch = { q: "a", sortierung: "brutto-auf", seite: 3 };
-    expect(updateBookingSearch(search, { art: "ausgaben" })).toEqual({
+    const search: BookingSearch = { q: "a", sort: "gross-asc", page: 3 };
+    expect(updateBookingSearch(search, { type: "expense" })).toEqual({
       q: "a",
-      art: "ausgaben",
-      sortierung: "brutto-auf",
+      type: "expense",
+      sort: "gross-asc",
     });
-    expect(updateBookingSearch(search, { sortierung: "netto-ab" })).toEqual({
+    expect(updateBookingSearch(search, { sort: "net-desc" })).toEqual({
       q: "a",
-      sortierung: "netto-ab",
+      sort: "net-desc",
     });
-    expect(updateBookingSearch(search, { proSeite: 100 })).toEqual({
+    expect(updateBookingSearch(search, { pageSize: 100 })).toEqual({
       q: "a",
-      sortierung: "brutto-auf",
-      proSeite: 100,
+      sort: "gross-asc",
+      pageSize: 100,
     });
     // Page changes and patches that change nothing keep the page.
-    expect(updateBookingSearch(search, { seite: 4 })).toEqual({ ...search, seite: 4 });
+    expect(updateBookingSearch(search, { page: 4 })).toEqual({ ...search, page: 4 });
     expect(updateBookingSearch(search, { q: "a" })).toEqual(search);
-    expect(updateBookingSearch(search, { seite: undefined })).toEqual({
+    expect(updateBookingSearch(search, { page: undefined })).toEqual({
       q: "a",
-      sortierung: "brutto-auf",
+      sort: "gross-asc",
     });
   });
 
@@ -795,12 +784,12 @@ describe("sort, page and page size params (#23)", () => {
     expect(
       resetBookingFilters({
         q: "a",
-        art: "ausgaben",
-        sortierung: "art-auf",
-        seite: 4,
-        proSeite: 25,
+        type: "expense",
+        sort: "type-asc",
+        page: 4,
+        pageSize: 25,
       }),
-    ).toEqual({ sortierung: "art-auf", proSeite: 25 });
+    ).toEqual({ sort: "type-asc", pageSize: 25 });
   });
 
   it("gives the shown rows of a page", () => {

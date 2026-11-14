@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  # PRs teilen sich eine Gruppe (überholte Läufe werden abgebrochen);
-  # jeder Push auf main bekommt eine eigene Gruppe und läuft vollständig durch.
+  # PRs share a group (superseded runs are cancelled);
+  # every push to main gets its own group and runs to completion.
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -25,7 +25,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Version kommt aus "packageManager" in package.json (pnpm 12).
+      # Version comes from "packageManager" in package.json (pnpm 12).
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -43,7 +43,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          # Nur main speichert den Cache; PRs stellen ihn von main wieder her.
+          # Only main saves the cache; PRs restore it from main.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
@@ -55,16 +55,16 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # Kompiliert die Paraglide-Messages (src/paraglide, gitignored), die tsc braucht.
+      # Compiles the Paraglide messages (src/paraglide, gitignored) that tsc needs.
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Test
         run: pnpm test
 
-      # Schema (src/persistence/schema.ts) und committete Migrationen müssen
-      # übereinstimmen: drizzle-kit darf keine neue Migration erzeugen.
-      - name: Migrationen aktuell
+      # Schema (src/persistence/schema.ts) and committed migrations must
+      # match: drizzle-kit must not generate a new migration.
+      - name: Migrations up to date
         timeout-minutes: 5
         shell: bash
         run: |
@@ -72,10 +72,10 @@ jobs:
           git add -N src/persistence/migrations
           git diff --exit-code -- src/persistence/migrations
 
-      - name: Tauri build (ohne Bundle)
+      - name: Tauri build (no bundle)
         run: pnpm tauri build --no-bundle
 
-      # Kein Release – nur zum Ausprobieren im Review, kurz aufbewahrt.
+      # Not a release – only for trying it out during review, kept briefly.
       - name: Upload exe
         uses: actions/upload-artifact@v7
         with:

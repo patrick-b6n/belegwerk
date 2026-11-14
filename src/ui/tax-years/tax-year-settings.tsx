@@ -50,7 +50,7 @@ import { useTaxYearList } from "./tax-year-queries";
 /**
  * The "Steuerjahre" section of the settings page (#20): all years with a
  * record or bookings (newest first), each with its status and a
- * Kleinunternehmer switch, plus "Jahr hinzufügen".
+ * Kleinunternehmer switch, plus "Add year".
  */
 export function TaxYearSettings() {
   const { data, error, isPending, refetch } = useTaxYearList();
@@ -118,7 +118,7 @@ interface PendingConflict {
  * One year. Toggling the switch saves immediately; while saving (and while
  * the conflict dialog is open) the switch shows the new value and is
  * read-only. If the service reports `conflicts`, a dialog explains them:
- * "Trotzdem ändern" repeats with `acknowledgeConflicts`, "Abbrechen" reverts
+ * "Change anyway" repeats with `acknowledgeConflicts`, "Cancel" reverts
  * the switch. The row keeps showing remaining mismatched bookings (from
  * `list()`), so the hint persists until the bookings are corrected.
  */
@@ -226,7 +226,7 @@ function TaxYearRow({ taxYear }: Readonly<{ taxYear: TaxYearOverview }>) {
 /**
  * Explains that bookings of the year will not fit the new status; they keep
  * their data and must be corrected on their next edit. The safe choice
- * ("Abbrechen", reverts the switch) gets the initial focus.
+ * ("Cancel", reverts the switch) gets the initial focus.
  */
 function ConflictDialog({
   year,
@@ -270,7 +270,7 @@ function ConflictDialog({
 }
 
 /**
- * "Jahr hinzufügen": records a year as regularly taxed. Starts with the
+ * "Add year": records a year as regularly taxed. Starts with the
  * current year (or the next one) if it is not listed. Same validation
  * pattern as the other forms: client check on submit and then on every
  * change; the service's `yearExists`/`invalidYear` at the field.

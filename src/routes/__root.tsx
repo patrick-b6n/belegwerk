@@ -28,7 +28,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       // Child routes override the title. For unknown paths (also below an
-      // existing route, e.g. /buchungen/x) the router renders the root's
+      // existing route, e.g. /bookings/x) the router renders the root's
       // notFoundComponent and flags the root match with `_notFound` (public
       // field of RouteMatch, despite the underscore).
       {
@@ -64,7 +64,7 @@ function NotFound() {
     <Page title={m.not_found_title()}>
       <PagePlaceholder>{m.not_found_description()}</PagePlaceholder>
       <div>
-        <Link to="/buchungen" className={buttonVariants({ variant: "outline" })}>
+        <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
           {m.not_found_back()}
         </Link>
       </div>

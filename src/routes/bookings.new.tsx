@@ -8,8 +8,8 @@ import { useCategoryList } from "@/ui/categories/category-queries";
 import { Page } from "@/ui/layout/page";
 import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
-/** A new booking (#18). Static route: takes precedence over `/buchungen/$bookingId`. */
-export const Route = createFileRoute("/buchungen/neu")({
+/** A new booking (#18). Static route: takes precedence over `/bookings/$bookingId`. */
+export const Route = createFileRoute("/bookings/new")({
   component: NewBookingPage,
   head: () => ({ meta: [{ title: m.page_title({ page: m.booking_new_title() }) }] }),
 });

@@ -1,6 +1,6 @@
 /**
  * Pure logic of the booking list's filters (#22): the URL search params of
- * `/buchungen` (validation, defaults, mapping to the business `BookingQuery`),
+ * `/bookings` (validation, defaults, mapping to the business `BookingQuery`),
  * the period quick picks (year / quarter / month / custom) and the category
  * options. No React, so it is unit-tested in Node.
  *
@@ -10,19 +10,19 @@
  * | Param       | Value                                   | `BookingQuery`  |
  * | ----------- | --------------------------------------- | --------------- |
  * | `q`         | search text                             | `text`          |
- * | `von`/`bis` | payment date `YYYY-MM-DD` (inclusive)   | `dateFrom/To`   |
- * | `art`       | `einnahmen` \| `ausgaben`               | `type`          |
- * | `kategorie` | category ids (array)                    | `categoryIds`   |
- * | `quelle`    | `manuell` \| `stripe`                   | `source`        |
- * | `ust`       | VAT rates (array of `0`/`7`/`19`/`rc`/`ohne`, #26) | `vatRates` |
- * | `betragVon`/`betragBis` | gross amount in **cents**   | `amountFrom/To` |
- * | `sortierung` | `<column>-<auf|ab>`, e.g. `brutto-auf` (#23) | `sort`  |
- * | `seite`     | page, 1-based (#23)                     | `page`          |
- * | `proSeite`  | page size, {@link BOOKING_PAGE_SIZES} (#23) | `pageSize`  |
+ * | `from`/`to` | payment date `YYYY-MM-DD` (inclusive)   | `dateFrom/To`   |
+ * | `type`       | `income` \| `expense`               | `type`          |
+ * | `category` | category ids (array)                    | `categoryIds`   |
+ * | `source`    | `manual` \| `stripe`                   | `source`        |
+ * | `vat`       | VAT rates (array of `0`/`7`/`19`/`rc`/`none`, #26) | `vatRates` |
+ * | `amountFrom`/`amountTo` | gross amount in **cents**   | `amountFrom/To` |
+ * | `sort` | `<column>-<asc|desc>`, e.g. `gross-asc` (#23) | `sort`  |
+ * | `page`     | page, 1-based (#23)                     | `page`          |
+ * | `pageSize`  | page size, {@link BOOKING_PAGE_SIZES} (#23) | `pageSize`  |
  *
- * The period is stored only as `von`/`bis`; the quick pick (year, quarter,
+ * The period is stored only as `from`/`to`; the quick pick (year, quarter,
  * month) is derived from them ({@link detectPeriod}), so a URL has exactly
- * one meaning and stays short. The defaults of sort order (`datum-ab`), page
+ * one meaning and stays short. The defaults of sort order (`date-desc`), page
  * (1) and page size (50) are not written either.
  *
  * {@link validateBookingSearch} never throws: values that cannot be read
@@ -49,47 +49,47 @@ import { isId, trimText } from "@/business/validation";
 // ---------------------------------------------------------------------------
 // URL search params
 
-export type BookingTypeParam = "einnahmen" | "ausgaben";
-export type BookingSourceParam = "manuell" | "stripe";
-/** A VAT rate in the URL: `rc` = reverse charge, `ohne` = no rate (small business). */
-export type VatRateParam = "ohne" | "0" | "7" | "19" | "rc";
+export type BookingTypeParam = "income" | "expense";
+export type BookingSourceParam = "manual" | "stripe";
+/** A VAT rate in the URL: `rc` = reverse charge, `none` = no rate (small business). */
+export type VatRateParam = "none" | "0" | "7" | "19" | "rc";
 
-/** The validated search params of `/buchungen` (absent = no filter). */
+/** The validated search params of `/bookings` (absent = no filter). */
 export interface BookingSearch {
   readonly q?: string;
-  readonly von?: string;
-  readonly bis?: string;
-  readonly art?: BookingTypeParam;
-  readonly kategorie?: readonly number[];
-  readonly quelle?: BookingSourceParam;
+  readonly from?: string;
+  readonly to?: string;
+  readonly type?: BookingTypeParam;
+  readonly category?: readonly number[];
+  readonly source?: BookingSourceParam;
   /** VAT rates (#26, drill-down from the EÜR), in {@link VAT_RATE_PARAMS} order, without duplicates. */
-  readonly ust?: readonly VatRateParam[];
-  readonly betragVon?: number;
-  readonly betragBis?: number;
+  readonly vat?: readonly VatRateParam[];
+  readonly amountFrom?: number;
+  readonly amountTo?: number;
   /** Sort order (#23); absent = {@link DEFAULT_BOOKING_SORT} (date descending). */
-  readonly sortierung?: BookingSortParam;
+  readonly sort?: BookingSortParam;
   /** Page (#23), an integer ≥ 2; absent = page 1. */
-  readonly seite?: number;
+  readonly page?: number;
   /** Page size (#23), one of {@link BOOKING_PAGE_SIZES} except the default; absent = 50. */
-  readonly proSeite?: number;
+  readonly pageSize?: number;
 }
 
 export type BookingSearchKey = keyof BookingSearch;
 
 const TYPE_PARAMS: Readonly<Record<BookingTypeParam, BookingType>> = {
-  einnahmen: "income",
-  ausgaben: "expense",
+  income: "income",
+  expense: "expense",
 };
 const SOURCE_PARAMS: Readonly<Record<BookingSourceParam, BookingSource>> = {
-  manuell: "manual",
+  manual: "manual",
   stripe: "stripe",
 };
 
 /** Every VAT rate param, in display order. */
-export const VAT_RATE_PARAMS: readonly VatRateParam[] = ["ohne", "0", "7", "19", "rc"];
+export const VAT_RATE_PARAMS: readonly VatRateParam[] = ["none", "0", "7", "19", "rc"];
 
 const VAT_RATE_OF_PARAM: Readonly<Record<VatRateParam, VatRate | null>> = {
-  ohne: null,
+  none: null,
   "0": "0",
   "7": "7",
   "19": "19",
@@ -98,7 +98,7 @@ const VAT_RATE_OF_PARAM: Readonly<Record<VatRateParam, VatRate | null>> = {
 
 /** The URL value of a VAT rate (`null` = no rate). */
 export function vatRateParam(rate: VatRate | null): VatRateParam {
-  if (rate === null) return "ohne";
+  if (rate === null) return "none";
   return rate === "reverse_charge" ? "rc" : rate;
 }
 
@@ -119,11 +119,11 @@ export function sortedVatRateParams(
 }
 
 export function typeParam(type: BookingType): BookingTypeParam {
-  return type === "income" ? "einnahmen" : "ausgaben";
+  return type;
 }
 
 export function sourceParam(source: BookingSource): BookingSourceParam {
-  return source === "manual" ? "manuell" : "stripe";
+  return source;
 }
 
 function isTypeParam(value: unknown): value is BookingTypeParam {
@@ -144,7 +144,7 @@ function nonNegativeInteger(value: unknown): number | undefined {
   else if (typeof value === "string" && /^\d+$/.test(value)) number = Number(value);
   else return undefined;
   if (!Number.isSafeInteger(number) || number < 0) return undefined;
-  // -0 (from `?betragVon=-0`) is 0.
+  // -0 (from `?amountFrom=-0`) is 0.
   return number === 0 ? 0 : number;
 }
 
@@ -172,8 +172,8 @@ function categoryIds(value: unknown): number[] | undefined {
 }
 
 /**
- * VAT rates from an array or a single value; the router parses `ust=[19,0]`
- * as numbers and `ust=["rc"]` as strings, both are accepted. Unknown values
+ * VAT rates from an array or a single value; the router parses `vat=[19,0]`
+ * as numbers and `vat=["rc"]` as strings, both are accepted. Unknown values
  * are dropped.
  */
 function vatRateParams(value: unknown): readonly VatRateParam[] | undefined {
@@ -200,47 +200,47 @@ function searchText(value: unknown): string | undefined {
 // ---------------------------------------------------------------------------
 // Sort order and pages (#23)
 
-/** The column names of the `sortierung` param. */
+/** The column names of the `sort` param. */
 export type BookingSortFieldParam =
-  | "datum"
-  | "art"
-  | "beschreibung"
-  | "gegenpartei"
-  | "kategorie"
-  | "netto"
-  | "ust"
-  | "brutto"
-  | "quelle";
-/** `auf` = ascending, `ab` = descending. */
-export type SortDirectionParam = "auf" | "ab";
-/** Value of the `sortierung` param, e.g. `brutto-auf`. */
+  | "date"
+  | "type"
+  | "description"
+  | "counterparty"
+  | "category"
+  | "net"
+  | "vat"
+  | "gross"
+  | "source";
+/** `asc` = ascending, `desc` = descending. */
+export type SortDirectionParam = "asc" | "desc";
+/** Value of the `sort` param, e.g. `gross-asc`. */
 export type BookingSortParam = `${BookingSortFieldParam}-${SortDirectionParam}`;
 
 const SORT_FIELD_PARAMS: Readonly<Record<BookingSortField, BookingSortFieldParam>> = {
-  date: "datum",
-  type: "art",
-  description: "beschreibung",
-  counterparty: "gegenpartei",
-  category: "kategorie",
-  netCents: "netto",
-  vatCents: "ust",
-  grossCents: "brutto",
-  source: "quelle",
+  date: "date",
+  type: "type",
+  description: "description",
+  counterparty: "counterparty",
+  category: "category",
+  netCents: "net",
+  vatCents: "vat",
+  grossCents: "gross",
+  source: "source",
 };
 const SORT_DIRECTION_PARAMS: Readonly<Record<SortDirection, SortDirectionParam>> = {
-  asc: "auf",
-  desc: "ab",
+  asc: "asc",
+  desc: "desc",
 };
 
 /** The page sizes the list offers; {@link DEFAULT_BOOKING_PAGE_SIZE} (50) is the default. */
 export const BOOKING_PAGE_SIZES: readonly number[] = [25, 50, 100, 200];
 
-/** The `sortierung` value of a sort order. */
+/** The `sort` value of a sort order. */
 export function sortParam(sort: BookingSort): BookingSortParam {
   return `${SORT_FIELD_PARAMS[sort.field]}-${SORT_DIRECTION_PARAMS[sort.direction]}`;
 }
 
-/** The sort order of a `sortierung` value; `undefined` if it is none. */
+/** The sort order of a `sort` value; `undefined` if it is none. */
 export function parseSortParam(value: unknown): BookingSort | undefined {
   if (typeof value !== "string") return undefined;
   const separator = value.lastIndexOf("-");
@@ -250,7 +250,8 @@ export function parseSortParam(value: unknown): BookingSort | undefined {
   const field = BOOKING_SORT_FIELDS.find(
     (candidate) => SORT_FIELD_PARAMS[candidate] === fieldParam,
   );
-  const direction = directionParam === "auf" ? "asc" : directionParam === "ab" ? "desc" : undefined;
+  const direction =
+    directionParam === "asc" || directionParam === "desc" ? directionParam : undefined;
   return field !== undefined && direction !== undefined ? { field, direction } : undefined;
 }
 
@@ -262,7 +263,7 @@ function isDefaultSort(sort: BookingSort): boolean {
 
 /** The sort order of the search params (default: date descending). */
 export function bookingSearchSort(search: BookingSearch): BookingSort {
-  return parseSortParam(search.sortierung) ?? DEFAULT_BOOKING_SORT;
+  return parseSortParam(search.sort) ?? DEFAULT_BOOKING_SORT;
 }
 
 /**
@@ -287,27 +288,27 @@ export function nextBookingSort(current: BookingSort, field: BookingSortField): 
   return { field, direction: initialSortDirection(field) };
 }
 
-/** The `sortierung` param of a sort order: `undefined` for the default. */
+/** The `sort` param of a sort order: `undefined` for the default. */
 export function sortSearchParam(sort: BookingSort): BookingSortParam | undefined {
   return isDefaultSort(sort) ? undefined : sortParam(sort);
 }
 
 /** The page of the search params (1-based). */
 export function bookingSearchPage(search: BookingSearch): number {
-  return search.seite ?? 1;
+  return search.page ?? 1;
 }
 
 /** The page size of the search params. */
 export function bookingSearchPageSize(search: BookingSearch): number {
-  return search.proSeite ?? DEFAULT_BOOKING_PAGE_SIZE;
+  return search.pageSize ?? DEFAULT_BOOKING_PAGE_SIZE;
 }
 
-/** The `seite` param of a page: `undefined` for page 1. */
+/** The `page` param of a page: `undefined` for page 1. */
 export function pageSearchParam(page: number): number | undefined {
   return page > 1 ? page : undefined;
 }
 
-/** The `proSeite` param of a page size: `undefined` for the default. */
+/** The `pageSize` param of a page size: `undefined` for the default. */
 export function pageSizeSearchParam(pageSize: number): number | undefined {
   return pageSize === DEFAULT_BOOKING_PAGE_SIZE ? undefined : pageSize;
 }
@@ -329,7 +330,7 @@ function sortingParam(value: unknown): BookingSortParam | undefined {
 
 /**
  * The rows a page shows, 1-based and inclusive, for the pagination's
- * "51–100 von 120"; `0–0` for an empty result.
+ * "51–100 of 120"; `0–0` for an empty result.
  */
 export function pageRange(
   page: number,
@@ -347,23 +348,23 @@ export function pageRange(
 export function cleanBookingSearch(search: BookingSearch): BookingSearch {
   const result: { -readonly [K in BookingSearchKey]?: BookingSearch[K] } = {};
   if (search.q !== undefined && trimText(search.q) !== "") result.q = search.q;
-  if (search.von !== undefined && search.von !== "") result.von = search.von;
-  if (search.bis !== undefined && search.bis !== "") result.bis = search.bis;
-  if (search.art !== undefined) result.art = search.art;
-  if (search.kategorie !== undefined && search.kategorie.length > 0) {
-    result.kategorie = search.kategorie;
+  if (search.from !== undefined && search.from !== "") result.from = search.from;
+  if (search.to !== undefined && search.to !== "") result.to = search.to;
+  if (search.type !== undefined) result.type = search.type;
+  if (search.category !== undefined && search.category.length > 0) {
+    result.category = search.category;
   }
-  if (search.quelle !== undefined) result.quelle = search.quelle;
-  if (search.ust !== undefined) {
-    const ust = sortedVatRateParams(search.ust);
-    if (ust !== undefined) result.ust = ust;
+  if (search.source !== undefined) result.source = search.source;
+  if (search.vat !== undefined) {
+    const vat = sortedVatRateParams(search.vat);
+    if (vat !== undefined) result.vat = vat;
   }
-  if (search.betragVon !== undefined) result.betragVon = search.betragVon;
-  if (search.betragBis !== undefined) result.betragBis = search.betragBis;
-  if (search.sortierung !== undefined) result.sortierung = search.sortierung;
-  if (search.seite !== undefined && search.seite > 1) result.seite = search.seite;
-  if (search.proSeite !== undefined && search.proSeite !== DEFAULT_BOOKING_PAGE_SIZE) {
-    result.proSeite = search.proSeite;
+  if (search.amountFrom !== undefined) result.amountFrom = search.amountFrom;
+  if (search.amountTo !== undefined) result.amountTo = search.amountTo;
+  if (search.sort !== undefined) result.sort = search.sort;
+  if (search.page !== undefined && search.page > 1) result.page = search.page;
+  if (search.pageSize !== undefined && search.pageSize !== DEFAULT_BOOKING_PAGE_SIZE) {
+    result.pageSize = search.pageSize;
   }
   return result;
 }
@@ -371,28 +372,28 @@ export function cleanBookingSearch(search: BookingSearch): BookingSearch {
 /** Every param of the schema, absent. */
 const NO_SEARCH: Readonly<Record<BookingSearchKey, undefined>> = {
   q: undefined,
-  von: undefined,
-  bis: undefined,
-  art: undefined,
-  kategorie: undefined,
-  quelle: undefined,
-  ust: undefined,
-  betragVon: undefined,
-  betragBis: undefined,
-  sortierung: undefined,
-  seite: undefined,
-  proSeite: undefined,
+  from: undefined,
+  to: undefined,
+  type: undefined,
+  category: undefined,
+  source: undefined,
+  vat: undefined,
+  amountFrom: undefined,
+  amountTo: undefined,
+  sort: undefined,
+  page: undefined,
+  pageSize: undefined,
 };
 
 /**
- * `validateSearch` of `/buchungen`: reads the raw (router-parsed) params into
+ * `validateSearch` of `/bookings`: reads the raw (router-parsed) params into
  * a {@link BookingSearch}. Never throws; unreadable values are dropped (see
  * the module comment).
  *
  * Every param of the schema is present in the result, dropped ones as
  * `undefined`: TanStack Router merges a route's validated search over the
  * parent's, and the root route keeps the raw params – a dropped key would
- * otherwise show through with its raw value (`art=foo`). Unknown params do
+ * otherwise show through with its raw value (`type=foo`). Unknown params do
  * show through but are ignored; the next filter change writes a clean URL
  * (`updateBookingSearch`).
  */
@@ -403,17 +404,17 @@ export function validateBookingSearch(raw: Readonly<Record<string, unknown>>): B
 function validParams(raw: Readonly<Record<string, unknown>>): BookingSearch {
   return cleanBookingSearch({
     q: searchText(raw.q),
-    von: isoDate(raw.von),
-    bis: isoDate(raw.bis),
-    art: isTypeParam(raw.art) ? raw.art : undefined,
-    kategorie: categoryIds(raw.kategorie),
-    quelle: isSourceParam(raw.quelle) ? raw.quelle : undefined,
-    ust: vatRateParams(raw.ust),
-    betragVon: amountCents(raw.betragVon),
-    betragBis: amountCents(raw.betragBis),
-    sortierung: sortingParam(raw.sortierung),
-    seite: pageParam(raw.seite),
-    proSeite: pageSizeParam(raw.proSeite),
+    from: isoDate(raw.from),
+    to: isoDate(raw.to),
+    type: isTypeParam(raw.type) ? raw.type : undefined,
+    category: categoryIds(raw.category),
+    source: isSourceParam(raw.source) ? raw.source : undefined,
+    vat: vatRateParams(raw.vat),
+    amountFrom: amountCents(raw.amountFrom),
+    amountTo: amountCents(raw.amountTo),
+    sort: sortingParam(raw.sort),
+    page: pageParam(raw.page),
+    pageSize: pageSizeParam(raw.pageSize),
   });
 }
 
@@ -422,17 +423,17 @@ function validParams(raw: Readonly<Record<string, unknown>>): BookingSearch {
  *
  * Changing anything but the page – a filter, the sort order or the page
  * size – goes back to page 1 (the old page number would show unrelated
- * rows), unless the patch sets `seite` itself.
+ * rows), unless the patch sets `page` itself.
  */
 export function updateBookingSearch(
   search: BookingSearch,
   patch: { readonly [K in BookingSearchKey]?: BookingSearch[K] | undefined },
 ): BookingSearch {
   const next = cleanBookingSearch({ ...search, ...patch });
-  if (Object.hasOwn(patch, "seite") || next.seite === undefined) return next;
+  if (Object.hasOwn(patch, "page") || next.page === undefined) return next;
   const withoutPage = (value: BookingSearch) =>
-    JSON.stringify(cleanBookingSearch({ ...value, seite: undefined }));
-  return withoutPage(next) === withoutPage(search) ? next : { ...next, seite: undefined };
+    JSON.stringify(cleanBookingSearch({ ...value, page: undefined }));
+  return withoutPage(next) === withoutPage(search) ? next : { ...next, page: undefined };
 }
 
 /**
@@ -443,14 +444,14 @@ export function updateBookingSearch(
 export function bookingSearchToQuery(search: BookingSearch): BookingQuery {
   const query: { -readonly [K in keyof BookingQuery]?: BookingQuery[K] } = {};
   if (search.q !== undefined) query.text = search.q;
-  if (search.von !== undefined) query.dateFrom = search.von;
-  if (search.bis !== undefined) query.dateTo = search.bis;
-  if (search.art !== undefined) query.type = TYPE_PARAMS[search.art];
-  if (search.kategorie !== undefined) query.categoryIds = search.kategorie;
-  if (search.quelle !== undefined) query.source = SOURCE_PARAMS[search.quelle];
-  if (search.ust !== undefined) query.vatRates = search.ust.map(vatRateOfParam);
-  if (search.betragVon !== undefined) query.amountFrom = search.betragVon;
-  if (search.betragBis !== undefined) query.amountTo = search.betragBis;
+  if (search.from !== undefined) query.dateFrom = search.from;
+  if (search.to !== undefined) query.dateTo = search.to;
+  if (search.type !== undefined) query.type = TYPE_PARAMS[search.type];
+  if (search.category !== undefined) query.categoryIds = search.category;
+  if (search.source !== undefined) query.source = SOURCE_PARAMS[search.source];
+  if (search.vat !== undefined) query.vatRates = search.vat.map(vatRateOfParam);
+  if (search.amountFrom !== undefined) query.amountFrom = search.amountFrom;
+  if (search.amountTo !== undefined) query.amountTo = search.amountTo;
   return query;
 }
 
@@ -474,22 +475,22 @@ export function bookingSearchToListQuery(search: BookingSearch): BookingQuery {
 export function countActiveFilters(search: BookingSearch): number {
   const active = [
     search.q !== undefined,
-    search.von !== undefined || search.bis !== undefined,
-    search.art !== undefined,
-    search.kategorie !== undefined,
-    search.quelle !== undefined,
-    search.ust !== undefined,
-    search.betragVon !== undefined || search.betragBis !== undefined,
+    search.from !== undefined || search.to !== undefined,
+    search.type !== undefined,
+    search.category !== undefined,
+    search.source !== undefined,
+    search.vat !== undefined,
+    search.amountFrom !== undefined || search.amountTo !== undefined,
   ];
   return active.filter(Boolean).length;
 }
 
 /**
- * The search params without any filter ("Filter zurücksetzen"): sort order
+ * The search params without any filter ("Reset filters"): sort order
  * and page size stay, the page goes back to 1.
  */
 export function resetBookingFilters(search: BookingSearch): BookingSearch {
-  return cleanBookingSearch({ sortierung: search.sortierung, proSeite: search.proSeite });
+  return cleanBookingSearch({ sort: search.sort, pageSize: search.pageSize });
 }
 
 /** The search text as committed to the URL: trimmed; blank removes the param. */
@@ -584,7 +585,7 @@ export function periodRange(period: Period): DateRange {
 }
 
 /**
- * The quick pick that `von`/`bis` describe exactly (a whole year, quarter or
+ * The quick pick that `from`/`to` describe exactly (a whole year, quarter or
  * month); any other range – including only one bound – is "custom".
  */
 export function detectPeriod(from: string | undefined, to: string | undefined): Period {

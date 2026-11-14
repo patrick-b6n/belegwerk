@@ -27,7 +27,7 @@ const sameText = (text: string, source: string) => text === source;
 /**
  * A text input bound to an external value (a URL search param) that commits
  * changes debounced. When the external value changes for another reason
- * (back/forward, "Filter zurücksetzen", a link), a pending commit is dropped
+ * (back/forward, "Reset filters", a link), a pending commit is dropped
  * and the input shows the new value – unless the typed text already matches
  * it (`matches`) or the change is the own commit's, so that does not
  * overwrite what was typed since.

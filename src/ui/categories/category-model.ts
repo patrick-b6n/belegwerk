@@ -54,7 +54,7 @@ export function archivedCount(categories: readonly CategoryWithUsage[]): number 
 }
 
 /**
- * Whether "Löschen" is offered: only for non-system categories without
+ * Whether "Delete" is offered: only for non-system categories without
  * bookings (`CategoryService.delete` rejects the others with `systemCategory`
  * or `inUse`).
  */

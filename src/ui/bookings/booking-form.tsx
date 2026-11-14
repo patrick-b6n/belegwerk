@@ -81,8 +81,8 @@ export interface BookingFormProps {
 }
 
 /**
- * Create or edit a booking (#18), used by `/buchungen/neu` and
- * `/buchungen/$bookingId`.
+ * Create or edit a booking (#18), used by `/bookings/new` and
+ * `/bookings/$bookingId`.
  *
  * - Values are strings (`BookingFormValues`); on submit they become the
  *   service's `BookingFormInput` (`toBookingFormInput`). The service
@@ -122,12 +122,12 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
             title: booking ? m.booking_updated_toast() : m.booking_created_toast(),
             type: "success",
           });
-          await navigate({ to: "/buchungen" });
+          await navigate({ to: "/bookings" });
           return;
         }
         if (result.reason === "notFound") {
           toast.add({ title: m.booking_not_found_toast(), type: "error" });
-          await navigate({ to: "/buchungen" });
+          await navigate({ to: "/bookings" });
           return;
         }
         const { byField, other } = splitServiceErrors(result.errors);
@@ -552,7 +552,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
             </Button>
           )}
         </form.Subscribe>
-        <Button type="button" variant="outline" onClick={() => void navigate({ to: "/buchungen" })}>
+        <Button type="button" variant="outline" onClick={() => void navigate({ to: "/bookings" })}>
           {m.common_cancel()}
         </Button>
         {booking && (
@@ -650,7 +650,7 @@ function ImportInfo({ booking }: Readonly<{ booking: Booking }>) {
   );
 }
 
-/** "Löschen" with a confirmation dialog; on success back to the list. */
+/** "Delete" with a confirmation dialog; on success back to the list. */
 function DeleteBookingButton({ booking }: Readonly<{ booking: Booking }>) {
   const navigate = useNavigate();
   const { remove } = useBookingMutations();
@@ -666,7 +666,7 @@ function DeleteBookingButton({ booking }: Readonly<{ booking: Booking }>) {
           : { title: m.booking_not_found_toast(), type: "error" },
       );
       setOpen(false);
-      await navigate({ to: "/buchungen" });
+      await navigate({ to: "/bookings" });
     } catch (error) {
       console.error("Deleting the booking failed", error);
       toast.add({ title: m.booking_delete_error(), type: "error" });

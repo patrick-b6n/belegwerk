@@ -75,7 +75,7 @@ export interface BookingFilterBarProps {
   readonly categories: readonly CategoryWithUsage[];
   /** Years the year quick pick offers (tax years and years with bookings). */
   readonly years: readonly number[];
-  /** Id of the search input (focused after "Filter zurücksetzen"). */
+  /** Id of the search input (focused after "Reset filters"). */
   readonly searchInputId: string;
   readonly onSearchChange: (patch: BookingSearchPatch, options?: SearchChangeOptions) => void;
   readonly onReset: () => void;
@@ -85,20 +85,20 @@ export interface BookingFilterBarProps {
 const TEXT_DELAY = 300;
 const VALUE_DELAY = 500;
 
-const TYPE_FILTERS: readonly BookingTypeParam[] = ["einnahmen", "ausgaben"];
-const SOURCE_FILTERS: readonly BookingSourceParam[] = ["manuell", "stripe"];
+const TYPE_FILTERS: readonly BookingTypeParam[] = ["income", "expense"];
+const SOURCE_FILTERS: readonly BookingSourceParam[] = ["manual", "stripe"];
 const TYPE_OF_PARAM: Readonly<Record<BookingTypeParam, BookingType>> = {
-  einnahmen: "income",
-  ausgaben: "expense",
+  income: "income",
+  expense: "expense",
 };
 const ALL = "all";
 
 const TYPE_FILTER_LABELS: Readonly<Record<BookingTypeParam, () => string>> = {
-  einnahmen: m.bookings_filter_type_income,
-  ausgaben: m.bookings_filter_type_expense,
+  income: m.bookings_filter_type_income,
+  expense: m.bookings_filter_type_expense,
 };
 const SOURCE_FILTER_LABELS: Readonly<Record<BookingSourceParam, () => string>> = {
-  manuell: m.bookings_source_manual,
+  manual: m.bookings_source_manual,
   stripe: m.bookings_source_stripe,
 };
 const PERIOD_KIND_LABELS: Readonly<Record<PeriodKind, () => string>> = {
@@ -114,7 +114,7 @@ const CATEGORY_GROUP_LABELS: Readonly<Record<BookingType, () => string>> = {
 };
 
 const VAT_RATE_FILTER_LABELS: Readonly<Record<VatRateParam, () => string>> = {
-  ohne: m.bookings_filter_vat_rate_none,
+  none: m.bookings_filter_vat_rate_none,
   "0": VAT_RATE_LABELS["0"],
   "7": VAT_RATE_LABELS["7"],
   "19": VAT_RATE_LABELS["19"],
@@ -135,7 +135,7 @@ function replaceWhenEditing(before: unknown, after: unknown): SearchChangeOption
 
 /**
  * The search field and filter bar above the booking list (#22). Shows the
- * search params of `/buchungen` and reports changes as patches; the route
+ * search params of `/bookings` and reports changes as patches; the route
  * writes them to the URL. Typed values (search text, amounts, custom dates)
  * are committed debounced, choices right away.
  *
@@ -155,7 +155,7 @@ export function BookingFilterBar({
   const errorsOf = (field: BookingQueryField) =>
     errors.filter((error) => error.field === field).map(bookingQueryErrorMessage);
   const activeCount = countActiveFilters(search);
-  const type = search.art === undefined ? undefined : TYPE_OF_PARAM[search.art];
+  const type = search.type === undefined ? undefined : TYPE_OF_PARAM[search.type];
 
   return (
     <div
@@ -188,12 +188,12 @@ export function BookingFilterBar({
       <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
         <PeriodFilter
           idPrefix={id("period")}
-          from={search.von}
-          to={search.bis}
+          from={search.from}
+          to={search.to}
           years={years}
           fromErrors={errorsOf("dateFrom")}
           toErrors={errorsOf("dateTo")}
-          onChange={(range, options) => onSearchChange({ von: range.from, bis: range.to }, options)}
+          onChange={(range, options) => onSearchChange({ from: range.from, to: range.to }, options)}
         />
 
         <FormField
@@ -208,14 +208,14 @@ export function BookingFilterBar({
                 { value: ALL, label: m.bookings_filter_type_all() },
                 ...TYPE_FILTERS.map((value) => ({ value, label: TYPE_FILTER_LABELS[value]() })),
               ]}
-              value={search.art ?? ALL}
+              value={search.type ?? ALL}
               onValueChange={(value) => {
-                const art =
+                const typeParam =
                   value === ALL || value === null ? undefined : (value as BookingTypeParam);
-                const nextType = art === undefined ? undefined : TYPE_OF_PARAM[art];
+                const nextType = typeParam === undefined ? undefined : TYPE_OF_PARAM[typeParam];
                 onSearchChange({
-                  art,
-                  kategorie: categoriesAfterTypeChange(search.kategorie, categories, nextType),
+                  type: typeParam,
+                  category: categoriesAfterTypeChange(search.category, categories, nextType),
                 });
               }}
             >
@@ -236,11 +236,11 @@ export function BookingFilterBar({
 
         <CategoryFilter
           id={id("category")}
-          selected={search.kategorie ?? []}
+          selected={search.category ?? []}
           categories={categories}
           type={type}
           errors={errorsOf("categoryIds")}
-          onChange={(kategorie) => onSearchChange({ kategorie })}
+          onChange={(category) => onSearchChange({ category })}
         />
 
         <FormField
@@ -255,10 +255,10 @@ export function BookingFilterBar({
                 { value: ALL, label: m.bookings_filter_source_all() },
                 ...SOURCE_FILTERS.map((value) => ({ value, label: SOURCE_FILTER_LABELS[value]() })),
               ]}
-              value={search.quelle ?? ALL}
+              value={search.source ?? ALL}
               onValueChange={(value) =>
                 onSearchChange({
-                  quelle:
+                  source:
                     value === ALL || value === null ? undefined : (value as BookingSourceParam),
                 })
               }
@@ -280,9 +280,9 @@ export function BookingFilterBar({
 
         <VatRateFilter
           id={id("vat-rate")}
-          selected={search.ust ?? []}
+          selected={search.vat ?? []}
           errors={errorsOf("vatRates")}
-          onChange={(ust) => onSearchChange({ ust })}
+          onChange={(vat) => onSearchChange({ vat })}
         />
 
         <div
@@ -294,20 +294,20 @@ export function BookingFilterBar({
             id={id("amount-from")}
             label={m.bookings_filter_amount_from_label()}
             placeholder={m.bookings_filter_amount_from_placeholder()}
-            cents={search.betragVon}
+            cents={search.amountFrom}
             errors={errorsOf("amountFrom")}
-            onCommit={(betragVon) =>
-              onSearchChange({ betragVon }, replaceWhenEditing(search.betragVon, betragVon))
+            onCommit={(amountFrom) =>
+              onSearchChange({ amountFrom }, replaceWhenEditing(search.amountFrom, amountFrom))
             }
           />
           <AmountField
             id={id("amount-to")}
             label={m.bookings_filter_amount_to_label()}
             placeholder={m.bookings_filter_amount_to_placeholder()}
-            cents={search.betragBis}
+            cents={search.amountTo}
             errors={errorsOf("amountTo")}
-            onCommit={(betragBis) =>
-              onSearchChange({ betragBis }, replaceWhenEditing(search.betragBis, betragBis))
+            onCommit={(amountTo) =>
+              onSearchChange({ amountTo }, replaceWhenEditing(search.amountTo, amountTo))
             }
           />
         </div>
@@ -374,7 +374,7 @@ function rangeKey(from: string | undefined, to: string | undefined): string {
 
 /**
  * Period: quick picks year / quarter / month of a year, or custom dates. Only
- * `von`/`bis` are stored; the quick pick is derived from them. "Frei" stays
+ * `from`/`to` are stored; the quick pick is derived from them. "Custom" stays
  * selected while it is used (also with empty dates or dates that happen to
  * form a whole month), until another quick pick is chosen, the filters are
  * reset (the filter bar is then mounted anew) or the range changes from
@@ -825,7 +825,7 @@ function vatRateSummary(rates: readonly VatRateParam[]): string {
 /**
  * Multi-select of VAT rates (#26): the EÜR's drill-down links filter by the
  * rates of a line (e.g. line 15 = 7 % and 19 %); here they can be seen and
- * changed. "Ohne USt-Satz" = bookings without a rate (small business).
+ * changed. "No VAT rate" = bookings without a rate (small business).
  */
 function VatRateFilter({
   id,

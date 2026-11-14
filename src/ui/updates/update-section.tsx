@@ -8,7 +8,7 @@ import { updateCheckMessage, updateErrorMessage } from "./update-messages";
 import { useCheckForUpdate } from "./update-queries";
 
 /**
- * Section "Updates" on `/einstellungen` (#71): "Nach Updates suchen" asks
+ * Section "Updates" on `/settings` (#71): "Check for updates" asks
  * GitHub for the latest release and shows the result – up to date, newer
  * version (with release notes and "Jetzt aktualisieren") or the error.
  */

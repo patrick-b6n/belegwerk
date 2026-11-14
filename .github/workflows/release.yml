@@ -1,8 +1,8 @@
 name: Release
 
-# Jeder Push auf main baut die .exe und legt ein GitHub-Release mit dem Tag
-# `v<YYYY-MM-DD-HHMM>` an (#71, #74). Die App prüft beim Start das neueste
-# Release und aktualisiert sich daraus (docs/release.md).
+# Every push to main builds the .exe and creates a GitHub release tagged
+# `v<YYYY-MM-DD-HHMM>` (#71, #74). On startup the app checks the latest
+# release and updates itself from it (docs/release.md).
 on:
   push:
     branches: [main]
@@ -11,10 +11,10 @@ on:
 permissions:
   contents: read
 
-# Eine Gruppe pro Ref: Releases von main entstehen nacheinander, keiner wird
-# abgebrochen (die Version hängt vom zuletzt angelegten Tag ab). Ein
-# workflow_dispatch auf einem anderen Branch landet in einer eigenen Gruppe
-# und verdrängt keinen wartenden main-Lauf.
+# One group per ref: releases from main are created one after another, none
+# is cancelled (the version depends on the most recently created tag). A
+# workflow_dispatch on another branch lands in its own group and does not
+# displace a pending main run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -22,7 +22,7 @@ concurrency:
 jobs:
   release:
     name: Build & Release (windows-latest)
-    # workflow_dispatch geht auf jedem Branch; Releases nur von main.
+    # workflow_dispatch works on any branch; releases only from main.
     if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 60
@@ -30,11 +30,11 @@ jobs:
       # gh release create
       contents: write
     steps:
-      # Nur der aktuelle Stand von main wird veröffentlicht. Ein erneut
-      # gestarteter alter Lauf (Re-run) würde sonst älteren Code als „Latest“
-      # veröffentlichen; seine Commits sind im Release des neueren Laufs
-      # enthalten. Vor `gh release create` wird erneut geprüft.
-      - name: Stand von main prüfen
+      # Only the current head of main is published. A re-run of an old run
+      # would otherwise publish older code as "Latest"; its commits are
+      # included in the newer run's release. Checked again before
+      # `gh release create`.
+      - name: Check head of main
         id: head
         shell: bash
         env:
@@ -45,7 +45,7 @@ jobs:
           if [ "$head" = "$GITHUB_SHA" ]; then
             echo "current=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Kein Release: $GITHUB_SHA ist nicht mehr der Stand von main ($head); der neuere Lauf veröffentlicht diese Commits."
+            echo "::notice::No release: $GITHUB_SHA is no longer the head of main ($head); the newer run publishes these commits."
             echo "current=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Version kommt aus "packageManager" in package.json (pnpm 12).
+      # Version comes from "packageManager" in package.json (pnpm 12).
       - name: Setup pnpm
         if: steps.head.outputs.current == 'true'
         uses: pnpm/action-setup@v6
@@ -72,8 +72,8 @@ jobs:
         if: steps.head.outputs.current == 'true'
         uses: dtolnay/rust-toolchain@stable
 
-      # Nur lesen: CI (ci.yml) speichert den Cache von main; der Release-Lauf
-      # baut im selben Profil und speichert keinen zweiten.
+      # Read only: CI (ci.yml) saves main's cache; the release run builds
+      # with the same profile and does not save a second one.
       - name: Cargo-Cache
         if: steps.head.outputs.current == 'true'
         uses: Swatinem/rust-cache@v2
@@ -89,13 +89,13 @@ jobs:
         if: steps.head.outputs.current == 'true'
         run: pnpm verify
 
-      # Version erst nach dem Verify bilden, direkt vor Build und Release:
-      # aktuelle Zeit in UTC. Ist sie nicht echt größer als das höchste
-      # vorhandene Tag `v<YYYY-MM-DD-HHMM>` (zwei Pushes in derselben Minute,
-      # Uhr geht nach), wird es höchstes Tag + 1 Minute
-      # (scripts/release-version.ts). Die Tags kommen über die API, der
-      # Checkout bleibt flach.
-      - name: Version bestimmen
+      # Determine the version only after Verify, right before build and
+      # release: the current time in UTC. If it is not strictly greater than
+      # the highest existing tag `v<YYYY-MM-DD-HHMM>` (two pushes in the same
+      # minute, clock behind), it becomes highest tag + 1 minute
+      # (scripts/release-version.ts). The tags come from the API, the
+      # checkout stays shallow.
+      - name: Determine version
         if: steps.head.outputs.current == 'true'
         shell: bash
         env:
@@ -107,18 +107,18 @@ jobs:
           version=$(printf '%s\n' "$tags" | node scripts/release-version.ts)
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
-      # Setzt die SemVer-Form der Version (YYYY.MMDD.HHMM) für den Build in
-      # package.json (nicht committet), tauri build --no-bundle, kopiert nach
-      # release/belegwerk-<version>.exe, schreibt die Prüfsumme und prüft die
-      # Dateiversion der .exe (scripts/release.ts).
+      # Sets the SemVer form of the version (YYYY.MMDD.HHMM) for the build in
+      # package.json (not committed), runs tauri build --no-bundle, copies to
+      # release/belegwerk-<version>.exe, writes the checksum and checks the
+      # file version of the .exe (scripts/release.ts).
       - name: Build
         if: steps.head.outputs.current == 'true'
         run: node scripts/release.ts --calver "$env:VERSION"
 
-      # Legt das Tag `v<version>` auf den gebauten Commit an. Kein Pre-release,
-      # ausdrücklich „Latest“: die App liest `releases/latest`. `gh` lädt die
-      # Assets hoch, bevor es das Release veröffentlicht.
-      - name: GitHub-Release anlegen
+      # Creates the tag `v<version>` on the built commit. Not a pre-release,
+      # explicitly "Latest": the app reads `releases/latest`. `gh` uploads the
+      # assets before it publishes the release.
+      - name: Create GitHub release
         if: steps.head.outputs.current == 'true'
         shell: bash
         env:
@@ -127,7 +127,7 @@ jobs:
           set -euo pipefail
           head=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
           if [ "$head" != "$GITHUB_SHA" ]; then
-            echo "::notice::Kein Release: main ist während des Builds auf $head weitergerückt; der neuere Lauf veröffentlicht diese Commits."
+            echo "::notice::No release: main moved on to $head during the build; the newer run publishes these commits."
             exit 0
           fi
           gh release create "v$VERSION" \

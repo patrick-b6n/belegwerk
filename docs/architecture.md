@@ -712,16 +712,16 @@ Entscheidungen und Ergebnisform:
 
 ## App-Shell & Routen
 
-| Route                   | Bereich                                                             |
-| ----------------------- | ------------------------------------------------------------------- |
-| `/`                     | Weiterleitung auf `/buchungen` (Startseite)                         |
-| `/buchungen`            | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
-| `/buchungen/$bookingId` | Buchung bearbeiten (Formular, #18)                                  |
-| `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
-| `/euer`                 | EÜR-Jahresansicht; Jahr als Search-Param `jahr` (#26)               |
-| `/kategorien`           | Kategorienverwaltung                                                |
-| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe, Datensicherung, Updates)        |
-| alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
+| Route                  | Bereich                                                             |
+| ---------------------- | ------------------------------------------------------------------- |
+| `/`                    | Weiterleitung auf `/bookings` (Startseite)                          |
+| `/bookings`            | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
+| `/bookings/$bookingId` | Buchung bearbeiten (Formular, #18)                                  |
+| `/bookings/new`        | Neue Buchung (Formular, #18)                                        |
+| `/euer`                | EÜR-Jahresansicht; Jahr als Search-Param `year` (#26)               |
+| `/categories`          | Kategorienverwaltung                                                |
+| `/settings`            | Einstellungen (Steuerjahre, Stripe, Datensicherung, Updates)        |
+| alles andere           | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
   Code-Bezeichner bleiben englisch (`BookingsPage`, `bookings_title`).
@@ -803,7 +803,7 @@ Buchung kurz als „nicht gefunden“.
 
 ### Buchungsliste (#17)
 
-- `src/routes/buchungen.index.tsx` (`/buchungen`) lädt mit
+- `src/routes/bookings.index.tsx` (`/bookings`) lädt mit
   `useBookingList(query)` und zeigt Lade-, Fehler- (mit „Erneut versuchen“)
   und Leerzustand. Filter (#22), Sortierung, Seite und Seitengröße (#23)
   kommen aus den URL-Parametern.
@@ -815,7 +815,7 @@ Buchung kurz als „nicht gefunden“.
   Datum mit `formatDate`. Archivierte Kategorien sind markiert. Lange Texte
   werden gekürzt (voller Text im `title`), damit die Tabelle ins
   Standardfenster (1280 px) passt.
-- **Bearbeiten:** Klick auf die Zeile navigiert zu `/buchungen/$bookingId`;
+- **Bearbeiten:** Klick auf die Zeile navigiert zu `/bookings/$bookingId`;
   für die Tastatur ist die Beschreibung ein Link (Tab, Enter). Klicks auf den
   Link und Klicks mit Modifier (Strg/Shift/Alt/Meta) lösen keine
   Zeilennavigation aus. Die Route parst die ID zu einer Zahl (sonst `NaN` →
@@ -836,34 +836,34 @@ optional; Standardwerte stehen nie in der URL):
 | Parameter                | Wert                                                       | `BookingQuery`           |
 | ------------------------ | ---------------------------------------------------------- | ------------------------ |
 | `q`                      | Suchtext (getrimmt)                                        | `text`                   |
-| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive                      | `dateFrom`, `dateTo`     |
-| `art`                    | `einnahmen` oder `ausgaben`                                | `type`                   |
-| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)                       | `categoryIds`            |
-| `quelle`                 | `manuell` oder `stripe`                                    | `source`                 |
-| `ust`                    | USt-Sätze (Array aus `ohne`, `0`, `7`, `19`, `rc`; #26)    | `vatRates`               |
-| `betragVon`, `betragBis` | Brutto in **Cent**                                         | `amountFrom`, `amountTo` |
-| `sortierung`             | `<spalte>-<auf\|ab>` (#23)                                 | `sort`                   |
-| `seite`                  | Seite ab 2 (#23)                                           | `page`                   |
-| `proSeite`               | 25, 100 oder 200 (Standard 50 steht nicht in der URL; #23) | `pageSize`               |
+| `from`, `to`             | Zahlungsdatum `YYYY-MM-DD`, inklusive                      | `dateFrom`, `dateTo`     |
+| `type`                   | `income` oder `expense`                                    | `type`                   |
+| `category`               | Kategorie-IDs (Array, z. B. `[1,7]`)                       | `categoryIds`            |
+| `source`                 | `manual` oder `stripe`                                     | `source`                 |
+| `vat`                    | USt-Sätze (Array aus `none`, `0`, `7`, `19`, `rc`; #26)    | `vatRates`               |
+| `amountFrom`, `amountTo` | Brutto in **Cent**                                         | `amountFrom`, `amountTo` |
+| `sort`                   | `<spalte>-<asc\|desc>` (#23)                               | `sort`                   |
+| `page`                   | Seite ab 2 (#23)                                           | `page`                   |
+| `pageSize`               | 25, 100 oder 200 (Standard 50 steht nicht in der URL; #23) | `pageSize`               |
 
 - **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
   nötig). Strings, die wie JSON aussehen, werden gequotet (`?q=2025` wird
-  zu `?q="2025"`); Arrays erscheinen als `kategorie=[1,7]`. Beträge als
+  zu `?q="2025"`); Arrays erscheinen als `category=[1,7]`. Beträge als
   Cent und Daten als ISO halten die URL unabhängig vom Anzeigeformat.
 - **Ungültige Parameter** führen nie zu einem Fehler: Unlesbares
   (unbekannte Art/Quelle, unmögliches Datum, kein Cent-Betrag 0 bis
   `MAX_AMOUNT_CENTS`, keine
   ID) wird verworfen, der Router schreibt die URL bereinigt zurück.
-  Lesbare, aber widersprüchliche Werte (`bis` vor `von`, `betragBis` <
-  `betragVon`, Steuerzeichen oder zu langer Suchtext) bleiben stehen;
+  Lesbare, aber widersprüchliche Werte (`to` vor `from`, `amountTo` <
+  `amountFrom`, Steuerzeichen oder zu langer Suchtext) bleiben stehen;
   `normalizeBookingQuery` meldet sie, die Filterleiste zeigt den Fehler am
   Feld, die Liste einen Hinweis statt Ergebnissen (keine Abfrage).
 - **Vorsicht Router:** Die Suche einer Route wird über die der Elternroute
   gelegt, und die Root-Route behält die Roh-Parameter. `validateBookingSearch`
   liefert deshalb jeden Schlüssel des Schemas, verworfene als `undefined` –
-  sonst schiene z. B. `art=foo` durch. Unbekannte Parameter scheinen durch,
+  sonst schiene z. B. `type=foo` durch. Unbekannte Parameter scheinen durch,
   werden ignoriert und bei der nächsten Filteränderung entfernt.
-- **Zeitraum:** Gespeichert werden nur `von`/`bis`; die Schnellwahl (Jahr,
+- **Zeitraum:** Gespeichert werden nur `from`/`to`; die Schnellwahl (Jahr,
   Quartal, Monat) wird daraus abgeleitet (`detectPeriod`), wenn sie genau
   passt – eine URL hat so genau eine Bedeutung, ein zusätzlicher
   `zeitraum`-Parameter könnte den Daten widersprechen. „Frei“ (zwei
@@ -887,7 +887,7 @@ optional; Standardwerte stehen nie in der URL):
 - **USt-Satz** (#26): Mehrfachauswahl „Ohne USt-Satz“, 0 %, 7 %, 19 %,
   Reverse Charge. Gedacht vor allem für die Drill-down-Links der EÜR (Zeile
   15 = 7 % und 19 %); so sieht und ändert man den Filter. In der URL
-  sortiert und ohne Duplikate (`ust=["0","19"]`; Zahlen wie `ust=[19]` werden
+  sortiert und ohne Duplikate (`vat=["0","19"]`; Zahlen wie `vat=[19]` werden
   ebenfalls gelesen), unbekannte Werte werden verworfen. SQL:
   `vat_rate IN (…)`, für „ohne“ zusätzlich `OR vat_rate IS NULL`.
 - **Beträge** mit Dezimalkomma (`parseAmount`); unlesbare Eingaben zeigen
@@ -906,24 +906,24 @@ optional; Standardwerte stehen nie in der URL):
 
 ### Sortierung, Seiten und Summen (#23)
 
-- **`sortierung`:** Spalte und Richtung in einem Parameter, damit eine URL
-  nur eine Bedeutung hat: `datum`, `art`, `beschreibung`, `gegenpartei`,
-  `kategorie`, `netto`, `ust`, `brutto`, `quelle` (je ein
-  `BOOKING_SORT_FIELDS`), dazu `-auf` (aufsteigend) oder `-ab`
-  (absteigend), z. B. `?sortierung=brutto-auf`. Standard `datum-ab` steht
+- **`sort`:** Spalte und Richtung in einem Parameter, damit eine URL
+  nur eine Bedeutung hat: `date`, `type`, `description`, `counterparty`,
+  `category`, `net`, `vat`, `gross`, `source` (je ein
+  `BOOKING_SORT_FIELDS`), dazu `-asc` (aufsteigend) oder `-desc`
+  (absteigend), z. B. `?sort=gross-asc`. Standard `date-desc` steht
   nicht in der URL. Abbildung in `booking-filter-model.ts` (`sortParam`,
   `parseSortParam`, `sortSearchParam`, `bookingSearchSort`).
-- **`seite`** ab 1 (Seite 1 nicht in der URL), **`proSeite`** aus
+- **`page`** ab 1 (Seite 1 nicht in der URL), **`pageSize`** aus
   `BOOKING_PAGE_SIZES` (25/50/100/200; 50 nicht in der URL). Andere Werte
   werden wie bei den Filtern verworfen. `bookingSearchToListQuery` baut
   daraus das Query der Liste.
-- **Seite zurück auf 1:** `updateBookingSearch` entfernt `seite`, sobald
+- **Seite zurück auf 1:** `updateBookingSearch` entfernt `page`, sobald
   sich etwas anderes ändert – Filter, Sortierung oder Seitengröße –, außer
-  der Patch setzt `seite` selbst. Seiten- und Sortierwechsel erzeugen je
+  der Patch setzt `page` selbst. Seiten- und Sortierwechsel erzeugen je
   einen Historieneintrag.
 - **Seite hinter der letzten** (alter Link, letzte Buchung einer Seite
   gelöscht): Die Suche liefert die letzte Seite (#21); die Liste gleicht
-  `seite` an die gelieferte an, per `replace` (Zurück führt nicht auf die
+  `page` an die gelieferte an, per `replace` (Zurück führt nicht auf die
   leere Seite). Nur für ein frisches Ergebnis (nie Platzhalterdaten, nie ein gecachtes, das gerade neu lädt) – das
   nächste Ergebnis hat die angefragte Seite, es gibt keine Schleife.
 - **Spaltenköpfe** sind Buttons (Tab, Enter/Leertaste): die sortierte
@@ -1000,7 +1000,7 @@ auch die EÜR #27):
 ### EÜR-Jahresansicht (#26)
 
 `src/routes/euer.tsx` (`/euer`) zeigt `services.euer.calculate(year)` (#25)
-für das Jahr aus dem Search-Param `jahr` (1000–9999; Standard: aktuelles
+für das Jahr aus dem Search-Param `year` (1000–9999; Standard: aktuelles
 Kalenderjahr, steht dann nicht in der URL; Ungültiges wird verworfen). Reine
 Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
 `src/ui/euer/euer-model.ts`, die Darstellung in `euer-view.tsx`.
@@ -1022,18 +1022,18 @@ Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
   kein Zeilen-Mapping; angezeigt werden nur die Positionen.“, Zeile „–“.
 - **Hinweise** (`EuerWarning`) als Liste mit Text (Paraglide) und, wo der
   Filter sie ausdrücken kann, „Betroffene Buchungen anzeigen“: USt-Satz im
-  Kleinunternehmer-Jahr (`ust` = alle Sätze), fehlender Satz im
-  regelbesteuerten Jahr (`ust=["ohne"]`), Satz 7/19 % auf Zahlungen an das /
-  vom Finanzamt (deren Kategorien + `ust` 7/19), nicht zuordenbare Buchungen
+  Kleinunternehmer-Jahr (`vat` = alle Sätze), fehlender Satz im
+  regelbesteuerten Jahr (`vat=["none"]`), Satz 7/19 % auf Zahlungen an das /
+  vom Finanzamt (deren Kategorien + `vat` 7/19), nicht zuordenbare Buchungen
   (deren Kategorien – enthält ggf. auch gezählte Buchungen der anderen Art),
   negative Zeile, Bewirtung und Verpflegungsmehraufwand (die Zeile). Die
   Anzahl im Hinweis zählt nur zuordenbare Buchungen; die verlinkte Liste
   enthält ggf. auch nicht zuordenbare Buchungen (der Filter kann sie nicht
   ausschließen), kann also länger sein.
 - **Drill-down:** Die Bezeichnung jeder Position ist ein Link auf
-  `/buchungen` mit `von`/`bis` = Jahr, `kategorie` = alle beitragenden
-  Kategorien, `ust` = Vereinigung der beitragenden Sätze (entfällt, wenn alle
-  fünf beitragen) und `art` nur, wenn alle Beiträge dieselbe Art haben. Der
+  `/bookings` mit `from`/`to` = Jahr, `category` = alle beitragenden
+  Kategorien, `vat` = Vereinigung der beitragenden Sätze (entfällt, wenn alle
+  fünf beitragen) und `type` nur, wenn alle Beiträge dieselbe Art haben. Der
   Filter verknüpft per UND, kann also „(A und Einnahme) oder (B und
   Ausgabe)“ nicht ausdrücken – die Vereinigung ist trotzdem genau: Im selben
   Jahr landen die Buchungen einer Kategorie mit demselben Satz immer in
@@ -1117,8 +1117,8 @@ Ergebnis;;Gewinn;1101,00;
 
 ### Buchungsformular (#18)
 
-`src/ui/bookings/booking-form.tsx` (TanStack Form) dient `/buchungen/neu`
-und `/buchungen/$bookingId`; die reine Logik (Werte, Umwandlung in
+`src/ui/bookings/booking-form.tsx` (TanStack Form) dient `/bookings/new`
+und `/bookings/$bookingId`; die reine Logik (Werte, Umwandlung in
 `BookingFormInput`, Client-Prüfungen, Vorschau, Kategorie-Optionen) liegt
 getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
 `booking-messages.ts`.
@@ -1189,7 +1189,7 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
 
 ### Kategorienverwaltung (#19)
 
-`src/routes/kategorien.tsx` (`/kategorien`) lädt mit `useCategoryList()` und
+`src/routes/categories.tsx` (`/categories`) lädt mit `useCategoryList()` und
 rendert `src/ui/categories/category-list.tsx`. Reine Logik (Gruppierung,
 Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
 `category-model.ts`, die Texte zu Fehlercodes und die Positionsanzeige in
@@ -1226,7 +1226,7 @@ Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
 
 ### Einstellungen (#20)
 
-`src/routes/einstellungen.tsx` (`/einstellungen`) stapelt Abschnitte
+`src/routes/settings.tsx` (`/settings`) stapelt Abschnitte
 (`SettingsSection` aus `src/ui/settings/settings-section.tsx`: `<section>` mit
 Überschrift und Beschreibung per `aria-labelledby`/`aria-describedby`). Jeder
 Abschnitt lädt seine Daten selbst und zeigt eigene Lade-/Fehlerzustände; der
@@ -1333,7 +1333,7 @@ CLDR ohne Nachkommastellen führt, Stripe aber ×100 sendet.
   je Fees/Rückerstattungen, dann eine Tabelle der nicht gebuchten Einträge
   (Art, Stripe-ID, Datum, Betrag in ihrer Währung, Grund; bei
   `invalidBooking` die Feldfehler des Buchungs-Service). „Buchungen
-  anzeigen“ führt zur Liste mit `von`/`bis` = Zeitraum und `quelle=stripe`.
+  anzeigen“ führt zur Liste mit `from`/`to` = Zeitraum und `source=stripe`.
   Der Fokus springt auf die Überschrift des Ergebnisses; eine stets
   vorhandene `role="status"`-Region kündigt Fortschritt und Ergebnis an.
 - **Fehler:** `noApiKey`/`invalidDefaults` → Hinweis mit Link zu den
@@ -1355,7 +1355,7 @@ CLDR ohne Nachkommastellen führt, Stripe aber ×100 sendet.
 
 ### Datensicherung (#32)
 
-„Backup erstellen“ im Abschnitt **Datensicherung** auf `/einstellungen`
+„Backup erstellen“ im Abschnitt **Datensicherung** auf `/settings`
 (`src/ui/backup/backup-section.tsx`, `BackupSection`; Hook
 `useCreateBackup` in `backup-mutations.ts`) speichert eine Kopie der ganzen
 Datenbank an einen per Speicherdialog gewählten Ort. Wiederherstellen ist

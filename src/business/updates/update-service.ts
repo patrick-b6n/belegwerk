@@ -109,7 +109,7 @@ export interface Updater {
 
 export interface UpdateService {
   /**
-   * "Nach Updates suchen" in the settings.
+   * "Check for updates" in the settings.
    *
    * @throws {UpdateError}
    */

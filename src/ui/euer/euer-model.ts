@@ -6,8 +6,8 @@
  * **Drill-down:** a line's bookings are exactly year + category + booking
  * type + VAT rates per contribution (`EuerContribution`, #25). The booking
  * filter (#22) combines its params with AND, so one link uses the union:
- * `von`/`bis` = the year, `kategorie` = every contributing category, `ust` =
- * every contributing rate, `art` only when all contributions share it. The
+ * `from`/`to` = the year, `category` = every contributing category, `vat` =
+ * every contributing rate, `type` only when all contributions share it. The
  * union is still exact, because within one year a category's bookings of one
  * rate always land in the same line (the tax status is per year): lines 15/16
  * and the VAT lines take a turnover/income category's bookings by rate alone,
@@ -42,7 +42,7 @@ import {
 /** The validated search params of `/euer`. */
 export interface EuerSearch {
   /** The year shown; absent = the current calendar year. */
-  readonly jahr?: number;
+  readonly year?: number;
 }
 
 /**
@@ -52,24 +52,24 @@ export interface EuerSearch {
  * `validateBookingSearch`).
  */
 export function validateEuerSearch(raw: Readonly<Record<string, unknown>>): EuerSearch {
-  const value = raw.jahr;
+  const value = raw.year;
   const year =
     typeof value === "number"
       ? value
       : typeof value === "string" && /^\d{4}$/.test(value)
         ? Number(value)
         : undefined;
-  return { jahr: year !== undefined && isTaxYear(year) ? year : undefined };
+  return { year: year !== undefined && isTaxYear(year) ? year : undefined };
 }
 
 /** The year the search params show. */
 export function euerSearchYear(search: EuerSearch, currentYear: number): number {
-  return search.jahr ?? currentYear;
+  return search.year ?? currentYear;
 }
 
 /** The search params for `year`: the current year is the default and not written. */
 export function euerYearSearch(year: number, currentYear: number): EuerSearch {
-  return year === currentYear ? {} : { jahr: year };
+  return year === currentYear ? {} : { year };
 }
 
 // ---------------------------------------------------------------------------
@@ -90,16 +90,16 @@ export function contributionsSearch(
   categoryIds.sort((a, b) => a - b);
   const types = new Set<BookingType>(contributions.map((c) => c.bookingType));
   const rates = new Set<VatRate | null>(contributions.flatMap((c) => c.vatRates));
-  const ust = sortedVatRateParams([...rates].map(vatRateParam));
+  const vat = sortedVatRateParams([...rates].map(vatRateParam));
   const { from, to } = periodRange({ kind: "year", year });
   const [type] = types;
   return cleanBookingSearch({
-    von: from,
-    bis: to,
-    art: types.size === 1 && type !== undefined ? typeParam(type) : undefined,
-    kategorie: categoryIds,
+    from,
+    to,
+    type: types.size === 1 && type !== undefined ? typeParam(type) : undefined,
+    category: categoryIds,
     // Every rate is no rate filter.
-    ust: ust !== undefined && ust.length < ALL_RATES ? ust : undefined,
+    vat: vat !== undefined && vat.length < ALL_RATES ? vat : undefined,
   });
 }
 
@@ -184,7 +184,7 @@ function findLine(result: EuerResult, position: EuerReportLine["position"]) {
 
 function yearSearch(year: number, patch: BookingSearch): BookingSearch {
   const { from, to } = periodRange({ kind: "year", year });
-  return cleanBookingSearch({ von: from, bis: to, ...patch });
+  return cleanBookingSearch({ from, to, ...patch });
 }
 
 const RATED: readonly VatRate[] = ["0", "7", "19", "reverse_charge"];
@@ -212,10 +212,10 @@ export function euerWarningViews(result: EuerResult): EuerWarningView[] {
       case "vatRateInSmallBusinessYear":
         return {
           warning,
-          search: yearSearch(year, { ust: sortedVatRateParams(RATED.map(vatRateParam)) }),
+          search: yearSearch(year, { vat: sortedVatRateParams(RATED.map(vatRateParam)) }),
         };
       case "vatRateMissingInRegularYear":
-        return { warning, search: yearSearch(year, { ust: ["ohne"] }) };
+        return { warning, search: yearSearch(year, { vat: ["none"] }) };
       case "vatRateOnTaxPayment": {
         const categoryIds = [
           ...new Set(
@@ -225,10 +225,10 @@ export function euerWarningViews(result: EuerResult): EuerWarningView[] {
           ),
         ];
         categoryIds.sort((a, b) => a - b);
-        return { warning, search: yearSearch(year, { kategorie: categoryIds, ust: ["7", "19"] }) };
+        return { warning, search: yearSearch(year, { category: categoryIds, vat: ["7", "19"] }) };
       }
       case "unassignableBookings":
-        return { warning, search: yearSearch(year, { kategorie: warning.categoryIds }) };
+        return { warning, search: yearSearch(year, { category: warning.categoryIds }) };
       case "negativeLine":
         return withLine(warning, findLine(result, warning.position), year);
       case "entertainmentSplit":

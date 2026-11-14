@@ -10,7 +10,7 @@ import { bookingCsvLabels } from "./booking-messages";
 import { useBookingCsvExport } from "./booking-queries";
 
 /**
- * "CSV exportieren" (#24): saves **all** bookings of the current filters in
+ * "Export CSV" (#24): saves **all** bookings of the current filters in
  * the list's sort order (not just the page) via the save dialog.
  *
  * - Disabled while the filters are invalid, while nothing is loaded yet, if

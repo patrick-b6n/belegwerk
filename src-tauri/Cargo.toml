@@ -3,7 +3,7 @@ name = "belegwerk"
 # Unused: the exe's version comes from package.json (tauri.conf.json), which
 # the release scripts set from the build time (CalVer, docs/release.md).
 version = "0.1.0"
-description = "Belegwerk – Einnahmen/Ausgaben und Anlage EÜR"
+description = "Belegwerk – income/expenses and Anlage EÜR"
 authors = ["Patrick"]
 edition = "2024"
 rust-version = "1.90"

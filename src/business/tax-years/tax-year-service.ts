@@ -122,7 +122,7 @@ export interface TaxYearService {
    */
   list(): Promise<TaxYearOverview[]>;
   /**
-   * Records `year` as regularly taxed ("Jahr hinzufügen", #20), e.g. to set
+   * Records `year` as regularly taxed ("Add year", #20), e.g. to set
    * the status before the first booking. `yearExists` if it has a record.
    */
   addYear(year: number): Promise<AddTaxYearResult>;

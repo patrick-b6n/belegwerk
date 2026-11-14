@@ -67,7 +67,7 @@ export function installErrorMessage(error: unknown): string {
     : `${message} ${m.update_error_unchanged()}`;
 }
 
-/** Result of "Nach Updates suchen". */
+/** Result of "Check for updates". */
 export function updateCheckMessage(check: UpdateCheck): string {
   return check.updateAvailable
     ? m.update_available({ version: check.latestVersion, currentVersion: check.currentVersion })

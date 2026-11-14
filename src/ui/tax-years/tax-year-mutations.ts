@@ -14,7 +14,7 @@ export interface SetSmallBusinessVariables {
 }
 
 /**
- * "Jahr hinzufügen" and the Kleinunternehmer switch of the settings page
+ * "Add year" and the Kleinunternehmer switch of the settings page
  * (#20). The mutations return the service's result objects (validation
  * errors and conflicts are results, not errors) and resolve after
  * `taxYearQueryKeys.all` is invalidated – the list and every year's status,

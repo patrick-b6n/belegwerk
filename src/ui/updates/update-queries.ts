@@ -31,7 +31,7 @@ export function useBackgroundUpdateCheck() {
   });
 }
 
-/** "Nach Updates suchen": a fresh check; the result also updates the notice. */
+/** "Check for updates": a fresh check; the result also updates the notice. */
 export function useCheckForUpdate() {
   const { updates } = useAppServices();
   const queryClient = useQueryClient();

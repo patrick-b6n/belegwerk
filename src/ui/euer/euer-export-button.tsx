@@ -10,7 +10,7 @@ import { euerCsvLabels } from "./euer-messages";
 import { useEuerCsvExport } from "./euer-queries";
 
 /**
- * "CSV exportieren" on `/euer` (#27): saves the EÜR of the shown year via
+ * "Export CSV" on `/euer` (#27): saves the EÜR of the shown year via
  * the save dialog (same pattern as the booking export, #24).
  *
  * - Disabled while the EÜR is not calculated (loading or error), for a year

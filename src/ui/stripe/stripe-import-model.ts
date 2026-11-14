@@ -231,8 +231,8 @@ export function formatImportTimestamp(iso: string): string {
 /** Filters of the booking list showing the imported period's Stripe bookings. */
 export function importedBookingsSearch(summary: Pick<StripeImportSummary, "from" | "to">) {
   return {
-    von: summary.from,
-    bis: summary.to,
-    quelle: "stripe",
+    from: summary.from,
+    to: summary.to,
+    source: "stripe",
   } satisfies BookingSearch;
 }

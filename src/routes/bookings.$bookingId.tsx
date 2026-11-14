@@ -11,7 +11,7 @@ import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
 /**
  * Editing a booking (#18) – opened from the booking list (#17). New
- * bookings: `/buchungen/neu`, a static route that takes precedence over
+ * bookings: `/bookings/new`, a static route that takes precedence over
  * this one.
  *
  * The id is parsed here; anything but a positive decimal integer becomes
@@ -19,7 +19,7 @@ import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
  * shown on this page (no `notFound()`: the root's not-found handling – title
  * via `_notFound` – is for unknown paths).
  */
-export const Route = createFileRoute("/buchungen/$bookingId")({
+export const Route = createFileRoute("/bookings/$bookingId")({
   params: {
     parse: ({ bookingId }) => ({
       bookingId: /^[1-9]\d*$/.test(bookingId) ? Number(bookingId) : Number.NaN,
@@ -44,7 +44,7 @@ function BookingNotFound() {
     <>
       <PagePlaceholder>{m.booking_not_found()}</PagePlaceholder>
       <div>
-        <Link to="/buchungen" className={buttonVariants({ variant: "outline" })}>
+        <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
           {m.booking_back_to_list()}
         </Link>
       </div>
