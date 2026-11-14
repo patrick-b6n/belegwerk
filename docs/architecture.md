@@ -777,6 +777,11 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   Flackern).
 - **Vorschau** Netto/USt/Brutto live mit `calculateBookingAmounts`, „–“
   solange Betrag oder Satz ungültig sind.
+- **USt-Kategorien des Finanzamts:** Wählt der Nutzer eine Kategorie mit
+  `UST_AN_FA` oder `UST_ERSTATTUNG` (`isTaxOfficePayment`), setzt das
+  Formular den USt-Satz auf `0` und zeigt (regelbesteuert) einen Hinweis;
+  der Satz bleibt änderbar, der Service prüft unverändert. Die EÜR zählt
+  solche Buchungen ohnehin brutto (#25).
 - **Kategorie:** nur Kategorien der Art, ohne archivierte – außer der
   bisherigen Kategorie der bearbeiteten Buchung und der gerade gewählten
   (wird sie währenddessen archiviert, bleibt sie markiert sichtbar und der

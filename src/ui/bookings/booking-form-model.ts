@@ -10,6 +10,7 @@
  */
 import type { BookingField, BookingFieldError, BookingFormInput } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
+import { isTaxOfficePayment } from "@/business/euer";
 import { parseAmount, parseIsoDate, type ParseAmountError } from "@/business/format";
 import { calculateBookingAmounts } from "@/business/money";
 import type { Booking, BookingType, VatRate } from "@/business/model";
@@ -266,4 +267,30 @@ export function categoryAfterTypeChange(
   options: readonly CategoryWithUsage[],
 ): string {
   return options.some((category) => String(category.id) === categoryId) ? categoryId : "";
+}
+
+/**
+ * Whether the selected category books VAT paid to or refunded by the tax
+ * office (`UST_AN_FA`, `UST_ERSTATTUNG`): such payments contain no VAT, the
+ * EÜR counts their full amount (#25). The form then suggests rate 0.
+ */
+export function isTaxOfficeCategory(
+  categoryId: string,
+  categories: readonly CategoryWithUsage[],
+): boolean {
+  const category = categories.find((candidate) => String(candidate.id) === categoryId);
+  return category !== undefined && isTaxOfficePayment(category.euerPosition);
+}
+
+/**
+ * The VAT rate after choosing a category: rate 0 for a tax-office category
+ * (the user can still change it – the service accepts any rate), otherwise
+ * unchanged.
+ */
+export function vatRateAfterCategoryChange(
+  categoryId: string,
+  categories: readonly CategoryWithUsage[],
+  vatRate: VatRate | "",
+): VatRate | "" {
+  return isTaxOfficeCategory(categoryId, categories) ? "0" : vatRate;
 }

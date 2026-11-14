@@ -18,6 +18,8 @@
  * - Erlösminderung categories (`reducesIncome`, recognized by flag and
  *   position, never by name) subtract from their income position; their VAT
  *   share reduces `UST_VEREINNAHMT`. Lines may become negative.
+ * - VAT payments to / refunds from the tax office (`UST_AN_FA`,
+ *   `UST_ERSTATTUNG`) always count in full (gross), whatever their rate.
  * - Small business line 13 ("davon nicht steuerbar") is approximated by the
  *   amounts of `BETRIEBSEINNAHMEN_UST_FREI` categories; informational only.
  * - Bewirtung: 30 % of the line total is not deductible (rounded half up,
@@ -99,6 +101,12 @@ export type EuerWarning =
   /** Bookings without a VAT rate in a regularly taxed year; counted with net = gross, no VAT. */
   | { readonly code: "vatRateMissingInRegularYear"; readonly bookingCount: number }
   /**
+   * Bookings of a tax-office category (`UST_ERSTATTUNG`, `UST_AN_FA`) with
+   * rate 7/19 in a regularly taxed year: counted with their full gross
+   * amount, the rate was ignored.
+   */
+  | { readonly code: "vatRateOnTaxPayment"; readonly bookingCount: number }
+  /**
    * Bookings that could not be assigned and are **not** counted: unknown
    * category, category of the other type, or an invalid position/flag (e.g.
    * a position key from a newer app version).
@@ -163,6 +171,7 @@ export function calculateEuer(input: EuerInput): EuerResult {
   const lines = new Map<EuerPosition, LineAccumulator>();
   let vatRateInSmallBusinessYear = 0;
   let vatRateMissingInRegularYear = 0;
+  let vatRateOnTaxPayment = 0;
   let unassignable = 0;
   const unassignableCategoryIds = new Set<number>();
 
@@ -202,8 +211,19 @@ export function calculateEuer(input: EuerInput): EuerResult {
     const definition = EUER_POSITION_DEFINITIONS[position];
     const sign = category.reducesIncome ? -1 : 1;
 
+    if (smallBusiness && group.vatRate !== null) vatRateInSmallBusinessYear += group.count;
+    if (!smallBusiness && group.vatRate === null) vatRateMissingInRegularYear += group.count;
+    const taxed = group.vatRate === "7" || group.vatRate === "19";
+
+    if (definition.taxOfficePayment) {
+      // VAT paid to / refunded by the tax office: the full amount, never split.
+      // In a small-business year the rate is already reported as mismatched.
+      if (taxed && !smallBusiness) vatRateOnTaxPayment += group.count;
+      add(position, group, sign * group.grossCents);
+      continue;
+    }
+
     if (smallBusiness) {
-      if (group.vatRate !== null) vatRateInSmallBusinessYear += group.count;
       add(positionForTaxStatus(position, true), group, sign * group.grossCents);
       if (position === "BETRIEBSEINNAHMEN_UST_FREI") {
         add("BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR", group, sign * group.grossCents);
@@ -211,8 +231,6 @@ export function calculateEuer(input: EuerInput): EuerResult {
       continue;
     }
 
-    if (group.vatRate === null) vatRateMissingInRegularYear += group.count;
-    const taxed = group.vatRate === "7" || group.vatRate === "19";
     const target =
       definition.smallBusinessPosition === undefined
         ? position
@@ -256,6 +274,9 @@ export function calculateEuer(input: EuerInput): EuerResult {
       code: "vatRateMissingInRegularYear",
       bookingCount: vatRateMissingInRegularYear,
     });
+  }
+  if (vatRateOnTaxPayment > 0) {
+    warnings.push({ code: "vatRateOnTaxPayment", bookingCount: vatRateOnTaxPayment });
   }
   if (unassignable > 0) {
     const categoryIds = [...unassignableCategoryIds];

@@ -258,6 +258,60 @@ describe("calculateEuer – regularly taxed", () => {
   });
 });
 
+describe("calculateEuer – VAT payments to and refunds from the tax office", () => {
+  it("counts the full gross amount in lines 18 and 58 even with rate 19 % (regularly taxed)", () => {
+    const result = regular([booking(VAT_PAYMENT, 1190, "19"), booking(VAT_REFUND, 1190, "19")]);
+    expect(result.income).toEqual([
+      {
+        position: "UST_ERSTATTUNG",
+        line: 18,
+        label: expect.any(String) as string,
+        amountCents: 1190,
+        bookingCount: 1,
+        contributions: [
+          {
+            categoryId: VAT_REFUND,
+            bookingType: "income",
+            vatRates: ["19"],
+            bookingCount: 1,
+            amountCents: 1190,
+          },
+        ],
+      },
+    ]);
+    expect(amounts(result.expenses)).toEqual([["UST_AN_FA", 1190]]);
+    const positions = [...linesOf(result).keys()];
+    expect(positions).not.toContain("UST_VEREINNAHMT");
+    expect(positions).not.toContain("VORSTEUER");
+    expect(result.totals).toEqual({ incomeCents: 1190, expenseCents: 1190, profitCents: 0 });
+    expect(result.warnings).toEqual([{ code: "vatRateOnTaxPayment", bookingCount: 2 }]);
+  });
+
+  it("counts 7 % the same and does not warn for rate 0 or reverse charge", () => {
+    const result = regular([
+      booking(VAT_PAYMENT, 107, "7"),
+      booking(VAT_PAYMENT, 100, "0"),
+      booking(VAT_REFUND, 50, "reverse_charge"),
+    ]);
+    expect(amounts(result.expenses)).toEqual([["UST_AN_FA", 207]]);
+    expect(amounts(result.income)).toEqual([["UST_ERSTATTUNG", 50]]);
+    expect(result.warnings).toEqual([{ code: "vatRateOnTaxPayment", bookingCount: 1 }]);
+  });
+
+  it("counts the full amount in a small-business year, reporting the rate only as mismatched", () => {
+    const result = small([booking(VAT_PAYMENT, 1190, "19"), booking(VAT_REFUND, 500, null)]);
+    expect(amounts(result.expenses)).toEqual([["UST_AN_FA", 1190]]);
+    expect(amounts(result.income)).toEqual([["UST_ERSTATTUNG", 500]]);
+    expect(result.warnings).toEqual([{ code: "vatRateInSmallBusinessYear", bookingCount: 1 }]);
+  });
+
+  it("reports a missing rate in a regularly taxed year", () => {
+    const result = regular([booking(VAT_PAYMENT, 300, null)]);
+    expect(amounts(result.expenses)).toEqual([["UST_AN_FA", 300]]);
+    expect(result.warnings).toEqual([{ code: "vatRateMissingInRegularYear", bookingCount: 1 }]);
+  });
+});
+
 describe("calculateEuer – Erlösminderung (reduces income)", () => {
   it("subtracts net from line 15 and the VAT share from line 17 (regularly taxed)", () => {
     const result = regular([booking(SALES, 11900, "19"), booking(REFUND, 1190, "19")]);
@@ -311,6 +365,30 @@ describe("calculateEuer – Erlösminderung (reduces income)", () => {
     ]);
     expect(amounts(result.income)).toEqual([["BETRIEBSEINNAHMEN_UST_FREI", 3300]]);
     expect(result.warnings).toEqual([{ code: "vatRateMissingInRegularYear", bookingCount: 1 }]);
+  });
+
+  it("moves taxed income and its refund in a tax-free category to lines 15 and 17", () => {
+    const result = regular([booking(TAX_FREE, 11900, "19"), booking(REFUND_TAX_FREE, 1190, "19")]);
+    expect(amounts(result.income)).toEqual([
+      ["BETRIEBSEINNAHMEN_UST_PFLICHTIG", 9000],
+      ["UST_VEREINNAHMT", 1710],
+    ]);
+    expect(linesOf(result).get("BETRIEBSEINNAHMEN_UST_PFLICHTIG")?.contributions).toEqual([
+      {
+        categoryId: TAX_FREE,
+        bookingType: "income",
+        vatRates: ["19"],
+        bookingCount: 1,
+        amountCents: 10000,
+      },
+      {
+        categoryId: REFUND_TAX_FREE,
+        bookingType: "expense",
+        vatRates: ["19"],
+        bookingCount: 1,
+        amountCents: -1000,
+      },
+    ]);
   });
 
   it("keeps a negative line and warns", () => {
@@ -716,12 +794,14 @@ describe("calculateEuer – warnings", () => {
         booking(MEALS, 100, null),
         booking(ENTERTAINMENT, 100, null),
         booking(REFUND, 1000, null),
+        booking(VAT_PAYMENT, 119, "19"),
         { ...booking(SOFTWARE, 1, null), categoryId: 50 },
       ],
       { categories },
     );
     expect(result.warnings.map((warning) => warning.code)).toEqual([
       "vatRateMissingInRegularYear",
+      "vatRateOnTaxPayment",
       "unassignableBookings",
       "negativeLine",
       "entertainmentSplit",

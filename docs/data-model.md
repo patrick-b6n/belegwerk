@@ -238,7 +238,7 @@ Ein ungültiges Jahr liefert ohne Datenbankzugriff
 | Umsatz-Kategorie (Zeile 15/16)       | Satz `7`/`19` → 15, Satz `0`/`reverse_charge`/kein Satz → 16               | → `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER` (12) |
 | Zeile 13 (nachrichtlich)             | –                                                                          | Beträge der Kategorien mit `_UST_FREI`      |
 | Erlösminderung (`reducesIncome`)     | Netto mindert 15 bzw. 16 (nach Satz), USt-Anteil mindert `UST_VEREINNAHMT` | Brutto mindert 12 (bei `_UST_FREI` auch 13) |
-| `UST_ERSTATTUNG`, `UST_AN_FA`        | Einnahme bzw. Ausgabe in ihrer Zeile                                       | unverändert                                 |
+| `UST_ERSTATTUNG`, `UST_AN_FA`        | **Brutto** in Zeile 18 bzw. 58/59, nie USt-Zeilen (auch bei Satz 7/19)     | Brutto, unverändert                         |
 | `BEWIRTUNG`                          | Netto, davon zählen 70 %; Vorsteuer voll                                   | Brutto, davon zählen 70 %                   |
 | übrige Ausgaben                      | Netto in die Position                                                      | Brutto in die Position                      |
 
@@ -259,6 +259,17 @@ Entscheidungen (die früher offenen Punkte):
   15 – auch eine Einnahme mit 19 % in „Steuerfreie / nicht steuerbare
   Erlöse“ ist steuerpflichtig, Zeile 16 wäre falsch. Erlösminderungen
   ebenso. `UST_ERSTATTUNG` bleibt in Zeile 18.
+- **Zahlungen an das / Erstattungen vom Finanzamt** (`UST_AN_FA`,
+  `UST_ERSTATTUNG`, in `EUER_POSITION_DEFINITIONS` als `taxOfficePayment`
+  markiert, `isTaxOfficePayment`) enthalten keine USt: Laut Anleitung
+  gehören die vollen gezahlten bzw. erstatteten Beträge in Zeile 18 bzw.
+  58/59. Die Berechnung zählt deshalb immer den **Bruttobetrag** in der
+  Position und nie einen USt-Anteil – auch wenn die Buchung (versehentlich,
+  das Formular startet mit 19 %) Satz `7`/`19` hat; dann Hinweis
+  `vatRateOnTaxPayment` mit Anzahl (nur regelbesteuert; im
+  Kleinunternehmer-Jahr greift schon `vatRateInSmallBusinessYear`). Das
+  Buchungsformular setzt bei Auswahl einer solchen Kategorie den Satz auf
+  `0` und zeigt einen Hinweis; der Buchungs-Service prüft unverändert.
 - **Kategorien nur über Position und Flag**, zum Berechnungszeitpunkt
   (Änderungen wirken rückwirkend, #15), nie über den Namen. Archivierte
   Kategorien zählen normal.
@@ -267,7 +278,12 @@ Entscheidungen (die früher offenen Punkte):
   nicht `VORSTEUER`.
 - **Negative Zeilen** (Erlösminderung größer als die Einnahmen der Zeile)
   bleiben negativ und zählen so in die Summen; Hinweis `negativeLine` mit
-  der Position.
+  der Position. Typischer Fall: Rückerstattungen von Umsätzen eines
+  Vorjahres übersteigen die Umsätze der Zeile in diesem Jahr (Zahlungsdatum
+  entscheidet). Das ist zulässig – die Anlage EÜR nimmt negative Beträge
+  (mit Minus) auf. Formulierung für #26 etwa: „Zeile X ist negativ, weil
+  Erstattungen die Einnahmen dieser Zeile übersteigen (z. B. Rückzahlungen
+  für Umsätze aus Vorjahren). Bitte Zuordnung prüfen.“
 - **Zeile 13** (Kleinunternehmer) ergibt sich vor der Umleitung aus den
   Beträgen der Kategorien mit `BETRIEBSEINNAHMEN_UST_FREI` (inkl. deren
   Erlösminderungen); nur nachrichtlich (`informational`, nicht in der
@@ -322,7 +338,7 @@ Entscheidungen (die früher offenen Punkte):
   expenses: EuerReportLine[],
   informational: EuerReportLine[], // Zeile 13, nicht in den Summen
   totals: { incomeCents, expenseCents, profitCents },
-  warnings: EuerWarning[],         // Codes in fester Reihenfolge
+  warnings: EuerWarning[],         // Codes in fester Reihenfolge (s. EuerWarning)
 }
 EuerReportLine = {
   position, line?, label?,         // line/label nur mit Mapping (describePosition)

@@ -6,6 +6,7 @@ export {
   EUER_POSITION_DEFINITIONS,
   EUER_POSITIONS,
   isEuerPosition,
+  isTaxOfficePayment,
   positionForTaxStatus,
 } from "./positions";
 export type { EuerPosition, EuerPositionDefinition } from "./positions";
