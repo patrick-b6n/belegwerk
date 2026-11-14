@@ -23,7 +23,10 @@ import type {
  * - 429: up to {@link MAX_ATTEMPTS} attempts, waiting `Retry-After` (capped)
  *   or an exponential backoff; then `rateLimited`.
  * - Transient failures – 500/502/503/504 and `network` (no response) – are
- *   retried the same way (exponential backoff 1 s, 2 s; `Retry-After` if
+ *   retried the same way. `network` includes a refusal by the HTTP scope
+ *   (the plugin rejects like for a connection error, distinguishable only by
+ *   its message text); it is retried too – harmless, the scope covers every
+ *   URL the client builds, and the request never leaves the app – (exponential backoff 1 s, 2 s; `Retry-After` if
  *   sent), then reported as `stripeError`/`network`. Not `timeout`: a
  *   request that took 30 s is not retried (the import would wait minutes).
  *   All requests are GETs, so retrying is safe.
@@ -98,6 +101,8 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
       } catch {
         // The plugin's message may name the URL (no key in it) – still only
         // the code leaves this function.
+        // A scope refusal lands here as well and is retried like a network
+        // error (the message text is not a stable API to tell them apart).
         if (timedOut) return { ok: false, error: { code: "timeout" } };
         if (attempt >= MAX_ATTEMPTS) return { ok: false, error: { code: "network" } };
         await sleep(backoffSeconds(attempt, null) * 1000);

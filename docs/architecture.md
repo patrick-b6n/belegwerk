@@ -550,7 +550,9 @@ fileSaver, stripeClient)` verdrahtet ihn, Tests geben einen Fake
 - **Wiederholungen:** bis zu drei Versuche je Anfrage bei 429, bei
   vorübergehenden Serverfehlern (500/502/503/504) und bei `network` (keine
   Antwort); gewartet wird `Retry-After` (höchstens 10 s), sonst 1 s, 2 s.
-  Danach `rateLimited`, `stripeError` bzw. `network`. `timeout` wird nicht
+  Danach `rateLimited`, `stripeError` bzw. `network`. Auch eine Ablehnung durch den
+  HTTP-Scope kommt als `network` an und wird wiederholt (nur am
+  Meldungstext unterscheidbar). `timeout` wird nicht
   wiederholt (sonst Minuten Wartezeit). Alles sind GETs – Wiederholen ist
   gefahrlos. `createdFrom > createdTo` ist ein Programmierfehler
   (`RangeError`).
@@ -613,7 +615,15 @@ folgen der Erstattung der Zahlung). Mehr Rückblick kostet nur Anfragen
   `stripe`, `findExistingExternalIds` in einer Abfrage) überspringen, den
   Rest validieren und anlegen, `stripe.lastImportAt`/`lastImportTo`
   schreiben. Ein unerwarteter Fehler rollt alles zurück (keine Buchung, kein
-  Zeitstempel) und wird geworfen.
+  Zeitstempel) und wird geworfen. Wurde der API-Schlüssel während der
+  Anfrage ersetzt, bucht der Import nichts und liefert
+  `{ ok: false, reason: "settingsChanged" }` (die Fees gehören evtl. zu
+  einem anderen Konto) – erneut importieren.
+- **Grenze des Rückblicks:** Refunds auf Fees, die **mehr als 180 Tage vor
+  `from`** erstellt wurden, sieht der Import **nie** – auch wenn der Refund
+  selbst im Zeitraum liegt (Stripe listet Refunds nur je Fee, die Fee liegt
+  außerhalb des abgefragten Bereichs). Solche Refunds müssen manuell gebucht
+  werden.
 - **Zeitraum:** `from`/`to` inklusive Kalendertage (Europe/Berlin). Codes
   `required`, `invalidDate`, `beforeFrom` (`to` vor `from`), `inFuture`
   (`to` nach heute – es würde Start des nächsten Imports).
@@ -647,7 +657,7 @@ folgen der Erstattung der Zahlung). Mehr Rückblick kostet nur Anfragen
   fees, refunds }` (`fees`/`refunds` je `{ created, skipped, failed }`;
   `failed` je Eintrag `{ kind, externalId, date, amount, currency, code,
   errors? }`) oder `{ ok: false, reason: "invalid" | "noApiKey" |
-  "invalidDefaults" | "stripe" }`. Fehlercodes je Eintrag:
+  "invalidDefaults" | "settingsChanged" | "stripe" }`. Fehlercodes je Eintrag:
   `unsupportedCurrency` (nicht EUR), `zeroAmount`, `amountTooLarge`
   (über `MAX_AMOUNT_CENTS`), `invalidBooking` (mit den Feldfehlern des
   Buchungs-Service). Fehlgeschlagene Einträge werden nicht gebucht; ein

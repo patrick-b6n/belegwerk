@@ -195,6 +195,23 @@ describe("StripeImportService – range and refunds", () => {
   });
 });
 
+describe("StripeImportService – today in Berlin", () => {
+  it("takes today from the Berlin date of the clock", async () => {
+    // 22:30 UTC on 15 July is 00:30 on 16 July in Berlin.
+    const late = new Date("2025-07-15T22:30:00.000Z");
+    const { unitOfWork, stripeClient } = await setup();
+    const service = createStripeImportService({ unitOfWork, stripeClient, clock: () => late });
+    expect(await service.import({ from: "2025-07-16", to: "2025-07-16" })).toMatchObject({
+      ok: true,
+    });
+    expect(await service.import({ from: "2025-07-16", to: "2025-07-17" })).toEqual({
+      ok: false,
+      reason: "invalid",
+      errors: [{ field: "to", code: "inFuture" }],
+    });
+  });
+});
+
 describe("StripeImportService – duplicates and failures", () => {
   it("skips existing external IDs and creates deleted ones again", async () => {
     const { service, stripeClient, repositories, bookings } = await setup();
@@ -328,6 +345,48 @@ describe("StripeImportService – duplicates and failures", () => {
     expect((await bookings()).map((b) => b.externalId)).toEqual(["fee_ok"]);
   });
 
+  it("fails a non-EUR refund under an EUR fee and books the fee", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.fees.push(
+      stripeFee({
+        id: "fee_eur",
+        created: at("2025-02-01T12:00:00Z"),
+        refunds: [
+          stripeFeeRefund({ id: "fr_gbp", currency: "gbp", created: at("2025-02-02T12:00:00Z") }),
+        ],
+      }),
+    );
+    expect(await service.import(RANGE)).toMatchObject({
+      ok: true,
+      created: 1,
+      failed: [
+        { kind: "refund", externalId: "fr_gbp", currency: "gbp", code: "unsupportedCurrency" },
+      ],
+      fees: { created: 1, failed: 0 },
+      refunds: { created: 0, failed: 1 },
+    });
+    expect((await bookings()).map((b) => b.externalId)).toEqual(["fee_eur"]);
+  });
+
+  it("books a refund larger than its fee as Stripe reports it (no cross-check)", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.fees.push(
+      stripeFee({
+        id: "fee_small",
+        amount: 100,
+        created: at("2025-02-01T12:00:00Z"),
+        refunds: [
+          stripeFeeRefund({ id: "fr_big", amount: 500, created: at("2025-02-02T12:00:00Z") }),
+        ],
+      }),
+    );
+    expect(await service.import(RANGE)).toMatchObject({ ok: true, created: 2, failed: [] });
+    expect(await bookings()).toMatchObject([
+      { externalId: "fee_small", grossCents: 100 },
+      { externalId: "fr_big", grossCents: 500, reference: "fee_small" },
+    ]);
+  });
+
   it("reports bookings the booking rules refuse with their field errors", async () => {
     const { service, stripeClient } = await setup();
     stripeClient.fees.push(
@@ -432,6 +491,23 @@ describe("StripeImportService – settings, errors, last import", () => {
       reason: "invalidDefaults",
       errors: [{ field: "feeCategoryId", code: "categoryArchived" }],
     });
+  });
+
+  it("books nothing when the key was replaced while Stripe answered", async () => {
+    const { service, stripeClient, repositories, bookings } = await setup();
+    stripeClient.fees.push(stripeFee({ created: at("2025-02-01T12:00:00Z") }));
+    const list = stripeClient.listApplicationFees;
+    stripeClient.listApplicationFees = async (request) => {
+      const result = await list(request);
+      await repositories.settings.set(
+        STRIPE_SETTING_KEYS.apiKey,
+        "rk_live_OTHERFAKEOTHERFAKE0123456789",
+      );
+      return result;
+    };
+    expect(await service.import(RANGE)).toEqual({ ok: false, reason: "settingsChanged" });
+    expect(await bookings()).toEqual([]);
+    expect(await service.getStatus()).toEqual({ lastImportAt: null, lastImportTo: null });
   });
 
   it("runs all writes in one transaction and rolls back on an unexpected error", async () => {

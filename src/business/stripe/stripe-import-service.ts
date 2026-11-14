@@ -12,7 +12,7 @@
  * 3. Select fees whose own `created` is in the range and refunds whose own
  *    `created` is in the range (whatever the fee's date).
  * 4. One unit of work: read the settings again (they may have changed during
- *    the request), skip external IDs that exist, validate and insert the rest
+ *    the request; a different key gives `settingsChanged`), skip external IDs that exist, validate and insert the rest
  *    with the booking rules (`prepareBooking`) and store the last import.
  *    All or nothing: an unexpected error rolls everything back.
  */
@@ -139,6 +139,11 @@ export type StripeImportResult =
       readonly reason: "invalidDefaults";
       readonly errors: readonly StripeDefaultsFieldError[];
     }
+  /**
+   * The API key was replaced while Stripe answered: the fetched fees may
+   * belong to another account, so nothing was written. Import again.
+   */
+  | { readonly ok: false; readonly reason: "settingsChanged" }
   /** Stripe refused or was not reachable; nothing was written. */
   | { readonly ok: false; readonly reason: "stripe"; readonly error: StripeClientError };
 
@@ -244,6 +249,9 @@ export function createStripeImportService({
         // (category archived) while Stripe answered.
         const current = await loadStripeImportSettings(repos);
         if (!current.ok) return current;
+        // The fees belong to the account of the key used for the request; a
+        // different key now may be another account – book nothing.
+        if (current.apiKey !== settings.apiKey) return { ok: false, reason: "settingsChanged" };
         const booked = await book(repos, sorted, current);
         await repos.settings.set(STRIPE_SETTING_KEYS.lastImportAt, clock().toISOString());
         const previousTo = await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo);
