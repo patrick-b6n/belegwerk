@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Belegwerk">
+<title>Belegwerk</title>
+<rect width="512" height="512" rx="104" fill="#16302B"/>
+<path d="M128 112Q128 88 152 88H360Q384 88 384 112V392L352 432L320 392L288 432L256 392L224 432L192 392L160 432L128 392Z" fill="#F5F3EC"/>
+<path d="M168 184H344" stroke="#16302B" stroke-width="44" stroke-linecap="round"/>
+<path d="M168 280H344M168 344H344" stroke="#E8962E" stroke-width="32" stroke-linecap="round"/>
+</svg>

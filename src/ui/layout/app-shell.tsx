@@ -3,6 +3,8 @@ import { BookOpenText, Calculator, type LucideIcon, Settings, Tags } from "lucid
 import type { ReactNode } from "react";
 
 import { m } from "@/paraglide/messages.js";
+import iconUrl from "@/ui/assets/brand/icon.svg";
+import wordmarkUrl from "@/ui/assets/brand/wordmark.svg";
 
 /** Id of the scrolling content area (scroll reset in src/router.tsx, skip link). */
 export const APP_CONTENT_ID = "app-content";
@@ -38,7 +40,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         {m.nav_skip_to_content()}
       </a>
       <aside className="flex w-56 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 text-sidebar-foreground">
-        <div className="px-2 py-1 font-heading text-lg font-semibold">{m.app_title()}</div>
+        <div className="flex items-center gap-2 px-2 py-1">
+          <img src={iconUrl} alt="" className="size-7" />
+          <img src={wordmarkUrl} alt={m.app_title()} className="h-6" />
+        </div>
         <nav aria-label={m.nav_label()} className="flex flex-1 flex-col">
           <NavList items={mainItems} />
           <div className="mt-auto">
