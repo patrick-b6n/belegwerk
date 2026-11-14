@@ -289,15 +289,16 @@ sie (`calculateBookingAmounts`).
 `BookingQuery` (`src/business/bookings/booking-query.ts`), alle Felder
 optional und per UND verknüpft:
 
-| Feld                     | Bedeutung                                                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `text`                   | Teilstring in Beschreibung, Gegenpartei, Referenz oder Notiz; ohne Groß-/Kleinschreibung, auch Umlaute |
-| `dateFrom`, `dateTo`     | Zahlungsdatum `YYYY-MM-DD`, jeweils inklusive                                                          |
-| `type`, `source`         | Art bzw. Quelle                                                                                        |
-| `categoryIds`            | eine der Kategorien (leer = alle; Duplikate egal; höchstens 500)                                       |
-| `amountFrom`, `amountTo` | **Brutto** in Cent, jeweils inklusive                                                                  |
-| `sort`                   | `{ field, direction }`, Felder `BOOKING_SORT_FIELDS`; Standard Datum absteigend                        |
-| `page`, `pageSize`       | Seite ab 1 (Standard 1); Größe 1–500 (Standard 50) oder `"all"`                                        |
+| Feld                     | Bedeutung                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `text`                   | Teilstring in Beschreibung, Gegenpartei, Referenz oder Notiz; ohne Groß-/Kleinschreibung, auch Umlaute  |
+| `dateFrom`, `dateTo`     | Zahlungsdatum `YYYY-MM-DD`, jeweils inklusive                                                           |
+| `type`, `source`         | Art bzw. Quelle                                                                                         |
+| `vatRates`               | einer der USt-Sätze, `null` = ohne Satz (#26; leer = alle; Duplikate egal; unbekannt: `invalidVatRate`) |
+| `categoryIds`            | eine der Kategorien (leer = alle; Duplikate egal; höchstens 500)                                        |
+| `amountFrom`, `amountTo` | **Brutto** in Cent, jeweils inklusive                                                                   |
+| `sort`                   | `{ field, direction }`, Felder `BOOKING_SORT_FIELDS`; Standard Datum absteigend                         |
+| `page`, `pageSize`       | Seite ab 1 (Standard 1); Größe 1–500 (Standard 50) oder `"all"`                                         |
 
 Ergebnis von `BookingService.list(query)`: `{ ok: true, items, total, page,
 pageSize, pageCount, sums: { incomeCents, expenseCents, balanceCents } }`
@@ -478,7 +479,7 @@ Entscheidungen und Ergebnisform:
 | `/buchungen`            | Buchungsliste; Filter/Sortierung/Seite als Search-Params (#22, #23) |
 | `/buchungen/$bookingId` | Buchung bearbeiten (Formular, #18)                                  |
 | `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
-| `/euer`                 | EÜR-Jahresansicht                                                   |
+| `/euer`                 | EÜR-Jahresansicht; Jahr als Search-Param `jahr` (#26)               |
 | `/kategorien`           | Kategorienverwaltung                                                |
 | `/einstellungen`        | Einstellungen (Steuerjahre, später Stripe)                          |
 | alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
@@ -505,7 +506,7 @@ Entscheidungen und Ergebnisform:
 `startApp()` (`src/app/startup.ts`) auf: Datenbank öffnen, ausstehende
 Migrationen anwenden ([Datenmodell](data-model.md)), Unit of Work und Services
 erzeugen (`createAppServices`, `src/app/services.ts`). `AppServices` enthält
-nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`), keine Repositories und
+nur Services (`bookings`, `bookingExport`, `categories`, `taxYears`, `euer`), keine Repositories und
 keine Unit of Work: UI und Routen gehen immer über die Services. Bis dahin zeigt er einen
 Ladebildschirm, danach die App; Komponenten holen die Services mit
 `useAppServices()`.
@@ -544,10 +545,14 @@ ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
 `categoryQueryKeys` (`src/ui/categories/category-queries.ts`,
 `useCategoryList()`) und `taxYearQueryKeys`
 (`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`,
-`useTaxYearList()`).
+`useTaxYearList()`) und `euerQueryKeys` (`src/ui/euer/euer-queries.ts`,
+`useEuer(year)`, #26).
 Buchungs-Mutationen (`useBookingMutations()`, #18) invalidieren
-`bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`) und
-`taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen). Verlässt das
+`bookingQueryKeys.all`, `categoryQueryKeys.all` (`bookingCount`),
+`taxYearQueryKeys.all` (`list()` enthält Jahre mit Buchungen) und
+`euerQueryKeys.all`. Kategorie- und Steuerjahr-Mutationen invalidieren
+ebenfalls `euerQueryKeys.all` (Position/Flag und Steuerstatus wirken
+rückwirkend auf die EÜR). Verlässt das
 Formular danach die Seite (Erfolg, „nicht gefunden“), werden nur inaktive
 Queries neu geladen – sonst zeigte die Bearbeiten-Seite eine eben gelöschte
 Buchung kurz als „nicht gefunden“.
@@ -584,17 +589,18 @@ Schnellwahl-Zeiträume, Kategorie-Optionen – liegt getestet in
 **URL-Schema** (`validateSearch: validateBookingSearch`, alle Parameter
 optional; Standardwerte stehen nie in der URL):
 
-| Parameter                | Wert                                  | `BookingQuery`           |
-| ------------------------ | ------------------------------------- | ------------------------ |
-| `q`                      | Suchtext (getrimmt)                   | `text`                   |
-| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive | `dateFrom`, `dateTo`     |
-| `art`                    | `einnahmen` oder `ausgaben`           | `type`                   |
-| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)  | `categoryIds`            |
-| `quelle`                 | `manuell` oder `stripe`               | `source`                 |
-| `betragVon`, `betragBis` | Brutto in **Cent**                    | `amountFrom`, `amountTo` |
-| `sortierung`             | `<spalte>-<auf\|ab>` (#23)            | `sort`                   |
-| `seite`                  | Seite ab 2 (#23)                      | `page`                   |
-| `proSeite`               | 25, 100 oder 200 (#23)                | `pageSize`               |
+| Parameter                | Wert                                                    | `BookingQuery`           |
+| ------------------------ | ------------------------------------------------------- | ------------------------ |
+| `q`                      | Suchtext (getrimmt)                                     | `text`                   |
+| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive                   | `dateFrom`, `dateTo`     |
+| `art`                    | `einnahmen` oder `ausgaben`                             | `type`                   |
+| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)                    | `categoryIds`            |
+| `quelle`                 | `manuell` oder `stripe`                                 | `source`                 |
+| `ust`                    | USt-Sätze (Array aus `ohne`, `0`, `7`, `19`, `rc`; #26) | `vatRates`               |
+| `betragVon`, `betragBis` | Brutto in **Cent**                                      | `amountFrom`, `amountTo` |
+| `sortierung`             | `<spalte>-<auf\|ab>` (#23)                              | `sort`                   |
+| `seite`                  | Seite ab 2 (#23)                                        | `page`                   |
+| `proSeite`               | 25, 100 oder 200 (#23)                                  | `pageSize`               |
 
 - **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
   nötig). Strings, die wie JSON aussehen, werden gequotet (`?q=2025` wird
@@ -634,6 +640,12 @@ optional; Standardwerte stehen nie in der URL):
   (aus einer URL) stehen markiert in der Liste, damit sie sich abwählen
   lassen.
   Ein Art-Wechsel entfernt Kategorien der anderen Art.
+- **USt-Satz** (#26): Mehrfachauswahl „Ohne USt-Satz“, 0 %, 7 %, 19 %,
+  Reverse Charge. Gedacht vor allem für die Drill-down-Links der EÜR (Zeile
+  15 = 7 % und 19 %); so sieht und ändert man den Filter. In der URL
+  sortiert und ohne Duplikate (`ust=["0","19"]`; Zahlen wie `ust=[19]` werden
+  ebenfalls gelesen), unbekannte Werte werden verworfen. SQL:
+  `vat_rate IN (…)`, für „ohne“ zusätzlich `OR vat_rate IS NULL`.
 - **Beträge** mit Dezimalkomma (`parseAmount`); unlesbare Eingaben zeigen
   einen Fehler und ändern die URL nicht.
 - **Ergebnis:** „N Buchungen gefunden“ (`role="status"`); mit Filtern ohne
@@ -740,6 +752,55 @@ auch die EÜR #27):
   Listen-Abfrage wie die Tabelle (gleicher Query-Key), nie aus Platzhalterdaten der vorigen Suche. Erfolg: Toast mit
   Anzahl und Dateiname; Abbruch des Dialogs: kein Toast; Fehler (z. B. Datei
   in Excel geöffnet): Fehler-Toast, Details in der Konsole.
+
+### EÜR-Jahresansicht (#26)
+
+`src/routes/euer.tsx` (`/euer`) zeigt `services.euer.calculate(year)` (#25)
+für das Jahr aus dem Search-Param `jahr` (1000–9999; Standard: aktuelles
+Kalenderjahr, steht dann nicht in der URL; Ungültiges wird verworfen). Reine
+Logik (URL, Tabellenzeilen, Drill-down- und Hinweis-Links) liegt getestet in
+`src/ui/euer/euer-model.ts`, die Darstellung in `euer-view.tsx`.
+
+- **Jahresauswahl** im Seitenkopf: Steuerjahre und Jahre mit Buchungen
+  (`useTaxYearList`), das aktuelle und das gewählte Jahr
+  (`periodYearOptions`). Darunter der Steuerstatus des Jahres
+  (Regelbesteuerung / Kleinunternehmer) mit Link zu den Einstellungen.
+- **Tabellen** Betriebseinnahmen und Betriebsausgaben: Zeile, Bezeichnung
+  (amtlich aus `describePosition`, ohne Mapping der Anzeigename der
+  Position), Betrag (`formatCurrency`, rechtsbündig, `tabular-nums`), je mit
+  Summenzeile. Zeile 13 (nachrichtlich) folgt Zeile 12, eingerückt, mit
+  „davon“ und Betrag in Klammern; sie zählt nicht zur Summe. Bewirtung zeigt
+  unter der Bezeichnung Gesamt, „nicht abziehbar“ und „abziehbar“; der
+  Betrag der Zeile ist der abziehbare Teil.
+- **Ergebnis:** Summe Einnahmen, Summe Ausgaben und Gewinn bzw. Verlust mit
+  Wort und Vorzeichen, nicht nur Farbe.
+- **Ohne Zeilen-Mapping** für das Jahr: Hinweis „Für {Jahr} gibt es noch
+  kein Zeilen-Mapping; angezeigt werden nur die Positionen.“, Zeile „–“.
+- **Hinweise** (`EuerWarning`) als Liste mit Text (Paraglide) und, wo der
+  Filter sie ausdrücken kann, „Betroffene Buchungen anzeigen“: USt-Satz im
+  Kleinunternehmer-Jahr (`ust` = alle Sätze), fehlender Satz im
+  regelbesteuerten Jahr (`ust=["ohne"]`), Satz 7/19 % auf Zahlungen an das /
+  vom Finanzamt (deren Kategorien + `ust` 7/19), nicht zuordenbare Buchungen
+  (deren Kategorien – enthält ggf. auch gezählte Buchungen der anderen Art),
+  negative Zeile, Bewirtung und Verpflegungsmehraufwand (die Zeile).
+- **Drill-down:** Die Bezeichnung jeder Position ist ein Link auf
+  `/buchungen` mit `von`/`bis` = Jahr, `kategorie` = alle beitragenden
+  Kategorien, `ust` = Vereinigung der beitragenden Sätze (entfällt, wenn alle
+  fünf beitragen) und `art` nur, wenn alle Beiträge dieselbe Art haben. Der
+  Filter verknüpft per UND, kann also „(A und Einnahme) oder (B und
+  Ausgabe)“ nicht ausdrücken – die Vereinigung ist trotzdem genau: Im selben
+  Jahr landen die Buchungen einer Kategorie mit demselben Satz immer in
+  derselben Zeile (Steuerstatus pro Jahr; 15/16 und die USt-Zeilen nach Satz,
+  alle übrigen Zeilen mit allen Sätzen ihrer Kategorien), und Kategorien
+  haben eine feste Art. Gemischte Zeilen (Umsatz-Kategorien plus deren
+  Erlösminderung) bekommen deshalb keinen Art-Filter. Einzige Abweichung:
+  Buchungen, deren Art nicht zur Kategorie passt (zählen in der EÜR nicht,
+  über die Services nicht erzeugbar). Die Anzahl der Liste entspricht der
+  Buchungsanzahl der Zeile; die Summen der Liste sind brutto, die EÜR
+  rechnet im regelbesteuerten Jahr netto (Zeile 15 + Zeile 17 = Brutto der
+  Liste, wenn keine Erlösminderung beiträgt).
+- **Zustände:** Laden, Fehler mit „Erneut versuchen“, leeres Jahr („Für
+  {Jahr} gibt es keine Buchungen.“).
 
 ### Buchungsformular (#18)
 

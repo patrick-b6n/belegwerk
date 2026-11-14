@@ -3,6 +3,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { useAppServices } from "@/app/app-services";
 import type { BookingFormInput, BookingQuery, ExportBookingsCsvRequest } from "@/business/bookings";
 import { categoryQueryKeys } from "@/ui/categories/category-queries";
+import { euerQueryKeys } from "@/ui/euer/euer-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
 
 /**
@@ -74,8 +75,8 @@ function leavesPage(result: MutationResult): boolean {
 
 /**
  * Invalidates everything a booking change can affect: bookings (list and
- * details), the categories' `bookingCount` and the tax years with bookings
- * (`TaxYearService.list`).
+ * details), the categories' `bookingCount`, the tax years with bookings
+ * (`TaxYearService.list`) and the EÜR (#26).
  *
  * When the form leaves the page, only inactive queries are refetched (e.g.
  * the list it returns to); the active ones of the form page are only marked
@@ -88,8 +89,8 @@ function invalidateAfterBookingChange(
 ): Promise<void> {
   const refetchType = leavesPage(result) ? "inactive" : "active";
   return Promise.all(
-    [bookingQueryKeys.all, categoryQueryKeys.all, taxYearQueryKeys.all].map((queryKey) =>
-      queryClient.invalidateQueries({ queryKey, refetchType }),
+    [bookingQueryKeys.all, categoryQueryKeys.all, taxYearQueryKeys.all, euerQueryKeys.all].map(
+      (queryKey) => queryClient.invalidateQueries({ queryKey, refetchType }),
     ),
   ).then(() => undefined);
 }

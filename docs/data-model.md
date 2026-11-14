@@ -357,9 +357,9 @@ EuerReportLine = {
   Betrag; die Beiträge ergeben die Summe der Zeile (Bewirtung:
   `entertainment.totalCents`). Die Buchungen einer Zeile sind genau: Jahr +
   `categoryId` + `bookingType` + `vatRates` je Beitrag. Die Buchungssuche
-  (#21) filtert noch nicht nach USt-Satz; für Zeilen, zu denen eine
-  Kategorie nur mit einem Teil ihrer Sätze beiträgt (15/16, USt-Zeilen),
-  braucht #26 einen Satz-Filter oder zeigt alle Buchungen der Kategorien.
+  filtert dafür seit #26 auch nach USt-Satz (`vatRates`, URL `ust`); die
+  Ansicht verlinkt die Vereinigung aus Kategorien und Sätzen – warum das
+  genau ist: [Architektur](architecture.md#eür-jahresansicht-26).
 
 ## Migrationen
 

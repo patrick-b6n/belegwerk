@@ -3,20 +3,22 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { useAppServices } from "@/app/app-services";
 import type { CategoryFormChanges, CategoryFormInput } from "@/business/categories";
 import { bookingQueryKeys } from "@/ui/bookings/booking-queries";
+import { euerQueryKeys } from "@/ui/euer/euer-queries";
 
 import { categoryQueryKeys } from "./category-queries";
 
 /**
  * Invalidates everything a category change can affect: the categories and
  * the bookings (list rows and loaded bookings show the category's name and
- * "archived" mark; the booking form's options come from the category list).
+ * "archived" mark; the booking form's options come from the category list)
+ * and the EÜR (#26: position and flag count at calculation time).
  *
  * In its own module (not `category-queries.ts`): `booking-queries.ts` imports
  * the category keys, so this keeps the imports free of cycles.
  */
 function invalidateAfterCategoryChange(queryClient: QueryClient): Promise<void> {
   return Promise.all(
-    [categoryQueryKeys.all, bookingQueryKeys.all].map((queryKey) =>
+    [categoryQueryKeys.all, bookingQueryKeys.all, euerQueryKeys.all].map((queryKey) =>
       queryClient.invalidateQueries({ queryKey }),
     ),
   ).then(() => undefined);
