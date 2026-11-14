@@ -12,7 +12,7 @@ import { Page } from "@/ui/layout/page";
  * calendar year (`describePosition`; without a mapping only the position's
  * name).
  */
-export const Route = createFileRoute("/kategorien")({
+export const Route = createFileRoute("/categories")({
   component: CategoriesPage,
   head: () => ({ meta: [{ title: m.page_title({ page: m.categories_title() }) }] }),
 });

@@ -89,7 +89,7 @@ const columns = column.columns([
     // The description is the row's link: focusable, opens the booking with Enter.
     cell: ({ row }) => (
       <Link
-        to="/buchungen/$bookingId"
+        to="/bookings/$bookingId"
         params={{ bookingId: row.original.id }}
         title={row.original.description}
         className="block truncate rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
@@ -164,7 +164,7 @@ export interface BookingTableProps {
 /**
  * The booking list (#17): presentational, renders the given rows in the
  * given order. Clicking a row opens the booking for editing
- * (`/buchungen/$bookingId`); for the keyboard, the description is a link.
+ * (`/bookings/$bookingId`); for the keyboard, the description is a link.
  *
  * Sorting, pagination and the sums (#23) come from the search query (#21),
  * not from the table: the table gets the rows of one page, the sort order
@@ -355,7 +355,7 @@ function BookingRow({
     const selecting =
       selection?.isCollapsed === false && event.currentTarget.contains(selection.anchorNode);
     if (event.defaultPrevented || selecting) return;
-    void navigate({ to: "/buchungen/$bookingId", params: { bookingId: row.original.id } });
+    void navigate({ to: "/bookings/$bookingId", params: { bookingId: row.original.id } });
   };
   return (
     <TableRow data-booking-id={row.original.id} onClick={onClick} className="cursor-pointer">

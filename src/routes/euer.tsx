@@ -20,10 +20,10 @@ import { Page } from "@/ui/layout/page";
 import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
 /**
- * The EÜR year view (#26): the year is a search param (`jahr`, default the
+ * The EÜR year view (#26): the year is a search param (`year`, default the
  * current calendar year); the calculation is `EuerService.calculate(year)`
- * (#25). Each position links to its bookings in the booking list; "CSV
- * exportieren" saves the year's EÜR (#27).
+ * (#25). Each position links to its bookings in the booking list; "Export
+ * CSV" saves the year's EÜR (#27).
  */
 export const Route = createFileRoute("/euer")({
   validateSearch: validateEuerSearch,
@@ -122,7 +122,7 @@ function EuerYear({ year }: Readonly<{ year: number }>) {
             ? m.tax_years_status_small_business()
             : m.tax_years_status_regular(),
         })}{" "}
-        <Link to="/einstellungen" className="underline underline-offset-4">
+        <Link to="/settings" className="underline underline-offset-4">
           {m.euer_status_change()}
         </Link>
       </p>

@@ -246,9 +246,9 @@ describe("stripeImportSummary", () => {
 describe("importedBookingsSearch", () => {
   it("filters the list by the period and source Stripe", () => {
     expect(importedBookingsSearch({ from: "2026-11-01", to: "2026-11-14" })).toEqual({
-      von: "2026-11-01",
-      bis: "2026-11-14",
-      quelle: "stripe",
+      from: "2026-11-01",
+      to: "2026-11-14",
+      source: "stripe",
     });
   });
 });

@@ -14,7 +14,7 @@ import { useCreateBackup } from "./backup-mutations";
 const DATABASE_LOCATION = "%APPDATA%\\de.belegwerk.desktop\\belegwerk.db";
 
 /**
- * Section "Datensicherung" on `/einstellungen` (#32): explains what a backup
+ * Section "Backup" on `/settings` (#32): explains what a backup
  * contains and how to restore it, and "Backup erstellen" saves a copy of the
  * database via the save dialog.
  *

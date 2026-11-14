@@ -76,7 +76,7 @@ import { useStripeImportStatus, useStripeSettings } from "./stripe-queries";
  * - While the import runs the dialog cannot be closed (`aria-busy`, no close
  *   button, Escape and outside clicks ignored) – the import is all or nothing
  *   and cannot be cancelled.
- * - Afterwards a summary „X neu, Y übersprungen“ with the entries not booked
+ * - Afterwards a summary "X new, Y skipped" with the entries not booked
  *   and a link to the imported bookings.
  */
 export function StripeImportButton() {
@@ -225,7 +225,7 @@ function SettingsHint({
         <Button variant="outline" onClick={onClose}>
           {m.common_close()}
         </Button>
-        <Link to="/einstellungen" className={buttonVariants()} onClick={onClose}>
+        <Link to="/settings" className={buttonVariants()} onClick={onClose}>
           {m.stripe_import_to_settings()}
         </Link>
       </DialogFooter>
@@ -482,7 +482,7 @@ function StripeImportForm({
                 <p>{importError.text}</p>
                 {importError.settingsLink && (
                   <Link
-                    to="/einstellungen"
+                    to="/settings"
                     className="font-medium underline underline-offset-4"
                     onClick={onCancel}
                   >
@@ -577,7 +577,7 @@ function ImportSummaryView({
       <DialogFooter>
         {summary.created + summary.skipped > 0 && (
           <Link
-            to="/buchungen"
+            to="/bookings"
             search={importedBookingsSearch(summary)}
             className={buttonVariants({ variant: "outline" })}
             onClick={onClose}

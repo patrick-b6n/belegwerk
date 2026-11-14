@@ -102,22 +102,22 @@ function rowOf(result: EuerResult, position: string) {
 
 describe("validateEuerSearch", () => {
   it("keeps a valid year, number or string", () => {
-    expect(validateEuerSearch({ jahr: 2025 })).toEqual({ jahr: 2025 });
-    expect(validateEuerSearch({ jahr: "2024" })).toEqual({ jahr: 2024 });
+    expect(validateEuerSearch({ year: 2025 })).toEqual({ year: 2025 });
+    expect(validateEuerSearch({ year: "2024" })).toEqual({ year: 2024 });
   });
 
   it("drops anything else but keeps the key", () => {
-    for (const jahr of [999, 10000, 2025.5, "abc", "20 25", null, undefined, [2025]]) {
-      const search = validateEuerSearch({ jahr });
-      expect(Object.hasOwn(search, "jahr") && search.jahr === undefined).toBe(true);
+    for (const year of [999, 10000, 2025.5, "abc", "20 25", null, undefined, [2025]]) {
+      const search = validateEuerSearch({ year });
+      expect(Object.hasOwn(search, "year") && search.year === undefined).toBe(true);
     }
   });
 
   it("defaults to the current year, which is not written", () => {
     expect(euerSearchYear({}, 2026)).toBe(2026);
-    expect(euerSearchYear({ jahr: 2025 }, 2026)).toBe(2025);
+    expect(euerSearchYear({ year: 2025 }, 2026)).toBe(2025);
     expect(euerYearSearch(2026, 2026)).toEqual({});
-    expect(euerYearSearch(2025, 2026)).toEqual({ jahr: 2025 });
+    expect(euerYearSearch(2025, 2026)).toEqual({ year: 2025 });
   });
 });
 
@@ -128,62 +128,62 @@ describe("drill-down search params", () => {
 
   it("filters line 15 by year, both turnover categories and the taxed rates, without type", () => {
     expect(rowOf(REGULAR_2026, "BETRIEBSEINNAHMEN_UST_PFLICHTIG").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      kategorie: [SALES, REFUND],
-      ust: ["7", "19"],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      category: [SALES, REFUND],
+      vat: ["7", "19"],
     });
   });
 
   it("filters line 16 by the untaxed rates of its categories", () => {
     expect(rowOf(REGULAR_2026, "BETRIEBSEINNAHMEN_UST_FREI").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      art: "einnahmen",
-      kategorie: [SALES, TAX_FREE],
-      ust: ["ohne", "0"],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      type: "income",
+      category: [SALES, TAX_FREE],
+      vat: ["none", "0"],
     });
   });
 
   it("filters the VAT lines by the bookings that produced them", () => {
     expect(rowOf(REGULAR_2026, "UST_VEREINNAHMT").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      kategorie: [SALES, REFUND],
-      ust: ["7", "19"],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      category: [SALES, REFUND],
+      vat: ["7", "19"],
     });
     expect(rowOf(REGULAR_2026, "VORSTEUER").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      art: "ausgaben",
-      kategorie: [SOFTWARE, ENTERTAINMENT],
-      ust: ["19"],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      type: "expense",
+      category: [SOFTWARE, ENTERTAINMENT],
+      vat: ["19"],
     });
   });
 
   it("filters an expense line by its category and type", () => {
     expect(rowOf(REGULAR_2026, "UST_AN_FA").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      art: "ausgaben",
-      kategorie: [VAT_PAYMENT],
-      ust: ["19"],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      type: "expense",
+      category: [VAT_PAYMENT],
+      vat: ["19"],
     });
   });
 
   it("filters the small business line 12 by the remapped categories, line 13 by its own", () => {
     expect(rowOf(SMALL_2025, "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER").search).toEqual({
-      von: "2025-01-01",
-      bis: "2025-12-31",
-      kategorie: [SALES, TAX_FREE, REFUND],
-      ust: ["ohne"],
+      from: "2025-01-01",
+      to: "2025-12-31",
+      category: [SALES, TAX_FREE, REFUND],
+      vat: ["none"],
     });
     expect(rowOf(SMALL_2025, "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER_NICHT_STEUERBAR").search).toEqual({
-      von: "2025-01-01",
-      bis: "2025-12-31",
-      art: "einnahmen",
-      kategorie: [TAX_FREE],
-      ust: ["ohne"],
+      from: "2025-01-01",
+      to: "2025-12-31",
+      type: "income",
+      category: [TAX_FREE],
+      vat: ["none"],
     });
   });
 
@@ -196,10 +196,10 @@ describe("drill-down search params", () => {
       group(SOFTWARE, "reverse_charge", 1_00),
     ]);
     expect(rowOf(result, "EDV_KOSTEN").search).toEqual({
-      von: "2026-01-01",
-      bis: "2026-12-31",
-      art: "ausgaben",
-      kategorie: [SOFTWARE],
+      from: "2026-01-01",
+      to: "2026-12-31",
+      type: "expense",
+      category: [SOFTWARE],
     });
   });
 
@@ -268,14 +268,14 @@ describe("euerWarningViews", () => {
   it("links each warning to the bookings concerned", () => {
     const views = euerWarningViews(REGULAR_2026);
     expect(views.map((view) => [view.warning.code, view.search])).toEqual([
-      ["vatRateMissingInRegularYear", { von: "2026-01-01", bis: "2026-12-31", ust: ["ohne"] }],
+      ["vatRateMissingInRegularYear", { from: "2026-01-01", to: "2026-12-31", vat: ["none"] }],
       [
         "vatRateOnTaxPayment",
         {
-          von: "2026-01-01",
-          bis: "2026-12-31",
-          kategorie: [VAT_REFUND, VAT_PAYMENT],
-          ust: ["7", "19"],
+          from: "2026-01-01",
+          to: "2026-12-31",
+          category: [VAT_REFUND, VAT_PAYMENT],
+          vat: ["7", "19"],
         },
       ],
       ["entertainmentSplit", rowOf(REGULAR_2026, "BEWIRTUNG").search],
@@ -299,22 +299,18 @@ describe("euerWarningViews", () => {
     expect(views.map((view) => [view.warning.code, view.search, view.line?.line])).toEqual([
       [
         "vatRateInSmallBusinessYear",
-        { von: "2025-01-01", bis: "2025-12-31", ust: ["0", "7", "19", "rc"] },
+        { from: "2025-01-01", to: "2025-12-31", vat: ["0", "7", "19", "rc"] },
         undefined,
       ],
-      [
-        "unassignableBookings",
-        { von: "2025-01-01", bis: "2025-12-31", kategorie: [99] },
-        undefined,
-      ],
+      ["unassignableBookings", { from: "2025-01-01", to: "2025-12-31", category: [99] }, undefined],
       [
         "negativeLine",
         {
-          von: "2025-01-01",
-          bis: "2025-12-31",
-          art: "ausgaben",
-          kategorie: [REFUND],
-          ust: ["ohne"],
+          from: "2025-01-01",
+          to: "2025-12-31",
+          type: "expense",
+          category: [REFUND],
+          vat: ["none"],
         },
         12,
       ],

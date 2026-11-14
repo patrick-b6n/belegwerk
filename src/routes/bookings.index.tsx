@@ -39,10 +39,10 @@ import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
  * params of this route (`validateBookingSearch`, schema in
  * `booking-filter-model.ts`) and go into the list query
  * (`BookingService.list(query)`, #21): sorting and paging happen in SQL.
- * "CSV exportieren" (#24) saves all bookings of the filters in that order;
+ * "Export CSV" (#24) saves all bookings of the filters in that order;
  * "Stripe importieren" (#31) opens the import dialog.
  */
-export const Route = createFileRoute("/buchungen/")({
+export const Route = createFileRoute("/bookings/")({
   validateSearch: validateBookingSearch,
   component: BookingsPage,
   head: () => ({ meta: [{ title: m.page_title({ page: m.bookings_title() }) }] }),
@@ -53,7 +53,7 @@ function BookingsPage() {
   const navigate = Route.useNavigate();
   const searchInputId = useId();
   // Mounting the filter bar anew on reset drops pending typed values and
-  // the "Frei" period mode.
+  // the "Custom" period mode.
   const [resetCount, setResetCount] = useState(0);
 
   const filterQuery = useMemo(() => bookingSearchToQuery(search), [search]);
@@ -110,7 +110,7 @@ function BookingsPage() {
             invalid={!normalized.ok}
           />
           <StripeImportButton />
-          <Link to="/buchungen/neu" className={buttonVariants()}>
+          <Link to="/bookings/new" className={buttonVariants()}>
             <Plus aria-hidden />
             {m.bookings_new()}
           </Link>
@@ -175,7 +175,7 @@ function BookingList({
   const shownPage = data?.ok && !isPlaceholderData && !isFetching ? data.page : undefined;
   useEffect(() => {
     if (shownPage !== undefined && shownPage !== requestedPage) {
-      onSearchChange({ seite: pageSearchParam(shownPage) }, { replace: true });
+      onSearchChange({ page: pageSearchParam(shownPage) }, { replace: true });
     }
   }, [shownPage, requestedPage, onSearchChange]);
 
@@ -227,7 +227,7 @@ function BookingList({
           <BookingTable
             bookings={data.items}
             sort={sort}
-            onSortChange={(next) => onSearchChange({ sortierung: sortSearchParam(next) })}
+            onSortChange={(next) => onSearchChange({ sort: sortSearchParam(next) })}
             sums={data.sums}
             filtered={filtered}
           />
@@ -237,8 +237,8 @@ function BookingList({
             pageCount={data.pageCount}
             pageSize={data.pageSize === "all" ? data.total : data.pageSize}
             total={data.total}
-            onPageChange={(page) => onSearchChange({ seite: pageSearchParam(page) })}
-            onPageSizeChange={(size) => onSearchChange({ proSeite: pageSizeSearchParam(size) })}
+            onPageChange={(page) => onSearchChange({ page: pageSearchParam(page) })}
+            onPageSizeChange={(size) => onSearchChange({ pageSize: pageSizeSearchParam(size) })}
           />
         </>
       )}

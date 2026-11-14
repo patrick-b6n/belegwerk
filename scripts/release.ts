@@ -42,19 +42,19 @@ class ReleaseError extends Error {}
 /** package.json with `version` replaced; the rest of the text stays as it is. */
 function withVersion(packageJson: string, version: string): string {
   const pattern = /("version"\s*:\s*)"[^"]*"/;
-  if (!pattern.test(packageJson)) throw new ReleaseError("package.json hat kein Feld version.");
+  if (!pattern.test(packageJson)) throw new ReleaseError("package.json has no version field.");
   return packageJson.replace(pattern, `$1"${version}"`);
 }
 
 function release(calVer: string, semVer: string): void {
-  console.log(`Version ${calVer} (package.json für den Build: ${semVer})`);
+  console.log(`Version ${calVer} (package.json for the build: ${semVer})`);
   const build = spawnSync("pnpm tauri build --no-bundle", {
     cwd: root,
     shell: true,
     stdio: "inherit",
   });
   if (build.status !== 0) {
-    throw new ReleaseError(`tauri build fehlgeschlagen (Exit-Code ${build.status}).`);
+    throw new ReleaseError(`tauri build failed (exit code ${build.status}).`);
   }
 
   const source = join(root, "src-tauri", "target", "release", "belegwerk.exe");
@@ -65,7 +65,7 @@ function release(calVer: string, semVer: string): void {
     copyFileSync(source, target);
   } catch (error) {
     throw new ReleaseError(
-      `Kopieren nach ${relative(root, target)} fehlgeschlagen – läuft die .exe noch? (${String(error)})`,
+      `Copying to ${relative(root, target)} failed – is the .exe still running? (${String(error)})`,
     );
   }
 
@@ -78,12 +78,12 @@ function release(calVer: string, semVer: string): void {
       `powershell -NoProfile -NonInteractive -Command "(Get-Item -LiteralPath '${target}').VersionInfo.FileVersion"`,
     ).trim();
   } catch (error) {
-    throw new ReleaseError(`Version der .exe konnte nicht gelesen werden. (${String(error)})`);
+    throw new ReleaseError(`Could not read the version of the .exe. (${String(error)})`);
   }
   if (fileVersion !== semVer && fileVersion !== `${semVer}.0`) {
     throw new ReleaseError(
-      `Versionskonflikt: erwartet ${semVer}, die .exe meldet ${fileVersion || "(keine)"}. ` +
-        "Bitte erneut bauen (ggf. src-tauri/target/release löschen).",
+      `Version mismatch: expected ${semVer}, the .exe reports ${fileVersion || "(none)"}. ` +
+        "Please build again (delete src-tauri/target/release if needed).",
     );
   }
 
@@ -102,7 +102,7 @@ const { values } = parseArgs({ options: { calver: { type: "string" } } });
 const calVer = values.calver ?? calVerFromDate(new Date());
 const semVer = calVerToSemVer(calVer);
 if (semVer === null) {
-  console.error(`Ungültige Version ${JSON.stringify(calVer)} – erwartet YYYY-MM-DD-HHMM.`);
+  console.error(`Invalid version ${JSON.stringify(calVer)} – expected YYYY-MM-DD-HHMM.`);
   process.exit(1);
 }
 
@@ -111,10 +111,10 @@ if (semVer === null) {
 // SHA-256 identifies this file, not the source.)
 try {
   if (run("git status --porcelain").trim() !== "") {
-    console.warn("Warnung: Das Arbeitsverzeichnis enthält nicht committete Änderungen.");
+    console.warn("Warning: the working tree has uncommitted changes.");
   }
 } catch {
-  console.warn("Warnung: git status nicht verfügbar.");
+  console.warn("Warning: git status not available.");
 }
 
 // Ctrl+C reaches the build as well; staying alive until it has ended lets

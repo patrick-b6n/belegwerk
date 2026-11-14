@@ -173,7 +173,7 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
               {/* The count as tooltip and, for screen readers, as description
                   (a hidden element still names it, without being read twice). */}
               <Link
-                to="/buchungen"
+                to="/bookings"
                 search={search}
                 title={countText}
                 aria-describedby={countId}
@@ -310,7 +310,7 @@ function EuerWarnings({
             {warningText(view, year)}{" "}
             {view.search && (
               <Link
-                to="/buchungen"
+                to="/bookings"
                 search={view.search}
                 className="font-medium whitespace-nowrap underline underline-offset-4"
               >

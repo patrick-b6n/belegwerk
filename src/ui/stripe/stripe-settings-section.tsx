@@ -103,7 +103,7 @@ function SubHeading({ id, children }: Readonly<{ id: string; children: string }>
 
 /**
  * The key: without one the input form; with one its masked form, mode and
- * "Ändern" (opens the input form) / "Entfernen" (asks first).
+ * "Change" (opens the input form) / "Remove" (asks first).
  */
 function ApiKeyPanel({ apiKey }: Readonly<{ apiKey: StripeApiKeyInfo | null }>) {
   const headingId = useId();
@@ -326,7 +326,7 @@ function TestConnection() {
   );
 }
 
-/** Asks before removing the key; the safe choice ("Abbrechen") gets the initial focus. */
+/** Asks before removing the key; the safe choice ("Cancel") gets the initial focus. */
 function RemoveKeyDialog({
   open,
   onClose,

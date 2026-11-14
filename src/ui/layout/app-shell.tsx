@@ -17,12 +17,12 @@ type NavItem = {
 };
 
 const mainItems: NavItem[] = [
-  { icon: BookOpenText, label: m.bookings_title, to: "/buchungen" },
+  { icon: BookOpenText, label: m.bookings_title, to: "/bookings" },
   { icon: Calculator, label: m.euer_title, to: "/euer" },
-  { icon: Tags, label: m.categories_title, to: "/kategorien" },
+  { icon: Tags, label: m.categories_title, to: "/categories" },
 ];
 
-const footerItems: NavItem[] = [{ icon: Settings, label: m.settings_title, to: "/einstellungen" }];
+const footerItems: NavItem[] = [{ icon: Settings, label: m.settings_title, to: "/settings" }];
 
 /** App layout: fixed side navigation on the left, the active area on the right. */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {

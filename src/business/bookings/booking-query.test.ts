@@ -151,7 +151,7 @@ describe("normalizeBookingQuery", () => {
     expect(normalized({ vatRates: [null, "0", "7", "19", "reverse_charge", null] }).filter).toEqual(
       { vatRates: [null, "0", "7", "19", "reverse_charge"] },
     );
-    for (const rate of ["16", "", "ohne", 19, undefined]) {
+    for (const rate of ["16", "", "none", 19, undefined]) {
       expect(errorsOf({ vatRates: ["19", rate as never] })).toEqual([
         { field: "vatRates", code: "invalidVatRate" },
       ]);

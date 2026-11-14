@@ -1,7 +1,7 @@
 import { type ReactNode, useId } from "react";
 
 /**
- * One section of the settings page (`/einstellungen`): a titled region with
+ * One section of the settings page (`/settings`): a titled region with
  * an optional description. The page stacks sections ("Steuerjahre" #20,
  * "Stripe" #28); each section owns its data, loading and error states.
  */

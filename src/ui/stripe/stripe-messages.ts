@@ -128,7 +128,7 @@ export function importFieldErrorMessage(error: StripeImportFieldError): string {
   throw new Error(`No message for Stripe import error ${JSON.stringify(error)}`);
 }
 
-/** "Fee" or "Rückerstattung". */
+/** "Fee" or "Refund". */
 export function importKindLabel(kind: StripeImportFailureRow["kind"]): string {
   return kind === "fee" ? m.stripe_import_kind_fee() : m.stripe_import_kind_refund();
 }

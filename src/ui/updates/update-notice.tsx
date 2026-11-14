@@ -12,7 +12,7 @@ import { useBackgroundUpdateCheck } from "./update-queries";
  * The check runs once in the background at startup; without network or on
  * GitHub errors nothing appears (only a log entry). "Hinweis ausblenden"
  * hides it for that version until the next start; only a newer version
- * (e.g. found by "Nach Updates suchen" in the settings) brings it back.
+ * (e.g. found by "Check for updates" in the settings) brings it back.
  */
 export function UpdateNotice() {
   const { data: check } = useBackgroundUpdateCheck();

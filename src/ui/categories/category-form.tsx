@@ -66,7 +66,7 @@ export interface CategoryFormProps {
 }
 
 /**
- * Create or edit a category (#19), shown in a dialog on `/kategorien`.
+ * Create or edit a category (#19), shown in a dialog on `/categories`.
  *
  * - Same validation pattern as the booking form (#18): client checks (name,
  *   position chosen) on submit and then on every change; the service's field
