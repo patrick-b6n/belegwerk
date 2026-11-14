@@ -10,6 +10,9 @@ import { UpdateNotice } from "@/ui/updates/update-notice";
 /** Id of the scrolling content area (scroll reset in src/router.tsx, skip link). */
 export const APP_CONTENT_ID = "app-content";
 
+/** Id of the settings link (focus target after the update notice is dismissed). */
+export const SETTINGS_LINK_ID = "app-settings-link";
+
 type NavItem = {
   icon: LucideIcon;
   label: () => string;
@@ -22,12 +25,14 @@ const mainItems: NavItem[] = [
   { icon: Tags, label: m.categories_title, to: "/categories" },
 ];
 
-const footerItems: NavItem[] = [{ icon: Settings, label: m.settings_title, to: "/settings" }];
-
-/** App layout: fixed side navigation on the left, the active area on the right. */
+/**
+ * App layout: a top bar (logo, main navigation, update notice, settings) and
+ * the active area below it. Bar and a thin margin form a frame in the sidebar
+ * colour around the content panel, which scrolls on its own.
+ */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="flex h-svh">
+    <div className="flex h-svh flex-col bg-sidebar text-sidebar-foreground">
       <a
         href={`#${APP_CONTENT_ID}`}
         onClick={(event) => {
@@ -40,25 +45,39 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       >
         {m.nav_skip_to_content()}
       </a>
-      <aside className="flex w-56 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 text-sidebar-foreground">
-        <div className="flex items-center gap-2 px-2 py-1">
-          <img src={iconUrl} alt="" className="size-7" />
-          <img src={wordmarkUrl} alt={m.app_title()} className="h-6" />
+      <header className="flex h-11 shrink-0 items-center gap-4 px-3">
+        <div className="flex items-center gap-2 pr-2">
+          <img src={iconUrl} alt="" className="size-6" />
+          <img src={wordmarkUrl} alt={m.app_title()} className="h-5" />
         </div>
-        <nav aria-label={m.nav_label()} className="flex flex-1 flex-col">
-          <NavList items={mainItems} />
-          <div className="mt-auto flex flex-col gap-3">
+        <nav aria-label={m.nav_label()} className="flex min-w-0 flex-1 items-center gap-3">
+          <ul className="flex items-center gap-0.5">
+            {mainItems.map((item) => (
+              <li key={item.to}>
+                <NavLink item={item} />
+              </li>
+            ))}
+          </ul>
+          <div className="ml-auto flex items-center gap-2">
             {/* Newer version available (#71); background check at startup. */}
             <UpdateNotice />
-            <NavList items={footerItems} />
+            <Link
+              id={SETTINGS_LINK_ID}
+              to="/settings"
+              aria-label={m.settings_title()}
+              title={m.settings_title()}
+              className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[status=active]:bg-background data-[status=active]:text-foreground data-[status=active]:shadow-xs data-[status=active]:ring-1 data-[status=active]:ring-border"
+            >
+              <Settings aria-hidden className="size-4" />
+            </Link>
           </div>
         </nav>
-      </aside>
+      </header>
       <div
         id={APP_CONTENT_ID}
         data-scroll-restoration-id={APP_CONTENT_ID}
         tabIndex={-1}
-        className="min-w-0 flex-1 overflow-auto outline-none"
+        className="mx-1.5 mb-1.5 min-h-0 flex-1 overflow-auto rounded-lg border bg-background text-foreground outline-none"
       >
         {children}
       </div>
@@ -66,20 +85,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-function NavList({ items }: Readonly<{ items: NavItem[] }>) {
+function NavLink({ item: { icon: Icon, label, to } }: Readonly<{ item: NavItem }>) {
   return (
-    <ul className="flex flex-col gap-1">
-      {items.map(({ icon: Icon, label, to }) => (
-        <li key={to}>
-          <Link
-            to={to}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[status=active]:bg-sidebar-accent data-[status=active]:font-medium data-[status=active]:text-sidebar-accent-foreground"
-          >
-            <Icon aria-hidden className="size-4" />
-            {label()}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <Link
+      to={to}
+      className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[status=active]:bg-background data-[status=active]:font-medium data-[status=active]:text-foreground data-[status=active]:shadow-xs data-[status=active]:ring-1 data-[status=active]:ring-border"
+    >
+      <Icon aria-hidden className="size-4" />
+      {label()}
+    </Link>
   );
 }

@@ -195,7 +195,7 @@ einzelne `.exe` übernimmt Belegwerk den Austausch selbst
 Einstellungen: `GET https://api.github.com/repos/patrick-b6n/belegwerk-next/releases/latest`
 (öffentliches Repository, kein Token; User-Agent `Belegwerk-Updater`, keine
 persönlichen Daten), den Tag `v<YYYY-MM-DD-HHMM>` in die SemVer-Form
-umrechnen und mit der laufenden Version vergleichen. Ist sie neuer, erscheint in der Seitennavigation ein Hinweis mit
+umrechnen und mit der laufenden Version vergleichen. Ist sie neuer, erscheint in der oberen Leiste ein Hinweis mit
 Version, Link zu den Release-Notes (Standardbrowser) und „Jetzt
 aktualisieren“. Ohne Netz oder bei GitHub-Fehlern erscheint beim Start nichts,
 nur ein Eintrag im Protokoll.

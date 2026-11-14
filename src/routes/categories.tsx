@@ -20,7 +20,7 @@ export const Route = createFileRoute("/categories")({
 function CategoriesPage() {
   return (
     <Page title={m.categories_title()}>
-      <p className="-mt-3 max-w-3xl text-sm text-muted-foreground">{m.categories_description()}</p>
+      <p className="max-w-3xl text-sm text-muted-foreground">{m.categories_description()}</p>
       <Categories />
     </Page>
   );

@@ -1,5 +1,6 @@
+import { cn } from "cn";
 import { RotateCcw, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { BookingQueryError, BookingQueryField } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
@@ -7,6 +8,7 @@ import { formatDate } from "@/business/format";
 import type { BookingType } from "@/business/model";
 import { m } from "@/paraglide/messages.js";
 import { Button } from "@/ui/components/ui/button";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
 import {
   Select,
@@ -17,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/components/ui/select";
-import { FormField } from "@/ui/forms/form-field";
+import { type ControlProps, fieldErrors } from "@/ui/forms/form-field";
 import { useDebouncedInput } from "@/ui/hooks/use-debounced-input";
 
 import {
@@ -161,158 +163,231 @@ export function BookingFilterBar({
     <div
       role="search"
       aria-label={m.bookings_filter_label()}
-      className="flex flex-col gap-4 rounded-lg border p-4"
+      className="flex shrink-0 flex-wrap items-start gap-2"
     >
-      <div className="flex flex-wrap items-end gap-4">
-        <SearchField
-          id={searchInputId}
-          value={search.q}
-          errors={errorsOf("text")}
-          onCommit={(q) => onSearchChange({ q }, replaceWhenEditing(search.q, q))}
+      <SearchField
+        id={searchInputId}
+        value={search.q}
+        errors={errorsOf("text")}
+        onCommit={(q) => onSearchChange({ q }, replaceWhenEditing(search.q, q))}
+      />
+      <PeriodFilter
+        idPrefix={id("period")}
+        from={search.from}
+        to={search.to}
+        years={years}
+        fromErrors={errorsOf("dateFrom")}
+        toErrors={errorsOf("dateTo")}
+        onChange={(range, options) => onSearchChange({ from: range.from, to: range.to }, options)}
+      />
+
+      <FilterField id={id("type")} label={m.bookings_filter_type_label()} errors={errorsOf("type")}>
+        {(control) => (
+          <Select<string>
+            items={[
+              { value: ALL, label: m.bookings_filter_type_all() },
+              ...TYPE_FILTERS.map((value) => ({ value, label: TYPE_FILTER_LABELS[value]() })),
+            ]}
+            value={search.type ?? ALL}
+            onValueChange={(value) => {
+              const typeParam =
+                value === ALL || value === null ? undefined : (value as BookingTypeParam);
+              const nextType = typeParam === undefined ? undefined : TYPE_OF_PARAM[typeParam];
+              onSearchChange({
+                type: typeParam,
+                category: categoriesAfterTypeChange(search.category, categories, nextType),
+              });
+            }}
+          >
+            <SelectTrigger {...control} className={chipClass(search.type !== undefined)}>
+              <ChipLabel>{m.bookings_filter_type_label()}</ChipLabel>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{m.bookings_filter_type_all()}</SelectItem>
+              {TYPE_FILTERS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {TYPE_FILTER_LABELS[value]()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </FilterField>
+
+      <CategoryFilter
+        id={id("category")}
+        selected={search.category ?? []}
+        categories={categories}
+        type={type}
+        errors={errorsOf("categoryIds")}
+        onChange={(category) => onSearchChange({ category })}
+      />
+
+      <FilterField
+        id={id("source")}
+        label={m.bookings_filter_source_label()}
+        errors={errorsOf("source")}
+      >
+        {(control) => (
+          <Select<string>
+            items={[
+              { value: ALL, label: m.bookings_filter_source_all() },
+              ...SOURCE_FILTERS.map((value) => ({ value, label: SOURCE_FILTER_LABELS[value]() })),
+            ]}
+            value={search.source ?? ALL}
+            onValueChange={(value) =>
+              onSearchChange({
+                source: value === ALL || value === null ? undefined : (value as BookingSourceParam),
+              })
+            }
+          >
+            <SelectTrigger {...control} className={chipClass(search.source !== undefined)}>
+              <ChipLabel>{m.bookings_filter_source_label()}</ChipLabel>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{m.bookings_filter_source_all()}</SelectItem>
+              {SOURCE_FILTERS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {SOURCE_FILTER_LABELS[value]()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </FilterField>
+
+      <VatRateFilter
+        id={id("vat-rate")}
+        selected={search.vat ?? []}
+        errors={errorsOf("vatRates")}
+        onChange={(vat) => onSearchChange({ vat })}
+      />
+
+      <div
+        role="group"
+        aria-label={m.bookings_filter_amount_label()}
+        className="flex items-start gap-1.5"
+      >
+        {/* The group's name; each field's own label is for screen readers. */}
+        <span aria-hidden className="text-sm leading-8 whitespace-nowrap text-muted-foreground">
+          {m.bookings_filter_amount_label()}
+        </span>
+        <AmountField
+          id={id("amount-from")}
+          label={m.bookings_filter_amount_from_label()}
+          placeholder={m.bookings_filter_amount_from_placeholder()}
+          cents={search.amountFrom}
+          errors={errorsOf("amountFrom")}
+          onCommit={(amountFrom) =>
+            onSearchChange({ amountFrom }, replaceWhenEditing(search.amountFrom, amountFrom))
+          }
         />
-        <div className="ml-auto flex items-center gap-3">
-          <span aria-live="polite" className="text-sm text-muted-foreground">
-            {activeCount === 0
-              ? ""
-              : activeCount === 1
-                ? m.bookings_filter_active_one()
-                : m.bookings_filter_active_other({ count: String(activeCount) })}
-          </span>
-          <Button variant="outline" disabled={activeCount === 0} onClick={onReset}>
+        <AmountField
+          id={id("amount-to")}
+          label={m.bookings_filter_amount_to_label()}
+          placeholder={m.bookings_filter_amount_to_placeholder()}
+          cents={search.amountTo}
+          errors={errorsOf("amountTo")}
+          onCommit={(amountTo) =>
+            onSearchChange({ amountTo }, replaceWhenEditing(search.amountTo, amountTo))
+          }
+        />
+      </div>
+
+      <div className="ml-auto flex items-center gap-2 self-center">
+        <span aria-live="polite" className="text-sm text-muted-foreground">
+          {activeCount === 0
+            ? ""
+            : activeCount === 1
+              ? m.bookings_filter_active_one()
+              : m.bookings_filter_active_other({ count: String(activeCount) })}
+        </span>
+        {/* Only while filters are active; after a reset the search field gets the focus. */}
+        {activeCount > 0 && (
+          <Button variant="ghost" onClick={onReset}>
             <RotateCcw aria-hidden />
             {m.bookings_filter_reset()}
           </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-        <PeriodFilter
-          idPrefix={id("period")}
-          from={search.from}
-          to={search.to}
-          years={years}
-          fromErrors={errorsOf("dateFrom")}
-          toErrors={errorsOf("dateTo")}
-          onChange={(range, options) => onSearchChange({ from: range.from, to: range.to }, options)}
-        />
-
-        <FormField
-          id={id("type")}
-          label={m.bookings_filter_type_label()}
-          errors={errorsOf("type")}
-          className="w-32"
-        >
-          {(control) => (
-            <Select<string>
-              items={[
-                { value: ALL, label: m.bookings_filter_type_all() },
-                ...TYPE_FILTERS.map((value) => ({ value, label: TYPE_FILTER_LABELS[value]() })),
-              ]}
-              value={search.type ?? ALL}
-              onValueChange={(value) => {
-                const typeParam =
-                  value === ALL || value === null ? undefined : (value as BookingTypeParam);
-                const nextType = typeParam === undefined ? undefined : TYPE_OF_PARAM[typeParam];
-                onSearchChange({
-                  type: typeParam,
-                  category: categoriesAfterTypeChange(search.category, categories, nextType),
-                });
-              }}
-            >
-              <SelectTrigger {...control}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{m.bookings_filter_type_all()}</SelectItem>
-                {TYPE_FILTERS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {TYPE_FILTER_LABELS[value]()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-
-        <CategoryFilter
-          id={id("category")}
-          selected={search.category ?? []}
-          categories={categories}
-          type={type}
-          errors={errorsOf("categoryIds")}
-          onChange={(category) => onSearchChange({ category })}
-        />
-
-        <FormField
-          id={id("source")}
-          label={m.bookings_filter_source_label()}
-          errors={errorsOf("source")}
-          className="w-32"
-        >
-          {(control) => (
-            <Select<string>
-              items={[
-                { value: ALL, label: m.bookings_filter_source_all() },
-                ...SOURCE_FILTERS.map((value) => ({ value, label: SOURCE_FILTER_LABELS[value]() })),
-              ]}
-              value={search.source ?? ALL}
-              onValueChange={(value) =>
-                onSearchChange({
-                  source:
-                    value === ALL || value === null ? undefined : (value as BookingSourceParam),
-                })
-              }
-            >
-              <SelectTrigger {...control}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{m.bookings_filter_source_all()}</SelectItem>
-                {SOURCE_FILTERS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {SOURCE_FILTER_LABELS[value]()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-
-        <VatRateFilter
-          id={id("vat-rate")}
-          selected={search.vat ?? []}
-          errors={errorsOf("vatRates")}
-          onChange={(vat) => onSearchChange({ vat })}
-        />
-
-        <div
-          role="group"
-          aria-label={m.bookings_filter_amount_label()}
-          className="flex items-start gap-2"
-        >
-          <AmountField
-            id={id("amount-from")}
-            label={m.bookings_filter_amount_from_label()}
-            placeholder={m.bookings_filter_amount_from_placeholder()}
-            cents={search.amountFrom}
-            errors={errorsOf("amountFrom")}
-            onCommit={(amountFrom) =>
-              onSearchChange({ amountFrom }, replaceWhenEditing(search.amountFrom, amountFrom))
-            }
-          />
-          <AmountField
-            id={id("amount-to")}
-            label={m.bookings_filter_amount_to_label()}
-            placeholder={m.bookings_filter_amount_to_placeholder()}
-            cents={search.amountTo}
-            errors={errorsOf("amountTo")}
-            onCommit={(amountTo) =>
-              onSearchChange({ amountTo }, replaceWhenEditing(search.amountTo, amountTo))
-            }
-          />
-        </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/** Classes of a filter's select trigger: highlighted while the filter is active. */
+function chipClass(active: boolean): string {
+  return cn("bg-background", active && "border-primary bg-primary/10 dark:bg-primary/15");
+}
+
+/** The filter's name inside its trigger ("Art: Alle"); the label is for screen readers. */
+function ChipLabel({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <span aria-hidden className="text-muted-foreground">
+      {children}:
+    </span>
+  );
+}
+
+/**
+ * Label, control and error of one filter (like `FormField`, compact): the
+ * label is only for screen readers (the trigger names the filter itself) or,
+ * with `inlineLabel`, shown left of the control. A description is only for
+ * screen readers.
+ */
+function FilterField({
+  id,
+  label,
+  inlineLabel = false,
+  description,
+  errors,
+  className,
+  children,
+}: Readonly<{
+  id: string;
+  label: string;
+  inlineLabel?: boolean;
+  description?: string;
+  errors: readonly unknown[];
+  className?: string;
+  children: (control: ControlProps) => ReactNode;
+}>) {
+  const shown = fieldErrors(errors);
+  const invalid = shown.length > 0;
+  const descriptionId = description ? `${id}-description` : undefined;
+  const errorId = invalid ? `${id}-error` : undefined;
+  const describedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
+  const control = children({
+    id,
+    "aria-invalid": invalid || undefined,
+    "aria-describedby": describedBy,
+  });
+  return (
+    <Field data-invalid={invalid || undefined} className={cn("w-auto gap-1", className)}>
+      {inlineLabel ? (
+        <div className="flex items-center gap-1.5">
+          <FieldLabel htmlFor={id} className="font-normal whitespace-nowrap text-muted-foreground">
+            {label}
+          </FieldLabel>
+          {control}
+        </div>
+      ) : (
+        <>
+          <FieldLabel htmlFor={id} className="sr-only">
+            {label}
+          </FieldLabel>
+          {control}
+        </>
+      )}
+      {description && (
+        <FieldDescription id={descriptionId} className="sr-only">
+          {description}
+        </FieldDescription>
+      )}
+      {/* No live region: the error is linked to the control. */}
+      <FieldError id={errorId} role={undefined} errors={shown} />
+    </Field>
   );
 }
 
@@ -335,12 +410,7 @@ function SearchField({
     delay: TEXT_DELAY,
   });
   return (
-    <FormField
-      id={id}
-      label={m.bookings_filter_search_label()}
-      errors={errors}
-      className="w-full max-w-md"
-    >
+    <FilterField id={id} label={m.bookings_filter_search_label()} errors={errors} className="w-56">
       {(control) => (
         <div className="relative">
           <Search
@@ -359,11 +429,11 @@ function SearchField({
               if (event.key === "Enter") input.flush();
             }}
             onBlur={input.flush}
-            className="pl-8"
+            className="bg-background pl-8"
           />
         </div>
       )}
-    </FormField>
+    </FilterField>
   );
 }
 
@@ -432,13 +502,12 @@ function PeriodFilter({
       : undefined;
 
   return (
-    <div className="flex flex-wrap items-start gap-x-2 gap-y-3">
-      <FormField
+    <div className="flex flex-wrap items-start gap-2">
+      <FilterField
         id={`${idPrefix}-kind`}
         label={m.bookings_filter_period_label()}
         description={rangeText}
         errors={[]}
-        className="w-48"
       >
         {(control) => (
           <Select<PeriodKind>
@@ -450,8 +519,15 @@ function PeriodFilter({
               setPeriod(switchPeriodKind(detected, value, today));
             }}
           >
-            <SelectTrigger {...control}>
-              <SelectValue />
+            <SelectTrigger {...control} title={rangeText} className={chipClass(kind !== "all")}>
+              <ChipLabel>{m.bookings_filter_period_label()}</ChipLabel>
+              <SelectValue>
+                {(value: PeriodKind) =>
+                  value === "all"
+                    ? m.bookings_filter_period_all_short()
+                    : PERIOD_KIND_LABELS[value]()
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {PERIOD_KINDS.map((value) => (
@@ -462,15 +538,10 @@ function PeriodFilter({
             </SelectContent>
           </Select>
         )}
-      </FormField>
+      </FilterField>
 
       {(period.kind === "year" || period.kind === "quarter" || period.kind === "month") && (
-        <FormField
-          id={`${idPrefix}-year`}
-          label={m.bookings_filter_year_label()}
-          errors={[]}
-          className="w-24"
-        >
+        <FilterField id={`${idPrefix}-year`} label={m.bookings_filter_year_label()} errors={[]}>
           {(control) => (
             <Select<string>
               items={yearOptions.map((year) => ({ value: String(year), label: String(year) }))}
@@ -479,7 +550,7 @@ function PeriodFilter({
                 if (value !== null) setPeriod({ ...period, year: Number(value) });
               }}
             >
-              <SelectTrigger {...control}>
+              <SelectTrigger {...control} className={chipClass(true)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -491,15 +562,14 @@ function PeriodFilter({
               </SelectContent>
             </Select>
           )}
-        </FormField>
+        </FilterField>
       )}
 
       {period.kind === "quarter" && (
-        <FormField
+        <FilterField
           id={`${idPrefix}-quarter`}
           label={m.bookings_filter_quarter_label()}
           errors={[]}
-          className="w-36"
         >
           {(control) => (
             <Select<string>
@@ -512,7 +582,7 @@ function PeriodFilter({
                 if (value !== null) setPeriod({ ...period, quarter: Number(value) as Quarter });
               }}
             >
-              <SelectTrigger {...control}>
+              <SelectTrigger {...control} className={chipClass(true)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -524,16 +594,11 @@ function PeriodFilter({
               </SelectContent>
             </Select>
           )}
-        </FormField>
+        </FilterField>
       )}
 
       {period.kind === "month" && (
-        <FormField
-          id={`${idPrefix}-month`}
-          label={m.bookings_filter_month_label()}
-          errors={[]}
-          className="w-36"
-        >
+        <FilterField id={`${idPrefix}-month`} label={m.bookings_filter_month_label()} errors={[]}>
           {(control) => (
             <Select<string>
               items={MONTHS.map((month) => ({ value: String(month), label: monthName(month) }))}
@@ -542,7 +607,7 @@ function PeriodFilter({
                 if (value !== null) setPeriod({ ...period, month: Number(value) });
               }}
             >
-              <SelectTrigger {...control}>
+              <SelectTrigger {...control} className={chipClass(true)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -554,7 +619,7 @@ function PeriodFilter({
               </SelectContent>
             </Select>
           )}
-        </FormField>
+        </FilterField>
       )}
 
       {period.kind === "custom" && (
@@ -609,7 +674,7 @@ function DateField({
     delay: VALUE_DELAY,
   });
   return (
-    <FormField id={id} label={label} errors={errors} className="w-40">
+    <FilterField id={id} label={label} inlineLabel errors={errors}>
       {(control) => (
         <Input
           {...control}
@@ -619,10 +684,10 @@ function DateField({
           value={input.value}
           onChange={(event) => input.onChange(event.target.value)}
           onBlur={input.flush}
-          className="w-40"
+          className="w-36 bg-background"
         />
       )}
-    </FormField>
+    </FilterField>
   );
 }
 
@@ -674,7 +739,7 @@ function AmountField({
       : undefined;
 
   return (
-    <FormField id={id} label={label} errors={ownError ? [ownError] : errors} className="w-32">
+    <FilterField id={id} label={label} errors={ownError ? [ownError] : errors}>
       {(control) => (
         <div className="relative">
           <Input
@@ -698,7 +763,10 @@ function AmountField({
                 }
               }
             }}
-            className="pr-7 text-right tabular-nums"
+            className={cn(
+              "w-24 bg-background pr-7 text-right tabular-nums",
+              cents !== undefined && "border-primary bg-primary/10 dark:bg-primary/15",
+            )}
           />
           <span
             aria-hidden
@@ -708,7 +776,7 @@ function AmountField({
           </span>
         </div>
       )}
-    </FormField>
+    </FilterField>
   );
 }
 
@@ -765,7 +833,7 @@ function CategoryFilter({
   };
 
   return (
-    <FormField id={id} label={m.bookings_filter_category_label()} errors={errors} className="w-52">
+    <FilterField id={id} label={m.bookings_filter_category_label()} errors={errors}>
       {(control) => (
         <Select<number, true>
           multiple
@@ -773,7 +841,8 @@ function CategoryFilter({
           value={selected}
           onValueChange={(ids) => onChange(ids.length > 0 ? ids : undefined)}
         >
-          <SelectTrigger {...control}>
+          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), "max-w-64")}>
+            <ChipLabel>{m.bookings_filter_category_label()}</ChipLabel>
             <SelectValue>{(ids: readonly number[]) => summary(ids)}</SelectValue>
           </SelectTrigger>
           <SelectContent
@@ -812,7 +881,7 @@ function CategoryFilter({
           </SelectContent>
         </Select>
       )}
-    </FormField>
+    </FilterField>
   );
 }
 
@@ -839,7 +908,7 @@ function VatRateFilter({
   onChange: (rates: readonly VatRateParam[] | undefined) => void;
 }>) {
   return (
-    <FormField id={id} label={m.bookings_filter_vat_rate_label()} errors={errors} className="w-44">
+    <FilterField id={id} label={m.bookings_filter_vat_rate_label()} errors={errors}>
       {(control) => (
         <Select<VatRateParam, true>
           multiple
@@ -850,7 +919,8 @@ function VatRateFilter({
           value={[...selected]}
           onValueChange={(rates) => onChange(sortedVatRateParams(rates))}
         >
-          <SelectTrigger {...control}>
+          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), "max-w-64")}>
+            <ChipLabel>{m.bookings_filter_vat_rate_label()}</ChipLabel>
             <SelectValue>{(rates: readonly VatRateParam[]) => vatRateSummary(rates)}</SelectValue>
           </SelectTrigger>
           <SelectContent
@@ -866,6 +936,6 @@ function VatRateFilter({
           </SelectContent>
         </Select>
       )}
-    </FormField>
+    </FilterField>
   );
 }

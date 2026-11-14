@@ -28,9 +28,9 @@ export interface BookingPaginationProps {
 }
 
 /**
- * Pagination below the booking list (#23): first / previous / next / last
- * page, "Page X of Y", the shown rows of the total and the page size.
- * Buttons that would not move are disabled.
+ * Pagination in the footer of the booking list's box, right of the sums
+ * (#23): first / previous / next / last page, "Page X of Y", the shown rows
+ * of the total and the page size. Buttons that would not move are disabled.
  */
 export function BookingPagination({
   page,
@@ -46,7 +46,7 @@ export function BookingPagination({
   return (
     <nav
       aria-label={m.bookings_pagination_label()}
-      className="flex flex-wrap items-center justify-between gap-3 text-sm"
+      className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm"
     >
       <p className="text-muted-foreground tabular-nums">
         {m.bookings_pagination_range({
@@ -67,7 +67,7 @@ export function BookingPagination({
               if (value !== null) onPageSizeChange(Number(value));
             }}
           >
-            <SelectTrigger id={sizeId} className="w-20">
+            <SelectTrigger id={sizeId} size="sm" className="w-20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -127,7 +127,7 @@ function PageButton({
   return (
     <Button
       variant="outline"
-      size="icon"
+      size="icon-sm"
       aria-label={label}
       title={label}
       disabled={disabled}

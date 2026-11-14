@@ -7,7 +7,7 @@ import type { DownloadProgress, UpdateCheck } from "@/business/updates";
 /**
  * TanStack Query keys of the auto-update (#71). `check` holds the latest
  * check result – from the background check at startup or from "Nach Updates
- * suchen" – and drives the notice in the side navigation.
+ * suchen" – and drives the notice in the top bar.
  */
 export const updateQueryKeys = {
   all: ["updates"] as const,

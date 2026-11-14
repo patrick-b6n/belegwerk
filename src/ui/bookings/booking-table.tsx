@@ -25,7 +25,6 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -155,10 +154,6 @@ export interface BookingTableProps {
   readonly sort: BookingSort;
   /** A column header was activated: the new sort order. */
   readonly onSortChange: (sort: BookingSort) => void;
-  /** Sums of all matching bookings (not just this page), shown in the footer. */
-  readonly sums: BookingSums;
-  /** Whether filters are active (wording of the sums' label). */
-  readonly filtered: boolean;
 }
 
 /**
@@ -166,13 +161,14 @@ export interface BookingTableProps {
  * given order. Clicking a row opens the booking for editing
  * (`/bookings/$bookingId`); for the keyboard, the description is a link.
  *
- * Sorting, pagination and the sums (#23) come from the search query (#21),
- * not from the table: the table gets the rows of one page, the sort order
- * and the sums of all matching bookings. The header of a column with a
- * `sortField` is a button that sorts by it ({@link nextBookingSort}); the
- * sorted column has `aria-sort`.
+ * Sorting and pagination (#23) come from the search query (#21), not from
+ * the table: the table gets the rows of one page and the sort order. The
+ * header of a column with a `sortField` is a button that sorts by it
+ * ({@link nextBookingSort}); the sorted column has `aria-sort`. The header
+ * sticks to the top of the surrounding scroll box (the table adds no scroll
+ * container of its own); the sums are {@link BookingSumsSummary}.
  */
-export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: BookingTableProps) {
+export function BookingTable({ bookings, sort, onSortChange }: BookingTableProps) {
   // A copy: the table only reads the rows but types them as a mutable array.
   const data = useMemo(() => [...bookings], [bookings]);
   const table = useTable({
@@ -183,14 +179,17 @@ export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: B
   });
 
   return (
-    <Table>
+    <Table
+      containerClassName="w-full"
+      className="[&_td:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:first-child]:pl-3 [&_th:last-child]:pr-3"
+    >
       <TableCaption className="sr-only">
         {m.bookings_table_caption({
           column: COLUMN_LABELS[sort.field](),
           direction: DIRECTION_LABELS[sort.direction](),
         })}
       </TableCaption>
-      <TableHeader>
+      <TableHeader className="sticky top-0 z-10 bg-muted shadow-[inset_0_-1px_0_var(--color-border)] [&_tr]:border-b-0">
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
             {group.headers.map((header) => {
@@ -234,7 +233,6 @@ export function BookingTable({ bookings, sort, onSortChange, sums, filtered }: B
           </BookingRow>
         ))}
       </TableBody>
-      <BookingSumsFooter sums={sums} filtered={filtered} />
     </Table>
   );
 }
@@ -274,17 +272,19 @@ function SortButton({
   );
 }
 
-/** Columns before the label cells of the sums (date … category), and after the amount (source). */
-const SUMS_LEAD_COLUMNS = 5;
-
 /**
- * The sums of all matching bookings (#21), aligned under the gross column:
- * income, expense and balance. The balance has a sign and a word (surplus /
- * deficit), not only a colour.
+ * The sums of all matching bookings (#21, not just this page), shown in the
+ * list's footer next to the pagination: income, expense and balance. The
+ * balance has a sign and a word (surplus / deficit), not only a colour. The
+ * group's name says that the sums cover all pages.
  */
-function BookingSumsFooter({ sums, filtered }: Readonly<{ sums: BookingSums; filtered: boolean }>) {
+export function BookingSumsSummary({
+  sums,
+  filtered,
+}: Readonly<{ sums: BookingSums; filtered: boolean }>) {
   const balance = sums.balanceCents;
-  const rows = [
+  const caption = filtered ? m.bookings_sums_caption_filtered() : m.bookings_sums_caption_all();
+  const items = [
     {
       key: "income",
       label: m.bookings_sums_income(),
@@ -314,26 +314,16 @@ function BookingSumsFooter({ sums, filtered }: Readonly<{ sums: BookingSums; fil
     },
   ];
   return (
-    <TableFooter>
-      {rows.map((row, index) => (
-        <TableRow key={row.key} data-sum={row.key} className="hover:bg-transparent">
-          {index === 0 && (
-            <TableCell
-              rowSpan={rows.length}
-              colSpan={SUMS_LEAD_COLUMNS}
-              className="align-top text-sm font-normal whitespace-normal text-muted-foreground"
-            >
-              {filtered ? m.bookings_sums_caption_filtered() : m.bookings_sums_caption_all()}
-            </TableCell>
-          )}
-          <th scope="row" colSpan={2} className="p-2 text-right font-medium whitespace-nowrap">
-            {row.label}
-          </th>
-          <TableCell className={cn(AMOUNT, row.className)}>{row.value}</TableCell>
-          <TableCell />
-        </TableRow>
-      ))}
-    </TableFooter>
+    <div role="group" aria-label={caption}>
+      <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+        {items.map((item) => (
+          <div key={item.key} data-sum={item.key} className="flex items-baseline gap-1.5">
+            <dt className="text-muted-foreground">{item.label}</dt>
+            <dd className={cn("font-medium tabular-nums", item.className)}>{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

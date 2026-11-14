@@ -78,7 +78,7 @@ Code-Signierung. Bezugsquellen:
 - **Eine Instanz:** Ein zweiter Start holt das laufende Fenster nach vorn,
   statt eine zweite Instanz zu öffnen.
 - **Aktualisieren:** Belegwerk prüft beim Start, ob auf GitHub eine neuere
-  Version veröffentlicht ist, und zeigt dann in der Seitennavigation einen
+  Version veröffentlicht ist, und zeigt dann in der oberen Leiste einen
   Hinweis; „Jetzt aktualisieren“ lädt sie herunter, prüft die Prüfsumme,
   ersetzt die `.exe` und startet neu. Manuell: Einstellungen → „Nach Updates
   suchen“. Bei Fehlern bleibt die alte Version unverändert. Die `.exe` muss

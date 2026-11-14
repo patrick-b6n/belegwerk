@@ -3,9 +3,16 @@
 import * as React from "react";
 import { cn } from "cn";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerClassName = "relative w-full overflow-x-auto",
+  ...props
+}: React.ComponentProps<"table"> & {
+  /** Classes of the wrapper; replaces the default horizontal scroll box (e.g. for a sticky header in an outer scroll box). */
+  containerClassName?: string;
+}) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" className={containerClassName}>
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

@@ -27,7 +27,7 @@ import {
 import { BookingExportButton } from "@/ui/bookings/booking-export-button";
 import { BookingPagination } from "@/ui/bookings/booking-pagination";
 import { useBookingList } from "@/ui/bookings/booking-queries";
-import { BookingTable } from "@/ui/bookings/booking-table";
+import { BookingSumsSummary, BookingTable } from "@/ui/bookings/booking-table";
 import { useCategoryList } from "@/ui/categories/category-queries";
 import { Page, PagePlaceholder } from "@/ui/layout/page";
 import { StripeImportButton } from "@/ui/stripe/stripe-import-dialog";
@@ -90,7 +90,7 @@ function BookingsPage() {
   const reset = useCallback(() => {
     void navigate({ search: (prev) => resetBookingFilters(prev) });
     setResetCount((count) => count + 1);
-    // The reset button is disabled now: continue in the search field.
+    // The reset button is gone now: continue in the search field.
     requestAnimationFrame(() => document.getElementById(searchInputId)?.focus());
   }, [navigate, searchInputId]);
 
@@ -101,8 +101,9 @@ function BookingsPage() {
   return (
     <Page
       title={m.bookings_title()}
+      fill
       actions={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <BookingExportButton
             query={exportQuery}
             // Not from the previous search's placeholder: its total may differ.
@@ -206,10 +207,11 @@ function BookingList({
   }
   return (
     <div
-      className="flex flex-col gap-3 transition-opacity aria-busy:opacity-60"
+      className="flex min-h-0 flex-1 flex-col transition-opacity aria-busy:opacity-60"
       aria-busy={isPlaceholderData || undefined}
     >
-      <p role="status" className="text-sm text-muted-foreground">
+      {/* The pagination shows the total; the count is announced on every change. */}
+      <p role="status" className="sr-only">
         {data.total === 1
           ? m.bookings_found_one()
           : m.bookings_found_other({ count: String(data.total) })}
@@ -223,24 +225,29 @@ function BookingList({
           </Button>
         </div>
       ) : (
-        <>
-          <BookingTable
-            bookings={data.items}
-            sort={sort}
-            onSortChange={(next) => onSearchChange({ sort: sortSearchParam(next) })}
-            sums={data.sums}
-            filtered={filtered}
-          />
-          <BookingPagination
-            id={paginationId}
-            page={data.page}
-            pageCount={data.pageCount}
-            pageSize={data.pageSize === "all" ? data.total : data.pageSize}
-            total={data.total}
-            onPageChange={(page) => onSearchChange({ page: pageSearchParam(page) })}
-            onPageSizeChange={(size) => onSearchChange({ pageSize: pageSizeSearchParam(size) })}
-          />
-        </>
+        // The table scrolls in its own box (sticky header); sums and pagination stay below.
+        // At least min-h-48: in a low window the panel scrolls instead of squeezing the table.
+        <div className="flex min-h-48 flex-1 flex-col overflow-hidden rounded-lg border">
+          <div className="min-h-0 flex-1 overflow-auto">
+            <BookingTable
+              bookings={data.items}
+              sort={sort}
+              onSortChange={(next) => onSearchChange({ sort: sortSearchParam(next) })}
+            />
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1.5 border-t px-3 py-1.5">
+            <BookingSumsSummary sums={data.sums} filtered={filtered} />
+            <BookingPagination
+              id={paginationId}
+              page={data.page}
+              pageCount={data.pageCount}
+              pageSize={data.pageSize === "all" ? data.total : data.pageSize}
+              total={data.total}
+              onPageChange={(page) => onSearchChange({ page: pageSearchParam(page) })}
+              onPageSizeChange={(size) => onSearchChange({ pageSize: pageSizeSearchParam(size) })}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
