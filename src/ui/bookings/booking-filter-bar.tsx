@@ -26,6 +26,9 @@ import {
   type BookingSourceParam,
   type BookingTypeParam,
   categoriesAfterTypeChange,
+  sortedVatRateParams,
+  VAT_RATE_PARAMS,
+  type VatRateParam,
   categoryFilterGroups,
   unknownCategoryIds,
   countActiveFilters,
@@ -45,7 +48,11 @@ import {
   type YearMonth,
 } from "./booking-filter-model";
 import { formatAmountInput } from "./booking-form-model";
-import { amountFilterErrorMessage, bookingQueryErrorMessage } from "./booking-messages";
+import {
+  amountFilterErrorMessage,
+  bookingQueryErrorMessage,
+  VAT_RATE_LABELS,
+} from "./booking-messages";
 
 /** A change of search params; `undefined` removes a param. */
 export type BookingSearchPatch = {
@@ -104,6 +111,14 @@ const PERIOD_KIND_LABELS: Readonly<Record<PeriodKind, () => string>> = {
 const CATEGORY_GROUP_LABELS: Readonly<Record<BookingType, () => string>> = {
   income: m.bookings_filter_category_group_income,
   expense: m.bookings_filter_category_group_expense,
+};
+
+const VAT_RATE_FILTER_LABELS: Readonly<Record<VatRateParam, () => string>> = {
+  ohne: m.bookings_filter_vat_rate_none,
+  "0": VAT_RATE_LABELS["0"],
+  "7": VAT_RATE_LABELS["7"],
+  "19": VAT_RATE_LABELS["19"],
+  rc: VAT_RATE_LABELS.reverse_charge,
 };
 
 const monthFormat = new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: "UTC" });
@@ -262,6 +277,13 @@ export function BookingFilterBar({
             </Select>
           )}
         </FormField>
+
+        <VatRateFilter
+          id={id("vat-rate")}
+          selected={search.ust ?? []}
+          errors={errorsOf("vatRates")}
+          onChange={(ust) => onSearchChange({ ust })}
+        />
 
         <div
           role="group"
@@ -787,6 +809,60 @@ function CategoryFilter({
                 ))}
               </SelectGroup>
             )}
+          </SelectContent>
+        </Select>
+      )}
+    </FormField>
+  );
+}
+
+/** The selected VAT rates as the trigger shows them. */
+function vatRateSummary(rates: readonly VatRateParam[]): string {
+  if (rates.length === 0) return m.bookings_filter_vat_rate_all();
+  return rates.map((rate) => VAT_RATE_FILTER_LABELS[rate]()).join(", ");
+}
+
+/**
+ * Multi-select of VAT rates (#26): the EÜR's drill-down links filter by the
+ * rates of a line (e.g. line 15 = 7 % and 19 %); here they can be seen and
+ * changed. "Ohne USt-Satz" = bookings without a rate (small business).
+ */
+function VatRateFilter({
+  id,
+  selected,
+  errors,
+  onChange,
+}: Readonly<{
+  id: string;
+  selected: readonly VatRateParam[];
+  errors: readonly string[];
+  onChange: (rates: readonly VatRateParam[] | undefined) => void;
+}>) {
+  return (
+    <FormField id={id} label={m.bookings_filter_vat_rate_label()} errors={errors} className="w-44">
+      {(control) => (
+        <Select<VatRateParam, true>
+          multiple
+          items={VAT_RATE_PARAMS.map((value) => ({
+            value,
+            label: VAT_RATE_FILTER_LABELS[value](),
+          }))}
+          value={[...selected]}
+          onValueChange={(rates) => onChange(sortedVatRateParams(rates))}
+        >
+          <SelectTrigger {...control}>
+            <SelectValue>{(rates: readonly VatRateParam[]) => vatRateSummary(rates)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent
+            align="start"
+            alignItemWithTrigger={false}
+            className="w-auto min-w-(--anchor-width)"
+          >
+            {VAT_RATE_PARAMS.map((value) => (
+              <SelectItem key={value} value={value}>
+                {VAT_RATE_FILTER_LABELS[value]()}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}

@@ -204,6 +204,8 @@ export function bookingQueryErrorMessage(error: BookingQueryError): string {
       });
     case "invalidSource":
       return m.bookings_filter_error_source_invalid();
+    case "invalidVatRate":
+      return m.bookings_filter_error_vat_rate_invalid();
     case "invalidAmount":
       return m.bookings_filter_error_amount_invalid();
     case "amountRangeInverted":

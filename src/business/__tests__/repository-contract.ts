@@ -608,6 +608,35 @@ export function describeRepositoryContract(
         expect(await search({ source: "manual" })).toEqual([c.id, a.id]);
       });
 
+      it("filters by VAT rates, null matching bookings without a rate", async () => {
+        const none = await add({ vatRate: null, date: "2025-01-01" });
+        const zero = await add({ vatRate: "0", date: "2025-01-02" });
+        const seven = await add({ vatRate: "7", date: "2025-01-03" });
+        const nineteen = await add({ vatRate: "19", date: "2025-01-04" });
+        const reverse = await add({ vatRate: "reverse_charge", date: "2025-01-05" });
+
+        expect(await search({ vatRates: ["19"] })).toEqual([nineteen.id]);
+        expect(await search({ vatRates: ["7", "19"] })).toEqual([nineteen.id, seven.id]);
+        expect(await search({ vatRates: [null] })).toEqual([none.id]);
+        expect(await search({ vatRates: [null, "0", "reverse_charge"] })).toEqual([
+          reverse.id,
+          zero.id,
+          none.id,
+        ]);
+        expect(await search({ vatRates: [null, "0", "7", "19", "reverse_charge"] })).toHaveLength(
+          5,
+        );
+        expect(await repos.bookings.summarize({ vatRates: [null, "19"] })).toEqual({
+          count: 2,
+          incomeCents: 2000,
+          expenseCents: 0,
+        });
+        // Combined with other filters by AND.
+        expect(await search({ vatRates: [null, "19"], dateFrom: "2025-01-02" })).toEqual([
+          nineteen.id,
+        ]);
+      });
+
       it("filters by gross amount range, inclusive", async () => {
         const small = await add({ grossCents: 999 });
         const lower = await add({ grossCents: 1000 });

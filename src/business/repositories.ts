@@ -113,6 +113,8 @@ export interface BookingFilter {
   /** Any of these categories; non-empty and without duplicates. */
   readonly categoryIds?: readonly number[];
   readonly source?: BookingSource;
+  /** Any of these VAT rates (`null` = no rate); non-empty and without duplicates. */
+  readonly vatRates?: readonly (VatRate | null)[];
   /** Inclusive lower bound of `grossCents`. */
   readonly amountFrom?: number;
   /** Inclusive upper bound of `grossCents`. */

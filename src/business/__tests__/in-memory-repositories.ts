@@ -289,6 +289,7 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
 function matches(filter: BookingFilter): (booking: Booking) => boolean {
   const text = filter.text === undefined ? undefined : containsRegExp(filter.text);
   const categoryIds = filter.categoryIds && new Set(filter.categoryIds);
+  const vatRates = filter.vatRates && new Set(filter.vatRates);
   return (booking) =>
     (text === undefined ||
       [booking.description, booking.counterparty, booking.reference, booking.note].some(
@@ -299,6 +300,7 @@ function matches(filter: BookingFilter): (booking: Booking) => boolean {
     (filter.type === undefined || booking.type === filter.type) &&
     (categoryIds === undefined || categoryIds.has(booking.categoryId)) &&
     (filter.source === undefined || booking.source === filter.source) &&
+    (vatRates === undefined || vatRates.has(booking.vatRate)) &&
     (filter.amountFrom === undefined || booking.grossCents >= filter.amountFrom) &&
     (filter.amountTo === undefined || booking.grossCents <= filter.amountTo);
 }
