@@ -51,6 +51,8 @@ Code in [`src/business/euer`](../src/business/euer) (rein, ohne DB):
 | `positions.ts`         | `EUER_POSITIONS` (stabile Schlüssel), `EUER_POSITION_DEFINITIONS` (Seite, zuweisbar, Kleinunternehmer-Ziel), `positionForTaxStatus` |
 | `line-mapping.ts`      | `EUER_LINE_MAPPINGS` (Jahr → Position → Zeile + amtliche Bezeichnung), `describePosition(position, year)`, `hasLineMapping(year)`   |
 | `category-position.ts` | `validateCategoryPosition({ type, euerPosition, reducesIncome })` für den Kategorien-Service (#15)                                  |
+| `calculate-euer.ts`    | `calculateEuer({ year, smallBusiness, groups, categories })` – die EÜR-Berechnung (#25), rein                                       |
+| `euer-service.ts`      | `createEuerService({ unitOfWork })` mit `calculate(year)`: Status, Kategorien und Summen in einer Unit of Work                      |
 
 - **Stabile Schlüssel.** Kategorien speichern nur den Schlüssel. Schlüssel
   werden nie umbenannt oder entfernt (sie stehen in der DB); neue Positionen
@@ -155,11 +157,12 @@ Eine Erlösminderungs-Kategorie ist eine **Ausgabe**-Kategorie, deren
 | Ausgabe-Kategorie mit `reducesIncome`  | Umsatz-Position (15/16, mit Kleinunternehmer-Ziel), nicht z. B. `UST_ERSTATTUNG` | `reducesIncomeNeedsTurnoverPosition`       |
 | Einnahme-Kategorie mit `reducesIncome` | –                                                                                | `reducesIncomeNotExpense` (DB: CHECK)      |
 
-Für #25 heißt das: Beträge solcher Buchungen werden von ihrer Position
-abgezogen statt als Ausgabe gezählt (im Kleinunternehmer-Jahr nach
-`positionForTaxStatus`, also von Zeile 12). Empfehlung für den USt-Anteil
-einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
-(Berichtigung der geschuldeten USt), nicht `VORSTEUER`.
+Die EÜR-Berechnung (#25) zieht die Beträge solcher Buchungen von ihrer
+Position ab, statt sie als Ausgabe zu zählen (im Kleinunternehmer-Jahr nach
+`positionForTaxStatus`, also von Zeile 12); der USt-Anteil einer
+regelbesteuerten Rückerstattung mindert `UST_VEREINNAHMT` (Berichtigung der
+geschuldeten USt), nicht `VORSTEUER` – siehe
+[EÜR-Berechnung](#eür-berechnung-25).
 
 ### Standardkategorien (Migration `0001_default_categories`)
 
@@ -214,37 +217,133 @@ einer regelbesteuerten Rückerstattung: Er mindert `UST_VEREINNAHMT`
 4. Ändert sich die Fachlogik (z. B. eine Zeile wird geteilt), eine neue
    Position anlegen; alte Schlüssel bleiben.
 
-### Offene Punkte für #25
+## EÜR-Berechnung (#25)
 
-- **Steuerstatus des Jahres, nicht der Satz der Buchung:** Nach einem
-  bestätigten Statuswechsel (#16, `acknowledgeConflicts`) kann ein Jahr
-  Buchungen enthalten, deren `vat_rate` nicht zum Status passt. Die EÜR
-  richtet sich nach dem Status des Jahres: Im Kleinunternehmer-Jahr geht der
-  Bruttobetrag in die Position der Kategorie, USt-Positionen gibt es keine –
-  auch wenn ein Satz gespeichert ist. Im regelbesteuerten Jahr zählt eine
-  Buchung ohne Satz mit Netto = Brutto und USt 0; Empfehlung für #25: eine
-  Einnahme ohne Satz wie Satz `"0"` behandeln (→ `BETRIEBSEINNAHMEN_UST_FREI`)
-  und die unpassenden Buchungen als Hinweis ausweisen.
-- **Kategorien nur über Position und Flag:** Die Berechnung liest
-  `euer_position` und `reduces_income` der Kategorie zum
-  Berechnungszeitpunkt (Änderungen wirken rückwirkend, #15) und erkennt auch
-  Systemkategorien nie am Namen – Nutzer dürfen sie umbenennen.
+`calculateEuer` (`src/business/euer/calculate-euer.ts`) ist eine reine
+Funktion; `EuerService.calculate(year)` (`services.euer`) lädt in **einer**
+Unit of Work den Steuerstatus (`TaxYearRepository.find`, ohne Datensatz
+regelbesteuert), alle Kategorien (inkl. archivierter) und die Summen des
+Jahres aus `BookingRepository.sumByCategoryAndVatRate(year)` – eine
+Aggregat-Abfrage über den Datumsbereich des Jahres (Zahlungsdatum),
+gruppiert nach Kategorie, Art und USt-Satz (Anzahl, Brutto, Netto, USt).
+Ein ungültiges Jahr liefert ohne Datenbankzugriff
+`{ ok: false, reason: "invalid", errors: [{ field: "year", code: "invalidYear" }] }`.
 
-- **Zeile 15 vs. 16 bei Einnahmen:** Die Kategorie bestimmt die Position,
-  aber eine Einnahme mit USt-Satz `"0"` oder `"reverse_charge"` gehört in
-  Zeile 16, auch wenn ihre Kategorie z. B. „Umsatzerlöse“ ist. #25 ordnet
-  im regelbesteuerten Jahr Einnahmen mit diesen Sätzen
-  `BETRIEBSEINNAHMEN_UST_FREI` zu (bei Erlösminderungen entsprechend).
-- **Kleinunternehmer-Zeile 13:** #25 leitet sie vor der Umleitung aus
-  `BETRIEBSEINNAHMEN_UST_FREI` ab (nur nachrichtlich, nicht in der Summe).
-  Das ist eine Näherung: Zeile 16 umfasst auch steuerfreie Umsätze nach § 4
-  UStG, die nicht unter § 19 Abs. 2 Satz 1 Nr. 1 und 2 UStG fallen.
-- **Bewirtung (Zeile 63 bzw. 64 in 2026)** hat zwei Spalten: nicht
-  abziehbar (30 %) und abziehbar (70 %, § 4 Abs. 5 Satz 1 Nr. 2 EStG). Die
-  Position liefert nur die Zeile; Aufteilung und Wirkung auf den Gewinn
-  entscheidet #25.
-- **Verpflegungsmehraufwand (Zeile 64 bzw. 65 in 2026)** ist nur in Höhe der
-  Pauschalen abziehbar; die App erfasst gezahlte Beträge.
+### Regeln
+
+| Fall                                 | Regelbesteuert                                                             | Kleinunternehmer                            |
+| ------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------- |
+| Betrag in der Position der Kategorie | Netto                                                                      | Brutto                                      |
+| USt-Anteil (nur Satz `7`/`19`)       | Einnahme → `UST_VEREINNAHMT`, Ausgabe → `VORSTEUER`                        | keine USt-Positionen                        |
+| Umsatz-Kategorie (Zeile 15/16)       | Satz `7`/`19` → 15, Satz `0`/`reverse_charge`/kein Satz → 16               | → `BETRIEBSEINNAHMEN_KLEINUNTERNEHMER` (12) |
+| Zeile 13 (nachrichtlich)             | –                                                                          | Beträge der Kategorien mit `_UST_FREI`      |
+| Erlösminderung (`reducesIncome`)     | Netto mindert 15 bzw. 16 (nach Satz), USt-Anteil mindert `UST_VEREINNAHMT` | Brutto mindert 12 (bei `_UST_FREI` auch 13) |
+| `UST_ERSTATTUNG`, `UST_AN_FA`        | Einnahme bzw. Ausgabe in ihrer Zeile                                       | unverändert                                 |
+| `BEWIRTUNG`                          | Netto, davon zählen 70 %; Vorsteuer voll                                   | Brutto, davon zählen 70 %                   |
+| übrige Ausgaben                      | Netto in die Position                                                      | Brutto in die Position                      |
+
+Entscheidungen (die früher offenen Punkte):
+
+- **Status des Jahres, nicht der Satz der Buchung.** Im
+  Kleinunternehmer-Jahr zählt immer der Bruttobetrag; ein gespeicherter Satz
+  wird ignoriert (keine USt-Positionen, Satz `0` führt auch nicht zu Zeile
+  13). Im regelbesteuerten Jahr zählt eine Buchung ohne Satz mit Netto =
+  Brutto und USt 0 (so ist sie gespeichert); eine Einnahme ohne Satz geht wie
+  Satz `0` nach Zeile 16. Unpassende Buchungen (#16) meldet das Ergebnis als
+  Hinweis `vatRateInSmallBusinessYear` bzw. `vatRateMissingInRegularYear`
+  mit Anzahl.
+- **Zeile 15 oder 16 nach Satz.** Bei Umsatz-Kategorien (Positionen mit
+  Kleinunternehmer-Ziel: `BETRIEBSEINNAHMEN_UST_PFLICHTIG`/`_UST_FREI`)
+  entscheidet im regelbesteuerten Jahr der Satz der Buchung, und zwar in
+  **beide** Richtungen: `0`, Reverse Charge oder kein Satz → 16, `7`/`19` →
+  15 – auch eine Einnahme mit 19 % in „Steuerfreie / nicht steuerbare
+  Erlöse“ ist steuerpflichtig, Zeile 16 wäre falsch. Erlösminderungen
+  ebenso. `UST_ERSTATTUNG` bleibt in Zeile 18.
+- **Kategorien nur über Position und Flag**, zum Berechnungszeitpunkt
+  (Änderungen wirken rückwirkend, #15), nie über den Namen. Archivierte
+  Kategorien zählen normal.
+- **Erlösminderung:** Der USt-Anteil einer regelbesteuerten Rückerstattung
+  mindert `UST_VEREINNAHMT` (Berichtigung der geschuldeten USt, § 17 UStG),
+  nicht `VORSTEUER`.
+- **Negative Zeilen** (Erlösminderung größer als die Einnahmen der Zeile)
+  bleiben negativ und zählen so in die Summen; Hinweis `negativeLine` mit
+  der Position.
+- **Zeile 13** (Kleinunternehmer) ergibt sich vor der Umleitung aus den
+  Beträgen der Kategorien mit `BETRIEBSEINNAHMEN_UST_FREI` (inkl. deren
+  Erlösminderungen); nur nachrichtlich (`informational`, nicht in der
+  Summe, schon in Zeile 12 enthalten). Das ist eine Näherung: Zeile 16
+  umfasst auch steuerfreie Umsätze nach § 4 UStG, die nicht unter § 19
+  Abs. 2 Satz 1 Nr. 1 und 2 UStG fallen.
+- **Bewirtung (Zeile 63, 2026: 64)** hat die Spalten „nicht abziehbar“ und
+  „abziehbar“ (§ 4 Abs. 5 Satz 1 Nr. 2 EStG). Die Zeile trägt
+  `entertainment: { totalCents, deductibleCents, nonDeductibleCents }`:
+  30 % sind nicht abziehbar, **einmal** auf die Jahressumme kaufmännisch
+  gerundet (`splitEntertainment`), der abziehbare Teil ist der Rest. Nur der
+  abziehbare Teil ist der Betrag der Zeile (`amountCents`) und zählt in
+  Ausgaben und Gewinn; der nicht abziehbare Teil steht nur in seiner Spalte.
+  Die Vorsteuer auf Bewirtung zählt voll in `VORSTEUER` (die 70-%-Grenze
+  gilt nur einkommensteuerlich). Hinweis `entertainmentSplit`. Grenzen: Die
+  App prüft weder Angemessenheit noch Nachweis; voll abziehbare Bewirtung
+  (z. B. reine Arbeitnehmerbewirtung) gehört in eine andere Kategorie.
+- **Verpflegungsmehraufwand (Zeile 64, 2026: 65)** ist nur in Höhe der
+  Pauschalen abziehbar. Die App kennt weder Reisetage noch Pauschalen und
+  zählt die Beträge wie erfasst – Nutzer sollten die Pauschale als Betrag
+  buchen. Hinweis `mealAllowanceFlatRates`.
+- **§ 13b UStG als Leistungsempfänger:** Die an das Finanzamt gezahlte USt
+  läuft über die Kategorie mit `UST_AN_FA` (Ausgabe). Die Eingangsleistung
+  selbst hat Satz `reverse_charge` (Netto = Brutto, keine Vorsteuer). Im
+  Kleinunternehmer-Jahr ist das korrekt (kein Vorsteuerabzug). Im
+  regelbesteuerten Jahr verrechnet die Voranmeldung geschuldete USt und
+  Vorsteuer aus § 13b; die App bildet beides nicht als eigene Beträge ab
+  (Wirkung auf den Gewinn: null).
+- **Nicht zuordenbare Buchungen** (Kategorie fehlt, Art der Kategorie passt
+  nicht zur Buchung, Position unbekannt oder laut
+  `validateCategoryPosition` ungültig – z. B. ein Schlüssel einer neueren
+  App-Version) zählen **nicht**; Hinweis `unassignableBookings` mit Anzahl
+  und Kategorie-IDs. Über die Services entstehen solche Daten nicht.
+
+### Beträge
+
+- Integer-Cent. Summiert werden die **gespeicherten** Netto- und
+  USt-Beträge je Buchung (`sum(net_cents)`, `sum(vat_cents)`), nie aus
+  Bruttosummen neu berechnet: Dreimal 0,10 € zu 19 % sind 0,24 € netto und
+  0,06 € USt, nicht 0,25 € und 0,05 €. `MAX_AMOUNT_CENTS` hält alle Summen
+  exakt.
+- Gewinn = Einnahmen − Ausgaben (ohne nachrichtliche Zeilen); negativ =
+  Verlust.
+
+### Ergebnis (`EuerResult`)
+
+```ts
+{
+  year, smallBusiness,
+  hasLineMapping,                  // false → UI zeigt Positionsnamen (#26)
+  income: EuerReportLine[],        // nach Zeile; ohne Mapping in Positionsreihenfolge
+  expenses: EuerReportLine[],
+  informational: EuerReportLine[], // Zeile 13, nicht in den Summen
+  totals: { incomeCents, expenseCents, profitCents },
+  warnings: EuerWarning[],         // Codes in fester Reihenfolge
+}
+EuerReportLine = {
+  position, line?, label?,         // line/label nur mit Mapping (describePosition)
+  amountCents,                     // zählt so in die Summe (Bewirtung: abziehbarer Teil)
+  bookingCount,
+  entertainment?,                  // nur BEWIRTUNG
+  contributions: { categoryId, bookingType, vatRates, bookingCount, amountCents }[],
+}
+```
+
+- **Welche Zeilen:** jede Position, zu der mindestens eine Buchung beiträgt
+  – auch mit Summe 0 (z. B. Umsatz und volle Erstattung). Positionen ohne
+  Buchungen fehlen. USt-Zeilen entstehen aus Buchungen mit Satz `7`/`19`.
+- **Drill-down (#26):** `contributions` nennt je Kategorie und Buchungsart
+  die beitragenden USt-Sätze, die Anzahl und den (vorzeichenbehafteten)
+  Betrag; die Beiträge ergeben die Summe der Zeile (Bewirtung:
+  `entertainment.totalCents`). Die Buchungen einer Zeile sind genau: Jahr +
+  `categoryId` + `bookingType` + `vatRates` je Beitrag. Die Buchungssuche
+  (#21) filtert noch nicht nach USt-Satz; für Zeilen, zu denen eine
+  Kategorie nur mit einem Teil ihrer Sätze beiträgt (15/16, USt-Zeilen),
+  braucht #26 einen Satz-Filter oder zeigt alle Buchungen der Kategorien.
 
 ## Migrationen
 

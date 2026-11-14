@@ -350,3 +350,99 @@ describe("createAppServices – tax years on SQLite", () => {
     });
   });
 });
+
+const rows = (lines: readonly { line?: number; amountCents: number }[]) =>
+  lines.map(({ line, amountCents }) => [line, amountCents]);
+
+// The EÜR through the composition root on the seeded default categories:
+// system categories are found by position and flag (never by name).
+describe("createAppServices – EÜR on SQLite", () => {
+  it("calculates a regularly taxed and a small-business year", async () => {
+    const { services, sqlite } = await setup();
+    const find = (type: string, position: string, reducesIncome = 0) =>
+      (
+        sqlite
+          .prepare(
+            "SELECT id FROM categories WHERE type = ? AND euer_position = ? AND reduces_income = ? ORDER BY id LIMIT 1",
+          )
+          .get(type, position, reducesIncome) as { id: number }
+      ).id;
+    const sales = find("income", "BETRIEBSEINNAHMEN_UST_PFLICHTIG");
+    const refund = find("expense", "BETRIEBSEINNAHMEN_UST_PFLICHTIG", 1);
+    const software = find("expense", "EDV_KOSTEN");
+    const entertainment = find("expense", "BEWIRTUNG");
+    const vatPayment = find("expense", "UST_AN_FA");
+    const create = async (
+      date: string,
+      type: "income" | "expense",
+      categoryId: number,
+      grossCents: number,
+      vatRate: "0" | "19" | null,
+    ) => {
+      const result = await services.bookings.create({
+        date,
+        type,
+        grossCents,
+        vatRate,
+        categoryId,
+        description: "x",
+        counterparty: "y",
+        reference: null,
+        note: null,
+      });
+      expect(result.ok).toBe(true);
+    };
+
+    // 2026: regularly taxed (no record).
+    await create("2026-01-15", "income", sales, 119000, "19");
+    await create("2026-02-01", "income", sales, 50000, "0");
+    await create("2026-02-15", "expense", refund, 11900, "19");
+    await create("2026-03-01", "expense", software, 2380, "19");
+    await create("2026-04-01", "expense", entertainment, 11900, "19");
+    await create("2026-05-10", "expense", vatPayment, 10000, "0");
+    // Another year: not counted.
+    await create("2025-12-31", "income", sales, 999, "19");
+    // Archived categories still count.
+    expect((await services.categories.archive(software)).ok).toBe(true);
+
+    const result = await services.euer.calculate(2026);
+    if (!result.ok) throw new Error("expected ok");
+    expect(rows(result.euer.income)).toEqual([
+      [15, 90000], // 100000 − 10000 refund
+      [16, 50000],
+      [17, 17100], // 19000 − 1900
+    ]);
+    expect(rows(result.euer.expenses)).toEqual([
+      [51, 2000],
+      [58, 380 + 1900], // input VAT of software and entertainment (in full)
+      [59, 10000],
+      [64, 7000], // 70 % of 10000
+    ]);
+    expect(result.euer.expenses.at(-1)?.entertainment).toEqual({
+      totalCents: 10000,
+      deductibleCents: 7000,
+      nonDeductibleCents: 3000,
+    });
+    expect(result.euer.totals).toEqual({
+      incomeCents: 157100,
+      expenseCents: 21280,
+      profitCents: 135820,
+    });
+    expect(result.euer.warnings).toEqual([{ code: "entertainmentSplit" }]);
+
+    // 2025 as small business: gross into line 12, no VAT lines.
+    expect(
+      (await services.taxYears.setSmallBusiness(2025, true, { acknowledgeConflicts: true })).ok,
+    ).toBe(true);
+    await create("2025-06-01", "income", sales, 5000, null);
+    const small = await services.euer.calculate(2025);
+    if (!small.ok) throw new Error("expected ok");
+    expect(small.euer).toMatchObject({
+      smallBusiness: true,
+      income: [{ position: "BETRIEBSEINNAHMEN_KLEINUNTERNEHMER", line: 12, amountCents: 5999 }],
+      expenses: [],
+      totals: { incomeCents: 5999, expenseCents: 0, profitCents: 5999 },
+      warnings: [{ code: "vatRateInSmallBusinessYear", bookingCount: 1 }],
+    });
+  });
+});

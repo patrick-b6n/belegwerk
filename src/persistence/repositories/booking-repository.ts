@@ -163,7 +163,33 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
         expenseCents: row?.expenseCents ?? 0,
       };
     },
+
+    sumByCategoryAndVatRate: async (year) => {
+      // Range on the indexed date column (bookings_date_idx) instead of substr().
+      const rows = await db
+        .select({
+          categoryId: bookings.categoryId,
+          type: bookings.type,
+          vatRate: bookings.vatRate,
+          count: count().as("booking_count"),
+          grossCents: sumOf(bookings.grossCents).as("gross_sum"),
+          netCents: sumOf(bookings.netCents).as("net_sum"),
+          vatCents: sumOf(bookings.vatCents).as("vat_sum"),
+        })
+        .from(bookings)
+        .where(
+          and(gte(bookings.date, `${pad(year)}-01-01`), lte(bookings.date, `${pad(year)}-12-31`)),
+        )
+        .groupBy(bookings.categoryId, bookings.type, bookings.vatRate)
+        .orderBy(asc(bookings.categoryId), asc(bookings.type), asc(bookings.vatRate));
+      return rows.map((row) => ({ ...row }));
+    },
   };
+}
+
+/** Integer sum of a column within a group (groups are never empty, so never NULL). */
+function sumOf(column: SQLWrapper) {
+  return sql<number>`sum(${column})`.mapWith(Number);
 }
 
 /** Sum of the gross amounts of the bookings of `type`; 0 if there are none. */
