@@ -12,7 +12,10 @@
     "fs:allow-write-text-file",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://api.stripe.com/v1/application_fees*" }]
+      "allow": [
+        { "url": "https://api.stripe.com/v1/application_fees" },
+        { "url": "https://api.stripe.com/v1/application_fees/*" }
+      ]
     }
   ]
 }

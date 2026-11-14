@@ -13,14 +13,20 @@ import type {
  * it over the IPC, so the CSP needs no `connect-src` for Stripe.
  *
  * - Capability (`src-tauri/capabilities/default.json`): `http:default` with
- *   the scope `https://api.stripe.com/v1/application_fees*` only; redirects
- *   are not followed (`maxRedirections: 0`).
+ *   the scope `https://api.stripe.com/v1/application_fees` and
+ *   `…/application_fees/*` only (query strings match: the plugin sets an
+ *   omitted search to `*`); redirects are not followed (`maxRedirections: 0`).
  * - The key goes into the `Authorization: Bearer` header only – never into
  *   the URL – and into no result, error or log.
  * - API version pinned via `Stripe-Version` ({@link STRIPE_API_VERSION}).
  * - Every response is validated; anything unexpected is `invalidResponse`.
  * - 429: up to {@link MAX_ATTEMPTS} attempts, waiting `Retry-After` (capped)
  *   or an exponential backoff; then `rateLimited`.
+ * - Transient failures – 500/502/503/504 and `network` (no response) – are
+ *   retried the same way (exponential backoff 1 s, 2 s; `Retry-After` if
+ *   sent), then reported as `stripeError`/`network`. Not `timeout`: a
+ *   request that took 30 s is not retried (the import would wait minutes).
+ *   All requests are GETs, so retrying is safe.
  */
 
 export const STRIPE_API_BASE = "https://api.stripe.com/v1";
@@ -32,9 +38,11 @@ export const MAX_ATTEMPTS = 3;
 /** Total time of one request (connect, send, read body). */
 export const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_RETRY_WAIT_SECONDS = 10;
+/** Server errors worth retrying (temporary per Stripe's docs). */
+const RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
 
 export interface StripeHttpClientOptions {
-  /** Waits between rate-limit retries; tests pass a fake. */
+  /** Waits between retries; tests pass a fake. */
   readonly sleep?: (milliseconds: number) => Promise<void>;
   readonly timeoutMs?: number;
 }
@@ -55,7 +63,7 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
   const sleep = options.sleep ?? defaultSleep;
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
 
-  /** One GET with retries on 429; returns the parsed JSON body. */
+  /** One GET with retries on 429, transient 5xx and network errors; returns the parsed JSON body. */
   async function getJson(
     apiKey: string,
     path: string,
@@ -90,7 +98,10 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
       } catch {
         // The plugin's message may name the URL (no key in it) – still only
         // the code leaves this function.
-        return { ok: false, error: { code: timedOut ? "timeout" : "network" } };
+        if (timedOut) return { ok: false, error: { code: "timeout" } };
+        if (attempt >= MAX_ATTEMPTS) return { ok: false, error: { code: "network" } };
+        await sleep(backoffSeconds(attempt, null) * 1000);
+        continue;
       } finally {
         clearTimeout(timer);
       }
@@ -100,11 +111,11 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
         if (attempt >= MAX_ATTEMPTS) {
           return { ok: false, error: { code: "rateLimited", retryAfterSeconds } };
         }
-        const waitSeconds = Math.min(
-          retryAfterSeconds ?? 2 ** (attempt - 1),
-          MAX_RETRY_WAIT_SECONDS,
-        );
-        await sleep(waitSeconds * 1000);
+        await sleep(backoffSeconds(attempt, retryAfterSeconds) * 1000);
+        continue;
+      }
+      if (RETRYABLE_STATUS.has(status) && attempt < MAX_ATTEMPTS) {
+        await sleep(backoffSeconds(attempt, parseRetryAfter(retryAfter)) * 1000);
         continue;
       }
       if (status === 401) return { ok: false, error: { code: "invalidApiKey" } };
@@ -177,6 +188,9 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
     listApplicationFees: async ({ apiKey, createdFrom, createdTo }) => {
       if (!Number.isSafeInteger(createdFrom) || !Number.isSafeInteger(createdTo)) {
         throw new RangeError("createdFrom/createdTo must be integer epoch seconds");
+      }
+      if (createdFrom > createdTo) {
+        throw new RangeError("createdFrom must not be after createdTo");
       }
       const listed = await listAll(
         apiKey,
@@ -278,6 +292,11 @@ function parseFee(value: unknown): ParsedFee | undefined {
     if (!embedded) return undefined;
   }
   return { fee: { id, amount, currency, created, account, livemode }, refunds: embedded };
+}
+
+/** Wait before the next attempt: `Retry-After` if sent, else 1 s, 2 s, … – capped. */
+function backoffSeconds(attempt: number, retryAfterSeconds: number | null): number {
+  return Math.min(retryAfterSeconds ?? 2 ** (attempt - 1), MAX_RETRY_WAIT_SECONDS);
 }
 
 /** `Retry-After` as seconds (delta-seconds form only); `null` if absent or unreadable. */
