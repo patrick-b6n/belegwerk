@@ -226,7 +226,8 @@ function BookingList({
         </div>
       ) : (
         // The table scrolls in its own box (sticky header); sums and pagination stay below.
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+        // At least min-h-48: in a low window the panel scrolls instead of squeezing the table.
+        <div className="flex min-h-48 flex-1 flex-col overflow-hidden rounded-lg border">
           <div className="min-h-0 flex-1 overflow-auto">
             <BookingTable
               bookings={data.items}

@@ -833,9 +833,9 @@ Buchung kurz als „nicht gefunden“.
 Suchfeld und Filterleiste (`src/ui/bookings/booking-filter-bar.tsx`) über der
 Liste, kompakt in einer (umbrechenden) Zeile: Die Labels der Auswahlfelder
 sind nur für Screenreader, der Trigger nennt den Filter selbst („Art: Alle“)
-und ist hervorgehoben, solange der Filter aktiv ist. Die reine Logik – URL-Schema, Abbildung auf `BookingQuery`,
-Schnellwahl-Zeiträume, Kategorie-Optionen – liegt getestet in
-`booking-filter-model.ts`.
+und ist hervorgehoben, solange der Filter aktiv ist. Die reine Logik –
+URL-Schema, Abbildung auf `BookingQuery`, Schnellwahl-Zeiträume,
+Kategorie-Optionen – liegt getestet in `booking-filter-model.ts`.
 
 **URL-Schema** (`validateSearch: validateBookingSearch`, alle Parameter
 optional; Standardwerte stehen nie in der URL):
@@ -948,7 +948,7 @@ optional; Standardwerte stehen nie in der URL):
   `aria-label`, deaktiviert am Rand, aber fokussierbar – der Fokus bleibt nach „Letzte Seite“ stehen), „Seite X von Y“ (`aria-live`).
 - **Summen** (`BookingSumsSummary`) links in der Fußzeile: Einnahmen,
   Ausgaben, Saldo (brutto) des **gesamten** gefilterten Bestands (`sums`);
-  Gruppenname und Tooltip sagen „nicht nur dieser Seite“. Der Saldo hat
+  der Gruppenname sagt „nicht nur dieser Seite“. Der Saldo hat
   Vorzeichen und Wort („Überschuss“/„Fehlbetrag“), nicht nur Farbe. Die
   Trefferzahl („N Buchungen gefunden“) ist ein `role="status"` nur für
   Screenreader; sichtbar steht sie in der Pagination („1–50 von 120“).
@@ -1492,7 +1492,9 @@ und Release-Workflow: [Release](release.md#auto-update-71).
   ruft `updates.checkInBackground()`: Fehler werden nur protokolliert
   (Konsole, Rust-Log), Ergebnis `null`, kein Hinweis. Der Hinweis
   (`UpdateNotice`, links von „Einstellungen“ in der oberen Leiste: ein
-  Badge „Update verfügbar“, das Version und Aktionen in einem Popover zeigt)
+  Badge „Update verfügbar“, das Version und Aktionen in einem Popover zeigt;
+  das Popover bleibt beim Schließen gemountet, damit Fortschritt und Fehler
+  eines laufenden Updates erhalten bleiben)
   erscheint nur bei `updateAvailable`; „Hinweis ausblenden“ blendet ihn für diese
   Version bis zum nächsten Start aus.
 - **„Nach Updates suchen“** (`UpdateSection`): Mutation, Ergebnis als

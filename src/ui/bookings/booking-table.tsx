@@ -274,8 +274,9 @@ function SortButton({
 
 /**
  * The sums of all matching bookings (#21, not just this page), shown in the
- * list's footer next to the pagination: income, expense and balance. The balance has a sign and a
- * word (surplus / deficit), not only a colour.
+ * list's footer next to the pagination: income, expense and balance. The
+ * balance has a sign and a word (surplus / deficit), not only a colour. The
+ * group's name says that the sums cover all pages.
  */
 export function BookingSumsSummary({
   sums,
@@ -313,7 +314,7 @@ export function BookingSumsSummary({
     },
   ];
   return (
-    <div role="group" aria-label={caption} title={caption}>
+    <div role="group" aria-label={caption}>
       <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
         {items.map((item) => (
           <div key={item.key} data-sum={item.key} className="flex items-baseline gap-1.5">

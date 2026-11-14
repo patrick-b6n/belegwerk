@@ -28,9 +28,9 @@ export interface BookingPaginationProps {
 }
 
 /**
- * Pagination in the footer of the booking list's box, right of the sums (#23): first / previous / next / last
- * page, "Page X of Y", the shown rows of the total and the page size.
- * Buttons that would not move are disabled.
+ * Pagination in the footer of the booking list's box, right of the sums
+ * (#23): first / previous / next / last page, "Page X of Y", the shown rows
+ * of the total and the page size. Buttons that would not move are disabled.
  */
 export function BookingPagination({
   page,

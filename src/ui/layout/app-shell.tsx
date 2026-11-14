@@ -10,6 +10,9 @@ import { UpdateNotice } from "@/ui/updates/update-notice";
 /** Id of the scrolling content area (scroll reset in src/router.tsx, skip link). */
 export const APP_CONTENT_ID = "app-content";
 
+/** Id of the settings link (focus target after the update notice is dismissed). */
+export const SETTINGS_LINK_ID = "app-settings-link";
+
 type NavItem = {
   icon: LucideIcon;
   label: () => string;
@@ -59,6 +62,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             {/* Newer version available (#71); background check at startup. */}
             <UpdateNotice />
             <Link
+              id={SETTINGS_LINK_ID}
               to="/settings"
               aria-label={m.settings_title()}
               title={m.settings_title()}
