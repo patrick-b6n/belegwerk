@@ -67,7 +67,8 @@ export function toUpdateError(error: unknown): UpdateError {
     (UPDATE_ERROR_KINDS as readonly string[]).includes(error.kind)
   ) {
     const message = typeof error.message === "string" ? error.message : "";
-    return new UpdateError(error.kind as UpdateErrorKind, message);
+    const path = typeof error.path === "string" ? error.path : null;
+    return new UpdateError(error.kind as UpdateErrorKind, message, { path });
   }
   const message = error instanceof Error ? error.message : String(error);
   return new UpdateError("unexpected", message, { cause: error });

@@ -554,7 +554,7 @@
   "update_install": "Jetzt aktualisieren",
   "update_installing": "Lade Update herunter …",
   "update_installing_percent": "Lade Update herunter … {percent} %",
-  "update_restarting": "Update installiert, Belegwerk startet neu …",
+  "update_installing_done": "Download abgeschlossen, Update wird installiert …",
   "update_progress_label": "Fortschritt des Downloads",
   "update_error_network": "Keine Verbindung zu GitHub. Bitte die Internetverbindung prüfen und später erneut versuchen.",
   "update_error_http": "GitHub hat die Anfrage abgelehnt (z. B. zu viele Anfragen). Bitte später erneut versuchen.",
@@ -564,6 +564,9 @@
   "update_error_no_update": "Es gibt keine neuere Version mehr.",
   "update_error_dev_build": "Im Entwicklungsmodus wird die App nicht aktualisiert.",
   "update_error_file_system": "Die .exe konnte nicht ersetzt werden. Hat Belegwerk Schreibrechte im Ordner der .exe?",
+  "update_error_rollback_failed": "Die neue Version konnte nicht eingesetzt und die alte nicht wiederhergestellt werden. Bitte Belegwerk schließen und die Datei {path} umbenennen: die Endung „.old“ entfernen. Danach startet die bisherige Version wieder.",
+  "update_error_rollback_failed_no_path": "Die neue Version konnte nicht eingesetzt und die alte nicht wiederhergestellt werden. Bitte Belegwerk schließen und im Ordner der .exe die Datei mit der Endung „.old“ umbenennen: die Endung „.old“ entfernen. Danach startet die bisherige Version wieder.",
+  "update_error_already_running": "Das Update wird bereits installiert.",
   "update_error_unexpected": "Beim Update ist ein unerwarteter Fehler aufgetreten.",
   "update_error_unchanged": "Die installierte Version bleibt unverändert."
 }

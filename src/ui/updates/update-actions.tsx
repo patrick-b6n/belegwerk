@@ -5,7 +5,7 @@ import { downloadPercent, type UpdateCheck } from "@/business/updates";
 import { m } from "@/paraglide/messages.js";
 import { Button } from "@/ui/components/ui/button";
 
-import { installProgressMessage, updateErrorMessage } from "./update-messages";
+import { installErrorMessage, installProgressMessage } from "./update-messages";
 import { useInstallUpdate, useOpenReleaseNotes } from "./update-queries";
 
 /**
@@ -64,8 +64,8 @@ export function UpdateActions({
         </div>
       )}
       {install.error && (
-        <p role="alert" className="max-w-3xl text-sm text-destructive">
-          {updateErrorMessage(install.error)} {m.update_error_unchanged()}
+        <p role="alert" className="max-w-3xl text-sm break-words text-destructive">
+          {installErrorMessage(install.error)}
         </p>
       )}
       {openReleaseNotes.error && (

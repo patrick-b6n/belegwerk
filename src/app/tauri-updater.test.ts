@@ -68,6 +68,18 @@ describe("createTauriUpdater", () => {
     ]);
   });
 
+  it("keeps the path of a failed rollback", async () => {
+    tauri.invoke.mockRejectedValue({
+      kind: "rollbackFailed",
+      message: "could not restore",
+      path: "C:\\Belegwerk\\belegwerk.exe.old",
+    });
+    await expect(createTauriUpdater().install(() => {})).rejects.toMatchObject({
+      kind: "rollbackFailed",
+      path: "C:\\Belegwerk\\belegwerk.exe.old",
+    });
+  });
+
   it("reports a failed install with the host's kind", async () => {
     tauri.invoke.mockRejectedValue({ kind: "checksumMismatch", message: "SHA-256 differs" });
     await expect(createTauriUpdater().install(() => {})).rejects.toMatchObject({

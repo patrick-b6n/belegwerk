@@ -33,8 +33,10 @@ nicht verwendet.
    Arbeitsverzeichnis sauber ist, `main` ausgecheckt ist und `origin/main`
    entspricht (nach `git fetch`), bildet aus der aktuellen Ortszeit die
    Version, legt den Tag `v<YYYY-MM-DD-HHMM>` an und pusht ihn. Die Version
-   ist der Zeitpunkt, zu dem der Tag entsteht. Gibt es den Tag schon
-   (zweimal in derselben Minute), bricht es ab.
+   ist der Zeitpunkt, zu dem der Tag entsteht. Es bricht ab, wenn die neue
+   Version nicht echt größer ist als alle vorhandenen Release-Tags (lokal
+   nach `git fetch --tags` und auf `origin`, verglichen in SemVer-Form) –
+   etwa bei falsch gehender Uhr oder zweimal in derselben Minute.
 3. Der Push startet `.github/workflows/release.yml` (windows-latest, gleiches
    Setup wie CI):
    - prüft das Format des Tags (`v` + gültiges Datum/Uhrzeit, sonst Abbruch)
@@ -175,7 +177,9 @@ nur ein Eintrag im Protokoll.
    WebView) und prüfen, dass es neuer ist.
 2. `belegwerk-<version>.exe.sha256` laden (Format von `sha256sum`), dann
    `belegwerk-<version>.exe` nach `<exe>.update` **neben** die laufende
-   `.exe` (gleiches Laufwerk); dabei Größe und SHA-256 prüfen. Beide URLs
+   `.exe` (gleiches Laufwerk; eine alte `.update` wird vorher gelöscht, die
+   Datei dann exklusiv neu angelegt); danach Größe und SHA-256 der Datei auf
+   der Platte prüfen. Die `.sha256` darf höchstens 4 KB groß sein. Beide URLs
    müssen Downloads dieses Repositorys sein.
 3. Austausch: laufende `.exe` → `<exe>.old` umbenennen (Windows erlaubt das
    Umbenennen, nicht das Überschreiben eines laufenden Programms), dann
@@ -189,6 +193,19 @@ die bei jedem Fehler gelöscht wird: **Bei Fehlern bleibt die alte Version
 unverändert**, die App zeigt eine Meldung (keine Verbindung, Prüfsumme
 falsch, keine Schreibrechte im Ordner der `.exe` …).
 
+- **Dateiname:** Das Update ersetzt die `.exe` unter ihrem bisherigen Namen.
+  Wer `belegwerk-2026-11-14-2000.exe` heruntergeladen hat, behält nach
+  Updates diesen Namen, auch wenn darin längst eine neuere Version steckt.
+  Empfehlung: die heruntergeladene Datei vor dem ersten Start in
+  `belegwerk.exe` umbenennen (Verknüpfungen bleiben dann auch gültig).
+- **Nur ein Update gleichzeitig:** Ein zweiter Aufruf, während eines läuft
+  (Hinweis und Einstellungen), scheitert mit „Das Update wird bereits
+  installiert.“.
+- **Rollback gescheitert:** Lässt sich die neue `.exe` nicht einsetzen und
+  die alte danach nicht zurückbenennen (sehr unwahrscheinlich, z. B. wenn ein
+  Virenscanner die Datei sperrt), fehlt die `.exe`. Die Meldung nennt dann
+  die Datei `<exe>.old`; sie muss von Hand zurückbenannt werden (Endung
+  `.old` entfernen).
 - **Entwicklungsmodus** (`pnpm tauri dev`, Debug-Build): `install_update`
   lehnt ab, es wird nie ersetzt. Testen nur mit einer Release-`.exe`.
 - **Schreibrechte:** Die `.exe` muss in einem Ordner liegen, in dem der

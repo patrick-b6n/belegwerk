@@ -2,9 +2,11 @@ export {
   calVerFromDate,
   calVerFromTag,
   calVerToSemVer,
+  compareCalVer,
   DEV_VERSION,
   displayVersion,
   formatCalVer,
+  latestCalVerOfTags,
   parseCalVer,
   semVerToCalVer,
 } from "./calver";

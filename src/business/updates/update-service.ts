@@ -44,6 +44,14 @@ export type UpdateErrorKind =
   | "devBuild"
   /** Downloading next to the exe or replacing it failed (e.g. no write access). */
   | "fileSystem"
+  /**
+   * The new exe could not be moved in and the old one not back: the exe is
+   * missing, the old version is at {@link UpdateError.path} (`<exe>.old`).
+   */
+  | "rollbackFailed"
+  /** Another update is already being installed. */
+  | "alreadyRunning"
+  /** Anything else (also errors without a code, e.g. a failed IPC call). */
   | "unexpected";
 
 export const UPDATE_ERROR_KINDS: readonly UpdateErrorKind[] = [
@@ -55,17 +63,26 @@ export const UPDATE_ERROR_KINDS: readonly UpdateErrorKind[] = [
   "noUpdate",
   "devBuild",
   "fileSystem",
+  "rollbackFailed",
+  "alreadyRunning",
   "unexpected",
 ];
 
 /** Failure of {@link Updater}; `message` is technical detail for the console. */
 export class UpdateError extends Error {
   readonly kind: UpdateErrorKind;
+  /** For `rollbackFailed`: the parked old exe (`<exe>.old`) to rename back. */
+  readonly path: string | null;
 
-  constructor(kind: UpdateErrorKind, message: string, options?: ErrorOptions) {
+  constructor(
+    kind: UpdateErrorKind,
+    message: string,
+    options?: ErrorOptions & { readonly path?: string | null },
+  ) {
     super(message, options);
     this.name = "UpdateError";
     this.kind = kind;
+    this.path = options?.path ?? null;
   }
 }
 
@@ -80,7 +97,8 @@ export interface Updater {
   /**
    * Downloads the latest release, verifies its SHA-256, replaces the exe and
    * restarts the app – on success the promise never settles (the app is
-   * gone). On failure the installed version is unchanged.
+   * gone). On failure the installed version is unchanged, except for
+   * `rollbackFailed`.
    *
    * @throws {UpdateError}
    */

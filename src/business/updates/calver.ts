@@ -100,6 +100,42 @@ export function calVerFromTag(tag: string): string | null {
   return parseCalVer(calVer) ? calVer : null;
 }
 
+function semVerParts(calVer: string): number[] {
+  const semVer = calVerToSemVer(calVer);
+  if (semVer === null) throw new Error(`Invalid CalVer ${JSON.stringify(calVer)}`);
+  return semVer.split(".").map(Number);
+}
+
+/**
+ * Compares two valid CalVers in SemVer form (as the updater does): negative
+ * if `a` is older, positive if newer, 0 if equal.
+ *
+ * @throws if one of them is no valid CalVer.
+ */
+export function compareCalVer(a: string, b: string): number {
+  const [x, y] = [semVerParts(a), semVerParts(b)];
+  for (let i = 0; i < 3; i++) {
+    const difference = (x[i] ?? 0) - (y[i] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+/**
+ * The highest CalVer among release tags (`v<YYYY-MM-DD-HHMM>`); other tags
+ * are ignored. `null` if there is none.
+ */
+export function latestCalVerOfTags(tags: Iterable<string>): string | null {
+  let latest: string | null = null;
+  for (const tag of tags) {
+    const calVer = calVerFromTag(tag);
+    if (calVer !== null && (latest === null || compareCalVer(calVer, latest) > 0)) {
+      latest = calVer;
+    }
+  }
+  return latest;
+}
+
 /** How a package version is shown: CalVer, or unchanged (e.g. `0.0.0`). */
 export function displayVersion(semVer: string): string {
   return semVerToCalVer(semVer) ?? semVer;

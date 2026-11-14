@@ -12,8 +12,11 @@ import {
 } from "@/business/updates";
 import { m } from "@/paraglide/messages.js";
 
-/** Message of an update error kind. */
-export function updateErrorKindMessage(kind: UpdateErrorKind): string {
+/**
+ * Message of an update error kind. `path` is the parked old exe of
+ * `rollbackFailed`.
+ */
+export function updateErrorKindMessage(kind: UpdateErrorKind, path?: string | null): string {
   switch (kind) {
     case "network":
       return m.update_error_network();
@@ -31,6 +34,12 @@ export function updateErrorKindMessage(kind: UpdateErrorKind): string {
       return m.update_error_dev_build();
     case "fileSystem":
       return m.update_error_file_system();
+    case "rollbackFailed":
+      return path
+        ? m.update_error_rollback_failed({ path })
+        : m.update_error_rollback_failed_no_path();
+    case "alreadyRunning":
+      return m.update_error_already_running();
     case "unexpected":
       return m.update_error_unexpected();
   }
@@ -40,7 +49,22 @@ export function updateErrorKindMessage(kind: UpdateErrorKind): string {
 
 /** Message of any error of a check or an install. */
 export function updateErrorMessage(error: unknown): string {
-  return updateErrorKindMessage(error instanceof UpdateError ? error.kind : "unexpected");
+  return error instanceof UpdateError
+    ? updateErrorKindMessage(error.kind, error.path)
+    : updateErrorKindMessage("unexpected");
+}
+
+/**
+ * Message of a failed install: the error plus the note that the installed
+ * version is unchanged – not after a failed rollback (the exe is missing)
+ * and not when another install is still running.
+ */
+export function installErrorMessage(error: unknown): string {
+  const message = updateErrorMessage(error);
+  const kind = error instanceof UpdateError ? error.kind : "unexpected";
+  return kind === "rollbackFailed" || kind === "alreadyRunning"
+    ? message
+    : `${message} ${m.update_error_unchanged()}`;
 }
 
 /** Result of "Nach Updates suchen". */
@@ -52,11 +76,11 @@ export function updateCheckMessage(check: UpdateCheck): string {
 
 /**
  * Label of the running install: download progress in percent while known,
- * then (download complete) that the app restarts.
+ * then (download complete) that the update is being installed.
  */
 export function installProgressMessage(progress: DownloadProgress | null): string {
   const percent = progress === null ? null : downloadPercent(progress);
   if (percent === null) return m.update_installing();
-  if (percent >= 100) return m.update_restarting();
+  if (percent >= 100) return m.update_installing_done();
   return m.update_installing_percent({ percent });
 }

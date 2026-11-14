@@ -11,8 +11,8 @@ import { useBackgroundUpdateCheck } from "./update-queries";
  * Notice in the side navigation when a newer version is available (#71).
  * The check runs once in the background at startup; without network or on
  * GitHub errors nothing appears (only a log entry). "Hinweis ausblenden"
- * hides it until the next start (or until "Nach Updates suchen" in the
- * settings finds a version again).
+ * hides it for that version until the next start; only a newer version
+ * (e.g. found by "Nach Updates suchen" in the settings) brings it back.
  */
 export function UpdateNotice() {
   const { data: check } = useBackgroundUpdateCheck();

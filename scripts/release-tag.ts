@@ -4,12 +4,19 @@
 // src/business/updates/calver.ts) on the current commit of `main` and pushes
 // it; the push starts .github/workflows/release.yml, which builds the exe
 // and creates the GitHub release. Refuses unless the working tree is clean,
-// `main` is checked out and it equals `origin/main`. See docs/release.md.
+// `main` is checked out and it equals `origin/main`, and unless the new
+// version is higher than every existing release tag (local and on origin;
+// the clock may be wrong or another machine may have tagged). See
+// docs/release.md.
 
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
-import { calVerFromDate } from "../src/business/updates/calver.ts";
+import {
+  calVerFromDate,
+  compareCalVer,
+  latestCalVerOfTags,
+} from "../src/business/updates/calver.ts";
 
 const root = join(import.meta.dirname, "..");
 
@@ -48,7 +55,22 @@ if (head !== remote) {
 }
 
 // The version is the time the tag is created.
-const tag = `v${calVerFromDate(new Date())}`;
+const calVer = calVerFromDate(new Date());
+const tag = `v${calVer}`;
+
+// Every existing release tag, local (after fetching origin's) and on origin.
+gitOrFail("fetch --quiet --tags origin");
+const localTags = gitOrFail('tag --list "v*"').split("\n");
+const remoteTags = gitOrFail('ls-remote --tags --refs origin "refs/tags/v*"')
+  .split("\n")
+  .map((line) => line.split("refs/tags/")[1] ?? "");
+const latest = latestCalVerOfTags([...localTags, ...remoteTags]);
+if (latest !== null && compareCalVer(calVer, latest) <= 0) {
+  fail(
+    `Die neue Version ${calVer} ist nicht neuer als das letzte Release ${latest} – ` +
+      "Systemuhr prüfen bzw. eine Minute warten.",
+  );
+}
 if (git(`rev-parse --quiet --verify refs/tags/${tag}`).status === 0) {
   fail(`Tag ${tag} gibt es schon – in einer Minute erneut versuchen.`);
 }

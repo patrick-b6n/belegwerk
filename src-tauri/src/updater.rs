@@ -19,9 +19,10 @@
 //! is removed on every failure: the old version stays intact. Debug builds
 //! (`tauri dev`) refuse to install.
 
-use std::fs::{self, File};
-use std::io::{self, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -83,6 +84,14 @@ pub enum UpdateErrorKind {
     /// Writing the staging file or swapping the exe failed (e.g. no write
     /// access to the exe's folder). The old exe is unchanged.
     FileSystem,
+    /// The new exe could not be moved in and the old one could not be moved
+    /// back: the exe is missing, the old version is at `path` (`<exe>.old`)
+    /// and must be renamed back by hand.
+    RollbackFailed,
+    /// Another `install_update` is still running.
+    AlreadyRunning,
+    /// An internal error, e.g. the app's own version is no SemVer.
+    Unexpected,
 }
 
 /// Error of the update commands. `message` is technical (English) detail for
@@ -91,6 +100,10 @@ pub enum UpdateErrorKind {
 pub struct UpdateError {
     pub kind: UpdateErrorKind,
     pub message: String,
+    /// For `RollbackFailed`: the parked old exe (`<exe>.old`) the user has to
+    /// rename back.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 impl UpdateError {
@@ -98,6 +111,7 @@ impl UpdateError {
         Self {
             kind,
             message: message.into(),
+            path: None,
         }
     }
 }
@@ -367,29 +381,120 @@ fn staging_path(exe: &Path) -> PathBuf {
     PathBuf::from(path)
 }
 
-/// Replaces `exe` with `staged`: `exe` → `<exe>.old`, `staged` → `exe`. If the
-/// second rename fails, the first is undone, so `exe` is either the old or
-/// the new version, never missing (unless the rollback itself fails, which
-/// is logged; `<exe>.old` is then still there).
-fn replace_executable(exe: &Path, staged: &Path) -> io::Result<()> {
+/// Why [`replace_executable`] failed.
+#[derive(Debug)]
+enum ReplaceError {
+    /// Nothing changed: `exe` is still the old version (moved back if needed).
+    Unchanged(io::Error),
+    /// `exe` was moved to `<exe>.old`, the new file could not be moved in and
+    /// moving `<exe>.old` back failed as well: `exe` is missing.
+    RollbackFailed {
+        error: io::Error,
+        rollback: io::Error,
+        backup: PathBuf,
+    },
+}
+
+/// Replaces `exe` with `staged`: `exe` -> `<exe>.old`, `staged` -> `exe`. If
+/// the second rename fails, the first is undone, so `exe` is either the old
+/// or the new version - unless that rollback fails too
+/// ([`ReplaceError::RollbackFailed`]). `rename` is injected for the tests.
+fn replace_executable(
+    exe: &Path,
+    staged: &Path,
+    mut rename: impl FnMut(&Path, &Path) -> io::Result<()>,
+) -> Result<(), ReplaceError> {
     let backup = backup_path(exe);
     match fs::remove_file(&backup) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
+        Err(error) => return Err(ReplaceError::Unchanged(error)),
     }
-    fs::rename(exe, &backup)?;
-    if let Err(error) = fs::rename(staged, exe) {
-        if let Err(rollback) = fs::rename(&backup, exe) {
+    rename(exe, &backup).map_err(ReplaceError::Unchanged)?;
+    if let Err(error) = rename(staged, exe) {
+        return match rename(&backup, exe) {
+            Ok(()) => Err(ReplaceError::Unchanged(error)),
+            Err(rollback) => Err(ReplaceError::RollbackFailed {
+                error,
+                rollback,
+                backup,
+            }),
+        };
+    }
+    Ok(())
+}
+
+fn replace_error(exe: &Path, error: ReplaceError) -> UpdateError {
+    match error {
+        ReplaceError::Unchanged(error) => file_system_error("could not replace", exe, error),
+        ReplaceError::RollbackFailed {
+            error,
+            rollback,
+            backup,
+        } => {
             log::error!(
                 "update: could not restore {} from {}: {rollback}",
                 exe.display(),
                 backup.display()
             );
+            UpdateError {
+                kind: UpdateErrorKind::RollbackFailed,
+                message: format!(
+                    "could not replace {exe} ({error}) nor restore it ({rollback}); rename {backup} back to {exe}",
+                    exe = exe.display(),
+                    backup = backup.display(),
+                ),
+                path: Some(backup.display().to_string()),
+            }
         }
-        return Err(error);
     }
-    Ok(())
+}
+
+/// Only one install at a time (notice and settings could both start one).
+static INSTALLING: AtomicBool = AtomicBool::new(false);
+
+/// Holds [`INSTALLING`] until dropped.
+struct InstallGuard;
+
+impl InstallGuard {
+    fn acquire() -> Option<Self> {
+        INSTALLING
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for InstallGuard {
+    fn drop(&mut self) {
+        INSTALLING.store(false, Ordering::Release);
+    }
+}
+
+/// Removes a stale file at `path` (left by a crashed update) and creates it
+/// anew, exclusively - fails if something else created it in between.
+fn create_staging_file(path: &Path) -> io::Result<File> {
+    match fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    OpenOptions::new().write(true).create_new(true).open(path)
+}
+
+/// SHA-256 (lowercase hex) of the file as it is on disk.
+fn hash_file(path: &Path) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(to_hex(&hasher.finalize()))
 }
 
 /// Deletes the staging file when dropped, unless [`StagingFile::keep`] was
@@ -453,24 +558,32 @@ fn current_version(app: &tauri::AppHandle) -> Result<semver::Version, UpdateErro
     let version = app.package_info().version.to_string();
     semver::Version::parse(&version).map_err(|error| {
         UpdateError::new(
-            UpdateErrorKind::InvalidRelease,
+            UpdateErrorKind::Unexpected,
             format!("own version {version:?} is no SemVer version: {error}"),
         )
     })
 }
 
 async fn download_checksum(asset: &GithubAsset, exe_name: &str) -> Result<String, UpdateError> {
-    let response = client(Some(Duration::from_secs(60)))?
+    let too_large = || UpdateError::new(UpdateErrorKind::InvalidRelease, "checksum file too large");
+    let mut response = client(Some(Duration::from_secs(60)))?
         .get(&asset.browser_download_url)
         .send()
         .await?
         .error_for_status()?;
-    let body = response.bytes().await?;
-    if body.len() > MAX_CHECKSUM_FILE_SIZE {
-        return Err(UpdateError::new(
-            UpdateErrorKind::InvalidRelease,
-            "checksum file too large",
-        ));
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CHECKSUM_FILE_SIZE as u64)
+    {
+        return Err(too_large());
+    }
+    // Read in chunks and stop past the limit (the length may be missing).
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if body.len() + chunk.len() > MAX_CHECKSUM_FILE_SIZE {
+            return Err(too_large());
+        }
+        body.extend_from_slice(&chunk);
     }
     let content = std::str::from_utf8(&body).map_err(|_| {
         UpdateError::new(
@@ -488,8 +601,9 @@ fn file_system_error(action: &str, path: &Path, error: io::Error) -> UpdateError
     )
 }
 
-/// Downloads the exe into `staging.path`, hashing it on the way; checks size
-/// and hash. Progress goes to `on_progress` (at most about once per percent).
+/// Downloads the exe into `staging.path` (created exclusively), then checks
+/// its size and the SHA-256 of the bytes on disk. Progress goes to
+/// `on_progress` (at most about once per percent).
 async fn download_exe(
     asset: &GithubAsset,
     expected_hash: &str,
@@ -502,9 +616,8 @@ async fn download_exe(
         .send()
         .await?
         .error_for_status()?;
-    let mut file = File::create(&staging.path)
+    let mut file = create_staging_file(&staging.path)
         .map_err(|error| file_system_error("could not create", &staging.path, error))?;
-    let mut hasher = Sha256::new();
     let mut downloaded: u64 = 0;
     let mut reported_percent = u64::MAX;
     while let Some(chunk) = response.chunk().await? {
@@ -515,7 +628,6 @@ async fn download_exe(
                 format!("download is larger than the announced {total} bytes"),
             ));
         }
-        hasher.update(&chunk);
         file.write_all(&chunk)
             .map_err(|error| file_system_error("could not write", &staging.path, error))?;
         let percent = downloaded * 100 / total;
@@ -533,7 +645,8 @@ async fn download_exe(
             format!("downloaded {downloaded} of {total} bytes"),
         ));
     }
-    let actual = to_hex(&hasher.finalize());
+    let actual = hash_file(&staging.path)
+        .map_err(|error| file_system_error("could not read", &staging.path, error))?;
     if actual != expected_hash {
         return Err(UpdateError::new(
             UpdateErrorKind::ChecksumMismatch,
@@ -563,7 +676,9 @@ pub async fn check_for_update(app: tauri::AppHandle) -> Result<UpdateCheck, Upda
 
 /// Downloads, verifies and installs the latest release, then restarts the
 /// app (does not return on success). On failure the running exe is unchanged
-/// and the error says why.
+/// and the error says why - except `RollbackFailed`, whose error names the
+/// `<exe>.old` to rename back. A second call while one runs fails with
+/// `AlreadyRunning`.
 #[tauri::command]
 pub async fn install_update(
     app: tauri::AppHandle,
@@ -587,6 +702,13 @@ async fn install(
             "debug builds (tauri dev) are never replaced; test with a release build",
         ));
     }
+    // Held until the app restarts (success) or this function returns.
+    let Some(_guard) = InstallGuard::acquire() else {
+        return Err(UpdateError::new(
+            UpdateErrorKind::AlreadyRunning,
+            "another update is already being installed",
+        ));
+    };
     let current = current_version(app)?;
     let release = fetch_latest_release().await?;
     let check = evaluate_release(&current, &release)?;
@@ -612,8 +734,8 @@ async fn install(
         keep: false,
     };
     download_exe(assets.exe, &expected_hash, &staging, on_progress).await?;
-    replace_executable(&exe, &staging.path)
-        .map_err(|error| file_system_error("could not replace", &exe, error))?;
+    replace_executable(&exe, &staging.path, |from, to| fs::rename(from, to))
+        .map_err(|error| replace_error(&exe, error))?;
     // Renamed to the exe: nothing left to delete.
     staging.keep();
     log::info!(
@@ -961,6 +1083,22 @@ mod tests {
             serde_json::to_value(&error).unwrap(),
             serde_json::json!({ "kind": "checksumMismatch", "message": "detail" })
         );
+        let rollback = UpdateError {
+            path: Some(r"C:\Belegwerk\belegwerk.exe.old".into()),
+            ..UpdateError::new(UpdateErrorKind::RollbackFailed, "detail")
+        };
+        assert_eq!(
+            serde_json::to_value(&rollback).unwrap(),
+            serde_json::json!({
+                "kind": "rollbackFailed",
+                "message": "detail",
+                "path": r"C:\Belegwerk\belegwerk.exe.old"
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(UpdateErrorKind::AlreadyRunning).unwrap(),
+            "alreadyRunning"
+        );
         let check =
             evaluate_release(&version(OLDER), &release("v2026-11-14-2000", vec![])).unwrap();
         let json = serde_json::to_value(&check).unwrap();
@@ -988,7 +1126,7 @@ mod tests {
         fs::write(&staged, "new").unwrap();
         fs::write(backup_path(&exe), "stale backup").unwrap();
 
-        replace_executable(&exe, &staged).unwrap();
+        replace_executable(&exe, &staged, |from, to| fs::rename(from, to)).unwrap();
 
         assert_eq!(fs::read_to_string(&exe).unwrap(), "new");
         assert_eq!(fs::read_to_string(backup_path(&exe)).unwrap(), "old");
@@ -1002,11 +1140,75 @@ mod tests {
         let exe = dir.join("belegwerk.exe");
         fs::write(&exe, "old").unwrap();
         // The staged file is missing: the second rename fails.
-        let error = replace_executable(&exe, &staging_path(&exe)).unwrap_err();
+        let error = replace_executable(&exe, &staging_path(&exe), |from, to| fs::rename(from, to))
+            .unwrap_err();
 
-        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(
+            matches!(&error, ReplaceError::Unchanged(error) if error.kind() == io::ErrorKind::NotFound),
+            "{error:?}"
+        );
         assert_eq!(fs::read_to_string(&exe).unwrap(), "old");
         assert!(!backup_path(&exe).exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn reports_a_failed_rollback_with_the_backup_path() {
+        let dir = temp_dir("rollback-failed");
+        let exe = dir.join("belegwerk.exe");
+        fs::write(&exe, "old").unwrap();
+        // The first rename (exe -> .old) works, every later one fails.
+        let mut calls = 0;
+        let error = replace_executable(&exe, &staging_path(&exe), |from, to| {
+            calls += 1;
+            if calls == 1 {
+                fs::rename(from, to)
+            } else {
+                Err(io::Error::other("locked"))
+            }
+        })
+        .unwrap_err();
+
+        assert_eq!(calls, 3);
+        let ReplaceError::RollbackFailed { backup, .. } = &error else {
+            panic!("{error:?}");
+        };
+        assert_eq!(backup, &backup_path(&exe));
+        assert_eq!(fs::read_to_string(backup_path(&exe)).unwrap(), "old");
+        let update_error = replace_error(&exe, error);
+        assert_eq!(update_error.kind, UpdateErrorKind::RollbackFailed);
+        assert_eq!(
+            update_error.path.as_deref(),
+            Some(backup_path(&exe).display().to_string().as_str())
+        );
+        assert!(update_error.message.contains("rename"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn allows_only_one_install_at_a_time() {
+        let guard = InstallGuard::acquire().expect("first install");
+        assert!(InstallGuard::acquire().is_none());
+        drop(guard);
+        let again = InstallGuard::acquire();
+        assert!(again.is_some());
+    }
+
+    #[test]
+    fn creates_the_staging_file_anew_and_hashes_it_from_disk() {
+        let dir = temp_dir("create-staging");
+        let path = dir.join("belegwerk.exe.update");
+        fs::write(&path, "stale partial download").unwrap();
+
+        let mut file = create_staging_file(&path).unwrap();
+        file.write_all(b"abc").unwrap();
+        drop(file);
+
+        assert_eq!(fs::read(&path).unwrap(), b"abc");
+        assert_eq!(
+            hash_file(&path).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { UPDATE_ERROR_KINDS, UpdateError } from "@/business/updates";
 
 import {
+  installErrorMessage,
   installProgressMessage,
   updateCheckMessage,
   updateErrorKindMessage,
@@ -18,7 +19,7 @@ const CHECK = {
 
 describe("updateErrorKindMessage", () => {
   it("has a distinct text for every error kind", () => {
-    const texts = UPDATE_ERROR_KINDS.map(updateErrorKindMessage);
+    const texts = UPDATE_ERROR_KINDS.map((kind) => updateErrorKindMessage(kind));
     expect(new Set(texts).size).toBe(UPDATE_ERROR_KINDS.length);
     for (const text of texts) expect(text.length).toBeGreaterThan(10);
   });
@@ -33,6 +34,33 @@ describe("updateErrorMessage", () => {
 
   it("treats any other error as unexpected", () => {
     expect(updateErrorMessage(new Error("boom"))).toBe(updateErrorKindMessage("unexpected"));
+  });
+});
+
+describe("installErrorMessage", () => {
+  const PATH = "C:\\Belegwerk\\belegwerk.exe.old";
+
+  it("adds that the installed version is unchanged", () => {
+    const text = installErrorMessage(new UpdateError("checksumMismatch", "differs"));
+    expect(text).toContain(updateErrorKindMessage("checksumMismatch"));
+    expect(text).toContain("unverändert");
+  });
+
+  it("names the file to rename after a failed rollback, without claiming nothing changed", () => {
+    const text = installErrorMessage(new UpdateError("rollbackFailed", "x", { path: PATH }));
+    expect(text).toContain(PATH);
+    expect(text).not.toContain("unverändert");
+  });
+
+  it("explains a failed rollback without a path as well", () => {
+    const text = installErrorMessage(new UpdateError("rollbackFailed", "x"));
+    expect(text).toContain(".old");
+    expect(text).not.toContain("unverändert");
+  });
+
+  it("does not add the note while another install runs", () => {
+    const text = installErrorMessage(new UpdateError("alreadyRunning", "x"));
+    expect(text).toBe(updateErrorKindMessage("alreadyRunning"));
   });
 });
 
@@ -59,8 +87,10 @@ describe("installProgressMessage", () => {
     expect(installProgressMessage({ downloaded: 42, total: 100 })).toContain("42 %");
   });
 
-  it("says the app restarts once the download is complete", () => {
-    expect(installProgressMessage({ downloaded: 100, total: 100 })).toContain("neu");
+  it("says the update is being installed once the download is complete", () => {
+    const text = installProgressMessage({ downloaded: 100, total: 100 });
+    expect(text).toContain("Download abgeschlossen");
+    expect(text).not.toContain("%");
   });
 
   it("has no percentage before the first progress", () => {

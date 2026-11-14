@@ -4,7 +4,9 @@ import {
   calVerFromDate,
   calVerFromTag,
   calVerToSemVer,
+  compareCalVer,
   displayVersion,
+  latestCalVerOfTags,
   parseCalVer,
   semVerToCalVer,
 } from "./calver";
@@ -82,6 +84,46 @@ describe("calVerFromTag", () => {
       expect(calVerFromTag(tag)).toBeNull();
     },
   );
+});
+
+describe("compareCalVer", () => {
+  it.each([
+    ["2026-01-05-0930", "2026-01-05-0931"],
+    ["2026-01-31-2359", "2026-02-01-0000"],
+    ["2026-09-30-2359", "2026-10-01-0000"],
+    ["2026-12-31-2359", "2027-01-01-0000"],
+  ])("%s is older than %s", (older, newer) => {
+    expect(compareCalVer(older, newer)).toBeLessThan(0);
+    expect(compareCalVer(newer, older)).toBeGreaterThan(0);
+  });
+
+  it("finds equal versions equal", () => {
+    expect(compareCalVer("2026-11-14-2000", "2026-11-14-2000")).toBe(0);
+  });
+
+  it("throws for an invalid CalVer", () => {
+    expect(() => compareCalVer("2026-13-01-0000", "2026-11-14-2000")).toThrow(/Invalid CalVer/);
+  });
+});
+
+describe("latestCalVerOfTags", () => {
+  it("finds the highest release tag and ignores other tags", () => {
+    expect(
+      latestCalVerOfTags([
+        "v2026-09-30-2359",
+        "v0.1.0",
+        "v2026-10-01-0000",
+        "test",
+        "v2026-13-01-0000",
+        "v2026-01-05-0930",
+      ]),
+    ).toBe("2026-10-01-0000");
+  });
+
+  it("is null without release tags", () => {
+    expect(latestCalVerOfTags([])).toBeNull();
+    expect(latestCalVerOfTags(["v0.1.0", "v0.1.1"])).toBeNull();
+  });
 });
 
 describe("displayVersion", () => {

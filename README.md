@@ -63,7 +63,9 @@ Code-Signierung. Bezugsquellen:
   [CI](#ci)).
 
 - **Starten:** Die `.exe` an einen beliebigen Ort legen und starten; sie
-  braucht keine weiteren Dateien.
+  braucht keine weiteren Dateien. Am besten in `belegwerk.exe` umbenennen:
+  Das Auto-Update behält den Dateinamen bei, sonst trüge die Datei nach
+  Updates weiter die alte Versionsnummer im Namen.
 - **SmartScreen:** Da die `.exe` nicht signiert ist, meldet Windows nach dem
   Herunterladen „Der Computer wurde durch Windows geschützt“. Über **„Weitere
   Informationen“ → „Trotzdem ausführen“** starten, oder vorher in den
