@@ -5,8 +5,10 @@
  */
 import type {
   StripeApiKeyErrorCode,
+  StripeClientError,
   StripeDefaultsFieldError,
   StripeKeyMode,
+  TestStripeConnectionResult,
 } from "@/business/stripe";
 import { m } from "@/paraglide/messages.js";
 
@@ -70,4 +72,37 @@ export function defaultsFieldLabel(field: StripeDefaultsFieldError["field"]): st
     case "refundCategoryId":
       return m.stripe_defaults_refund_category_label();
   }
+}
+
+/** Message of a Stripe client error (#29; also for the import, #31). */
+export function stripeClientErrorMessage(error: StripeClientError): string {
+  switch (error.code) {
+    case "invalidApiKey":
+      return m.stripe_error_invalid_api_key();
+    case "permissionDenied":
+      return m.stripe_error_permission_denied();
+    case "rateLimited":
+      return error.retryAfterSeconds === null
+        ? m.stripe_error_rate_limited()
+        : m.stripe_error_rate_limited_seconds({ seconds: String(error.retryAfterSeconds) });
+    case "network":
+      return m.stripe_error_network();
+    case "timeout":
+      return m.stripe_error_timeout();
+    case "stripeError":
+      return error.message === null
+        ? m.stripe_error_stripe_no_message({ status: String(error.status) })
+        : m.stripe_error_stripe({ status: String(error.status), message: error.message });
+    case "invalidResponse":
+      return m.stripe_error_invalid_response();
+  }
+  throw new Error(`No message for Stripe client error ${JSON.stringify(error)}`);
+}
+
+/** Message of "Verbindung testen". */
+export function testConnectionMessage(result: TestStripeConnectionResult): string {
+  if (result.ok) return m.stripe_test_connection_ok();
+  return result.reason === "noApiKey"
+    ? m.stripe_test_connection_no_key()
+    : stripeClientErrorMessage(result.error);
 }

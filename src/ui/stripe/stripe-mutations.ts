@@ -36,5 +36,7 @@ export function useStripeSettingsMutations() {
     mutationFn: (input: StripeDefaultsInput) => stripeSettings.setDefaults(input),
     onSettled,
   });
-  return { saveApiKey, deleteApiKey, setDefaults };
+  // Changes nothing, so no invalidation.
+  const testConnection = useMutation({ mutationFn: () => stripeSettings.testConnection() });
+  return { saveApiKey, deleteApiKey, setDefaults, testConnection };
 }
