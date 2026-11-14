@@ -16,6 +16,11 @@ describe("normalizeWindowsPath", () => {
     [win("C:/Users/./X/../Y/a.db"), win("c:/users/y/a.db")],
     [`\\\\${win("server/share/a.db")}`, `\\\\${win("server/share/a.db")}`],
     [`\\\\?\\UNC\\${win("server/share/a.db")}`, `\\\\${win("server/share/a.db")}`],
+    [`\\\\.\\UNC\\${win("server/share/a.db")}`, `\\\\${win("server/share/a.db")}`],
+    [`\\??\\UNC\\${win("server/share/a.db")}`, `\\\\${win("server/share/a.db")}`],
+    [`\\\\.\\${win("C:/Users/X/a.db")}`, win("c:/users/x/a.db")],
+    [`\\??\\${win("C:/Users/X/a.db")}`, win("c:/users/x/a.db")],
+    [win("C:/Users/X. /Y.../a.db. "), win("c:/users/x/y/a.db")],
   ])("%s → %s", (path, expected) => {
     expect(normalizeWindowsPath(path)).toBe(expected);
   });
@@ -28,6 +33,11 @@ describe("isInDatabaseFolder", () => {
     ["with forward slashes", DB.replaceAll("\\", "/")],
     ["with duplicate separators", DB.replace("Roaming\\", "Roaming\\\\")],
     ["with the long-path prefix", `\\\\?\\${DB}`],
+    ["with the device prefix \\\\.\\", `\\\\.\\${DB}`],
+    ["with the NT prefix \\??\\", `\\??\\${DB}`],
+    ["with a trailing dot on the folder", `${FOLDER}.\\belegwerk.db`],
+    ["with a trailing space on the folder", `${FOLDER} \\belegwerk.db`],
+    ["with trailing dots and spaces on the file", `${DB}. .`],
     ["via ..", win("C:/Users/Jörg/AppData/Roaming/x/../de.belegwerk.desktop/belegwerk.db")],
     ["the journal", `${DB}-journal`],
     ["the WAL", `${DB}-wal`],

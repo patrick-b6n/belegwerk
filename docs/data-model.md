@@ -443,7 +443,8 @@ Ziel vor jedem Schreibzugriff ab („Das Backup kann nicht im Datenordner der
 App gespeichert werden …“), weil das Überschreiben von `belegwerk.db` oder
 ihrem Journal die laufende Datenbank zerstören würde. Der Ordner würde zudem
 beim Deinstallieren oder Zurücksetzen mit gelöscht. Nicht erkannt werden
-Umwege über symbolische Links, Junctions, Hardlinks, zugeordnete Laufwerke
+Umwege über symbolische Links, Junctions, Hardlinks, zugeordnete Laufwerke,
+UNC-Pfade auf den eigenen Rechner (`\\localhost\C$\…`, `\\<rechnername>\…`)
 oder 8.3-Kurznamen des Ordners
 ([Architektur](architecture.md#datensicherung-32)).
 

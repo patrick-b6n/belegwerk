@@ -1363,13 +1363,17 @@ manuell ([Datenmodell](data-model.md#backup-und-wiederherstellung-32)).
   Backup kann nicht im Datenordner der App gespeichert werden – bitte einen
   anderen Ort wählen.“ Ist der Pfad der Datenbank unbekannt (leer, nur bei
   einer In-Memory-DB), wird gar nicht geschrieben.
-  - **Vergleich:** Pfade werden normalisiert (`/` → `\`, Präfix `\\?\`,
-    doppelte Trenner, `.`/`..`, abschließende Trenner, Groß-/Kleinschreibung).
+  - **Vergleich:** Pfade werden normalisiert (`/` → `\`, Präfixe `\\?\`,
+    `\\.\` und `\??\` – auch vor `UNC\` –, doppelte Trenner, `.`/`..`,
+    abschließende Trenner, Punkte und Leerzeichen am Ende jedes Segments –
+    Win32 ignoriert sie, `de.belegwerk.desktop.\belegwerk.db` ist die echte
+    Datei –, Groß-/Kleinschreibung).
     Da der ganze Ordner gesperrt ist, sind auch 8.3-Kurznamen der _Datei_
     abgedeckt.
   - **Bekannte Grenzen:** Symbolische Links, Junctions, Hardlinks,
-    zugeordnete Laufwerke/`subst` und 8.3-Kurznamen des _Ordners_ werden
-    nicht aufgelöst (das WebView kann Pfade nicht kanonisieren). Ein Weg über
+    zugeordnete Laufwerke/`subst`, UNC-Pfade auf den eigenen Rechner
+    (`\\localhost\C$\…`, `\\<rechnername>\…`) und 8.3-Kurznamen des _Ordners_
+    werden nicht aufgelöst (das WebView kann Pfade nicht kanonisieren). Ein Weg über
     einen solchen Alias auf `belegwerk.db` würde nicht erkannt.
 - **Vorhandene Zieldatei:** `VACUUM INTO` verweigert eine vorhandene,
   nicht leere Datei („output file already exists“), eine **leere** nimmt es

@@ -26,30 +26,42 @@ export class BackupWriteError extends Error {
   }
 }
 
+/** `\\?\`, `\\.\` and `\??\` – device/NT prefixes in front of a drive path. */
+const DEVICE_PREFIX = /^(?:\\\\[?.]\\|\\\?\?\\)/;
+/** The same prefixes in front of `UNC\server\share`. */
+const DEVICE_UNC_PREFIX = /^(?:\\\\[?.]\\|\\\?\?\\)unc\\/i;
+
 /**
- * Normalizes a Windows path for comparison: `/` → `\`, without the `\\?\`
- * prefix, duplicate separators, `.`/`..` segments and trailing separators,
- * lower case (Windows file names are case-insensitive).
+ * Normalizes a Windows path for comparison: `/` → `\`; without the
+ * `\\?\`, `\\.\` and `\??\` prefixes (also before `UNC\`); without duplicate
+ * separators, `.`/`..` segments and trailing separators; trailing dots and
+ * spaces of each segment removed (Win32 ignores them:
+ * `de.belegwerk.desktop.\belegwerk.db` is the real file); lower case
+ * (Windows file names are case-insensitive).
  */
 export function normalizeWindowsPath(path: string): string {
   let rest = path.trim().replaceAll("/", "\\");
   let prefix = "";
-  if (/^\\\\\?\\unc\\/i.test(rest)) {
+  const unc = DEVICE_UNC_PREFIX.exec(rest);
+  const device = DEVICE_PREFIX.exec(rest);
+  if (unc) {
     prefix = "\\\\";
-    rest = rest.slice(8);
-  } else if (rest.startsWith("\\\\?\\")) {
-    rest = rest.slice(4);
+    rest = rest.slice(unc[0].length);
+  } else if (device) {
+    rest = rest.slice(device[0].length);
   } else if (rest.startsWith("\\\\")) {
     prefix = "\\\\";
     rest = rest.slice(2);
   }
   const segments: string[] = [];
-  for (const segment of rest.split("\\")) {
-    if (segment === "" || segment === ".") continue;
-    if (segment === "..") {
+  for (const raw of rest.split("\\")) {
+    if (raw === "" || raw === ".") continue;
+    if (raw === "..") {
       if (segments.length > 1) segments.pop();
       continue;
     }
+    const segment = raw.replace(/[. ]+$/, "");
+    if (segment === "") continue;
     segments.push(segment);
   }
   return (prefix + segments.join("\\")).toLowerCase();
@@ -59,8 +71,8 @@ export function normalizeWindowsPath(path: string): string {
  * Whether `target` lies in the folder of `databaseFile` or below it – the
  * database itself, its `-journal`/`-wal`/`-shm` files, any other file there.
  * Compared after {@link normalizeWindowsPath}; symbolic links, junctions,
- * hard links, other drive mappings and 8.3 short names of the folder are not
- * resolved.
+ * hard links, other drive mappings, UNC paths to the local machine
+ * (`\\localhost\C$\…`) and 8.3 short names of the folder are not resolved.
  */
 export function isInDatabaseFolder(target: string, databaseFile: string): boolean {
   const file = normalizeWindowsPath(databaseFile);
