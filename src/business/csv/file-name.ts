@@ -1,3 +1,5 @@
+import { safeFileNamePart } from "../files";
+
 /** Parts of a suggested export file name; texts come from the UI (docs/i18n.md). */
 export interface CsvFileNameParts {
   /** What is exported, e.g. `"buchungen"`. */
@@ -12,13 +14,6 @@ export interface CsvFileNameParts {
   readonly fromWord: string;
   /** Word before an open-ended end, e.g. `"bis"`. */
   readonly toWord: string;
-}
-
-// Not allowed in Windows file names (plus control characters).
-const INVALID_FILE_NAME_CHARS = /[<>:"/\\|?*\p{Cc}]/gu;
-
-function safe(text: string): string {
-  return text.replace(INVALID_FILE_NAME_CHARS, "_");
 }
 
 /**
@@ -41,7 +36,7 @@ export function csvFileName({
   else if (dateFrom !== undefined) period = `${fromWord}-${dateFrom}`;
   else if (dateTo !== undefined) period = `${toWord}-${dateTo}`;
   else period = today;
-  return `${safe(base)}-${safe(period)}.csv`;
+  return `${safeFileNamePart(base)}-${safeFileNamePart(period)}.csv`;
 }
 
 /**
@@ -49,5 +44,5 @@ export function csvFileName({
  * characters Windows forbids in `base` become `_`.
  */
 export function yearCsvFileName(base: string, year: number): string {
-  return `${safe(base)}-${year}.csv`;
+  return `${safeFileNamePart(base)}-${year}.csv`;
 }

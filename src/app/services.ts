@@ -1,3 +1,4 @@
+import { type BackupService, createBackupService, type DatabaseBackup } from "@/business/backup";
 import {
   type BookingExportService,
   type BookingService,
@@ -11,7 +12,7 @@ import {
   type EuerExportService,
   type EuerService,
 } from "@/business/euer";
-import type { FileSaver } from "@/business/files";
+import type { FileSaver, SavePathPicker } from "@/business/files";
 import type { Clock } from "@/business/repositories";
 import {
   createStripeImportService,
@@ -25,7 +26,8 @@ import type { Database } from "@/persistence/database";
 import { createUnitOfWork } from "@/persistence/repositories";
 
 import { createStripeHttpClient } from "./stripe-http-client";
-import { createTauriFileSaver } from "./tauri-file-saver";
+import { createTauriDatabaseBackup } from "./tauri-database-backup";
+import { createTauriFileSaver, createTauriSavePathPicker } from "./tauri-file-saver";
 
 /**
  * What UI and routes get from the composition root: services only – never
@@ -33,6 +35,8 @@ import { createTauriFileSaver } from "./tauri-file-saver";
  * runs its reads and writes in its own unit of work.
  */
 export interface AppServices {
+  /** "Backup erstellen" (#32): save dialog, then a copy of the database via `VACUUM INTO`. */
+  readonly backup: BackupService;
   readonly bookings: BookingService;
   /** CSV export of the booking list (#24): save dialog and file via `FileSaver`. */
   readonly bookingExport: BookingExportService;
@@ -55,11 +59,14 @@ export function createAppServices(
   clock: Clock = systemClock,
   fileSaver: FileSaver = createTauriFileSaver(),
   stripeClient: StripeClient = createStripeHttpClient(),
+  savePathPicker: SavePathPicker = createTauriSavePathPicker(),
+  databaseBackup: DatabaseBackup = createTauriDatabaseBackup(database),
 ): AppServices {
   const unitOfWork = createUnitOfWork(database, clock);
   const bookings = createBookingService({ unitOfWork });
   const euer = createEuerService({ unitOfWork });
   return {
+    backup: createBackupService({ savePathPicker, databaseBackup, clock }),
     bookings,
     bookingExport: createBookingExportService({ bookings, fileSaver }),
     categories: createCategoryService({ unitOfWork }),

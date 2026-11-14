@@ -1,7 +1,7 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 
-import type { FileSaver } from "@/business/files";
+import type { FileSaver, SavePathPicker } from "@/business/files";
 
 /**
  * {@link FileSaver} of the app: the native save dialog (`tauri-plugin-dialog`)
@@ -25,5 +25,20 @@ export function createTauriFileSaver(): FileSaver {
       await writeTextFile(path, content);
       return { saved: true, path };
     },
+  };
+}
+
+/**
+ * {@link SavePathPicker} of the app (backup, #32): only the save dialog of
+ * `tauri-plugin-dialog`. Like for {@link createTauriFileSaver}, the dialog adds
+ * the picked path – and only it – to the fs scope.
+ */
+export function createTauriSavePathPicker(): SavePathPicker {
+  return {
+    pickSavePath: ({ defaultFileName, filter }) =>
+      save({
+        defaultPath: defaultFileName,
+        filters: [{ name: filter.name, extensions: [...filter.extensions] }],
+      }),
   };
 }

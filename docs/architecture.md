@@ -1188,7 +1188,8 @@ Positions-Optionen, Formularwerte, Client-Prüfungen) liegt getestet in
 (`SettingsSection` aus `src/ui/settings/settings-section.tsx`: `<section>` mit
 Überschrift und Beschreibung per `aria-labelledby`/`aria-describedby`). Jeder
 Abschnitt lädt seine Daten selbst und zeigt eigene Lade-/Fehlerzustände; der
-Abschnitt „Stripe“ (#28) folgt als weiterer `SettingsSection` darunter.
+Abschnitt „Stripe“ (#28) folgt als weiterer `SettingsSection` darunter,
+danach „Datensicherung“ ([#32](#datensicherung-32)).
 
 **Steuerjahre** (`src/ui/tax-years/tax-year-settings.tsx`; reine Logik
 getestet in `tax-year-model.ts`, Texte in `tax-year-messages.ts`, Mutationen
@@ -1308,6 +1309,102 @@ CLDR ohne Nachkommastellen führt, Stripe aber ×100 sendet.
 - **„Heute“** wird beim Öffnen festgelegt und gilt, solange der Dialog offen
   ist (Höchstwert der Datumsfelder, Client-Prüfung `inFuture`); maßgeblich
   ist die Prüfung des Service zum Zeitpunkt des Imports.
+
+### Datensicherung (#32)
+
+„Backup erstellen“ im Abschnitt **Datensicherung** auf `/einstellungen`
+(`src/ui/backup/backup-section.tsx`, `BackupSection`; Hook
+`useCreateBackup` in `backup-mutations.ts`) speichert eine Kopie der ganzen
+Datenbank an einen per Speicherdialog gewählten Ort. Wiederherstellen ist
+manuell ([Datenmodell](data-model.md#backup-und-wiederherstellung-32)).
+
+| Datei                                     | Aufgabe                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| `src/business/backup/backup-service.ts`   | `createBackupService({ savePathPicker, databaseBackup, clock })`, Port `DatabaseBackup` |
+| `src/business/backup/backup-target.ts`    | Schutz: `isInDatabaseFolder`, `BackupTargetInDatabaseFolderError`, `BackupWriteError`   |
+| `src/business/backup/backup-file-name.ts` | Dateinamenvorschlag `belegwerk-backup-YYYY-MM-DD_HHMM.db` (Europe/Berlin)               |
+| `src/business/files.ts`                   | Port `SavePathPicker` (`pickSavePath` → Pfad oder `null`), `safeFileNamePart`           |
+| `src/persistence/backup.ts`               | `writeDatabaseBackup(connection, path)`: `VACUUM INTO ?` + Prüfung; `Database.backupTo` |
+| `src/app/tauri-file-saver.ts`             | `createTauriSavePathPicker()`: nur der Speicherdialog                                   |
+| `src/app/tauri-database-backup.ts`        | `createTauriDatabaseBackup(database)`: Zieldatei leeren, dann `database.backupTo(path)` |
+
+- **Ablauf** (`backup.createBackup({ fileNameBase, filterName })`):
+  Speicherdialog mit Vorschlag `belegwerk-backup-2026-11-14_1530.db` (Datum
+  und Uhrzeit in Europe/Berlin, Filter „SQLite-Datenbank“, `*.db`) →
+  Abbruch: `{ saved: false }`, nichts geschrieben → sonst Backup schreiben,
+  `{ saved: true, fileName, path }`. Fehler werfen.
+- **`VACUUM INTO ?`** schreibt SQLite selbst: eine transaktionskonsistente,
+  kompaktierte Kopie in einer Datei (Journal-Modus der Kopie `DELETE`). Der
+  Pfad ist ein **gebundener Parameter**, nie Teil des SQL-Texts (Leerzeichen,
+  Umlaute, `'` im Pfad sind unproblematisch). `VACUUM` darf nicht in einer
+  Transaktion laufen; es läuft daher in einem `SqlConnection.exclusive`-
+  Abschnitt – eine laufende Transaktion wird erst beendet, kein anderer Flow
+  kommt dazwischen.
+- **Prüfung danach** (im selben `exclusive`-Abschnitt): Die Kopie wird als
+  `backup_check` angehängt (`ATTACH DATABASE ? AS backup_check`);
+  `PRAGMA backup_check.quick_check` muss genau `ok` liefern und die Kopie so
+  viele Einträge in `sqlite_schema` haben wie die Quelle (eine leere Datei
+  bestünde `quick_check`). Danach `DETACH` – auch nach einem Fehler.
+  Fehlschlag: `BackupCheckError`. Defensiv: vor `VACUUM` ein stilles
+  `ROLLBACK` (falls doch eine Transaktion offen geblieben ist), vor `ATTACH`
+  ein stilles `DETACH` (falls `backup_check` noch angehängt ist).
+- **Nie in den Datenordner der App (Schutz vor Datenverlust).** Vor jedem
+  Schreibzugriff prüft `createTauriDatabaseBackup`, ob das Ziel im Ordner der
+  laufenden Datenbank liegt (`Database.mainFilePath()` = `PRAGMA
+  database_list`, Zeile `main`; Vergleich mit `isInDatabaseFolder` aus
+  `src/business/backup/backup-target.ts`). Der Ordner und alles darunter wird
+  abgelehnt – also `belegwerk.db` selbst, `-journal`/`-wal`/`-shm` und jede
+  andere Datei dort. Ohne diese Prüfung würde das Leeren (nächster Punkt) die
+  laufende Datenbank auf 0 Byte kürzen (SQLite öffnet sie mit
+  Schreib-Freigabe, das Kürzen gelingt), und das folgende `VACUUM INTO`
+  schlüge fehl: alle Daten weg. Abgelehnt wird mit
+  `BackupTargetInDatabaseFolderError`; der Service liefert
+  `{ saved: false, reason: "targetInDatabaseFolder" }`, die UI zeigt „Das
+  Backup kann nicht im Datenordner der App gespeichert werden – bitte einen
+  anderen Ort wählen.“ Ist der Pfad der Datenbank unbekannt (leer, nur bei
+  einer In-Memory-DB), wird gar nicht geschrieben.
+  - **Vergleich:** Pfade werden normalisiert (`/` → `\`, Präfixe `\\?\`,
+    `\\.\` und `\??\` – auch vor `UNC\` –, doppelte Trenner, `.`/`..`,
+    abschließende Trenner, Punkte und Leerzeichen am Ende jedes Segments –
+    Win32 ignoriert sie, `de.belegwerk.desktop.\belegwerk.db` ist die echte
+    Datei –, Groß-/Kleinschreibung).
+    Da der ganze Ordner gesperrt ist, sind auch 8.3-Kurznamen der _Datei_
+    abgedeckt.
+  - **Bekannte Grenzen:** Symbolische Links, Junctions, Hardlinks,
+    zugeordnete Laufwerke/`subst`, UNC-Pfade auf den eigenen Rechner
+    (`\\localhost\C$\…`, `\\<rechnername>\…`) und 8.3-Kurznamen des _Ordners_
+    werden nicht aufgelöst (das WebView kann Pfade nicht kanonisieren). Ein Weg über
+    einen solchen Alias auf `belegwerk.db` würde nicht erkannt.
+- **Vorhandene Zieldatei:** `VACUUM INTO` verweigert eine vorhandene,
+  nicht leere Datei („output file already exists“), eine **leere** nimmt es
+  an. Der Dialog erlaubt das Überschreiben (er fragt vorher). Deshalb leert
+  `createTauriDatabaseBackup` die gewählte Datei – nach der Prüfung oben –
+  mit `writeTextFile(path, "")` (legt sie an bzw. kürzt sie auf 0 Byte) und
+  lässt dann SQLite hineinschreiben. Schlägt das Backup fehl, wird die Datei
+  erneut geleert (best effort): Eine leere Datei ist erkennbar kein Backup,
+  eine halb geschriebene könnte für eines gehalten werden. Eine vorher
+  vorhandene Datei ist in diesem Fall verloren – der Nutzer hatte dem
+  Ersetzen zugestimmt. Fehler kommen als `BackupWriteError` mit
+  `targetCleared` (ob die Zieldatei schon geleert war); die UI ergänzt dann
+  „Die Zieldatei wurde geleert.“
+- **Berechtigungen: keine neuen.** Das Schreiben durch SQLite läuft im
+  Rust-Prozess (`tauri-plugin-sql`) und unterliegt nicht dem fs-Scope. Für
+  das Leeren genügt `fs:allow-write-text-file` (wie beim CSV-Export), der
+  Dialog trägt genau den gewählten Pfad in den Scope ein. Verworfen:
+  temporäre Datei + `rename`/`copy-file` (bräuchte `fs:allow-rename`/
+  `fs:allow-copy-file` plus einen statischen Scope für die temporäre Datei,
+  denn der Dialog erlaubt nur den gewählten Pfad) und Löschen per
+  `fs:allow-remove` (zusätzliche Berechtigung, gleiches Ergebnis wie Leeren).
+  Rust bleibt reine Plugin-Konfiguration.
+- **Inhalt:** alle Tabellen inkl. `settings` – also auch der Stripe-Schlüssel
+  im Klartext; die Beschreibung des Abschnitts weist darauf hin.
+- **UI:** Button „Backup erstellen“ (während des Laufs deaktiviert, aber
+  fokussierbar, mit Spinner), Erfolg: Toast mit Dateiname; Abbruch: nichts;
+  Ziel im Datenordner: eigener Fehler-Toast (nichts geschrieben); sonstige
+  Fehler: Fehler-Toast, ggf. mit „Die Zieldatei wurde geleert.“ (Details in
+  der Konsole). Darüber Speicherort der DB
+  und ein Kurzhinweis zur Wiederherstellung. Es werden keine Daten
+  geändert, also nichts invalidiert.
 
 ## Content Security Policy
 

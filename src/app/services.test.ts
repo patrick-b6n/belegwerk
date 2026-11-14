@@ -1,3 +1,8 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { TEST_EUER_CSV_LABELS } from "@/business/__tests__/euer-csv-labels";
@@ -8,7 +13,7 @@ import {
   stripeFeeRefund,
 } from "@/business/__tests__/fake-stripe-client";
 import { suggestStripeDefaults } from "@/business/stripe";
-import type { FileSaver, SaveTextFileRequest } from "@/business/files";
+import type { FileSaver, PickSavePathRequest, SaveTextFileRequest } from "@/business/files";
 import { createTestDb } from "@/persistence/__tests__/test-db";
 
 import { createAppServices } from "./services";
@@ -664,5 +669,50 @@ describe("createAppServices – Stripe import on SQLite", () => {
       created: 0,
       skipped: 2,
     });
+  });
+});
+
+describe("createAppServices – backup on SQLite", () => {
+  it("suggests a dated name and writes a copy of the database to the picked path", async () => {
+    const { database, sqlite } = await createTestDb();
+    const dir = mkdtempSync(join(tmpdir(), "belegwerk-backup-"));
+    try {
+      const path = join(dir, "Meine Sicherung.db");
+      const requests: PickSavePathRequest[] = [];
+      const services = createAppServices(
+        database,
+        () => NOW,
+        undefined,
+        undefined,
+        {
+          pickSavePath: async (request) => {
+            requests.push(request);
+            return path;
+          },
+        },
+        // The app's DatabaseBackup empties the file via tauri-plugin-fs first;
+        // the target does not exist here.
+        { writeTo: (target) => database.backupTo(target) },
+      );
+
+      expect(
+        await services.backup.createBackup({
+          fileNameBase: "belegwerk-backup",
+          filterName: "SQLite-Datenbank",
+        }),
+      ).toEqual({ saved: true, fileName: "Meine Sicherung.db", path });
+      // NOW = 12:34 UTC = 13:34 in Berlin (CET).
+      expect(requests[0]?.defaultFileName).toBe("belegwerk-backup-2025-03-07_1334.db");
+
+      const backup = new Database(path, { readonly: true });
+      try {
+        const count = "SELECT count(*) AS n FROM categories";
+        expect(backup.prepare(count).get()).toEqual(sqlite.prepare(count).get());
+      } finally {
+        backup.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

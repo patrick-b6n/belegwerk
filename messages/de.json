@@ -524,5 +524,18 @@
   "euer_position_bewirtung": "Bewirtung",
   "euer_position_verpflegungsmehraufwand": "Verpflegungsmehraufwand",
   "euer_position_fahrtkosten": "Fahrtkosten",
-  "euer_position_fahrtkosten_privatfahrzeug": "Fahrtkosten mit privatem Fahrzeug"
+  "euer_position_fahrtkosten_privatfahrzeug": "Fahrtkosten mit privatem Fahrzeug",
+  "backup_title": "Datensicherung",
+  "backup_description": "Ein Backup ist eine vollständige Kopie der Datenbank: alle Buchungen, Kategorien, Steuerjahre und Stripe-Einstellungen – einschließlich des Stripe-Schlüssels im Klartext. Bewahren Sie Backups daher sicher auf.",
+  "backup_location": "Die Datenbank liegt unter {path}. Wiederherstellen: App schließen, die Datei dort durch das Backup ersetzen (Name belegwerk.db) und die App neu starten; Details im README.",
+  "backup_create": "Backup erstellen",
+  "backup_running": "Erstelle Backup …",
+  "backup_hint": "Kopie der Datenbank als Datei speichern",
+  "backup_file_base": "belegwerk-backup",
+  "backup_file_type": "SQLite-Datenbank",
+  "backup_saved_toast": "Backup erstellt",
+  "backup_saved": "Gespeichert als {fileName}",
+  "backup_error_database_folder": "Das Backup kann nicht im Datenordner der App gespeichert werden – bitte einen anderen Ort wählen.",
+  "backup_error_target_cleared": "Die Zieldatei wurde geleert.",
+  "backup_error": "Das Backup konnte nicht erstellt werden. Ist die Zieldatei noch in einem anderen Programm geöffnet, oder ist der Speicherplatz voll?"
 }

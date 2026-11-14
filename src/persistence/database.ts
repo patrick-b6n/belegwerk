@@ -1,5 +1,6 @@
 import { drizzle, type SqliteRemoteDatabase } from "drizzle-orm/sqlite-proxy";
 
+import { databaseFilePath, writeDatabaseBackup } from "./backup";
 import type { SqlConnection } from "./connection";
 import { createBatchCallback, createProxyCallback } from "./drizzle-proxy";
 import * as schema from "./schema";
@@ -19,6 +20,14 @@ export type Db = SqliteRemoteDatabase<typeof schema>;
 export interface Database {
   readonly db: Db;
   transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T>;
+  /**
+   * Writes a consistent, checked copy of the database to `path` (`VACUUM
+   * INTO`, backup #32). The file must not exist or must be empty; see
+   * {@link writeDatabaseBackup}.
+   */
+  backupTo(path: string): Promise<void>;
+  /** Path of the database file (`PRAGMA database_list`); empty for an in-memory database. */
+  mainFilePath(): Promise<string>;
 }
 
 export function createDatabase(connection: SqlConnection): Database {
@@ -29,6 +38,8 @@ export function createDatabase(connection: SqlConnection): Database {
   return {
     db: drizzle(callback, batch, { schema }),
     transaction: (fn) => connection.transaction((client) => fn(transactionDb(client))),
+    backupTo: (path) => writeDatabaseBackup(connection, path),
+    mainFilePath: () => databaseFilePath(connection),
   };
 }
 

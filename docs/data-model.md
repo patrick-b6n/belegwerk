@@ -419,7 +419,7 @@ src/persistence/migrations/
   Verbindung (Default, im Host zusätzlich explizit); der Migrator schaltet es
   am Ende wieder ein.
 - **Journal-Modus:** nicht gesetzt, also SQLite-Default `DELETE` (eine Datei,
-  kein `-wal`) – einfach für Backups (M7).
+  kein `-wal`) – einfach für Backups (M7, [#32](#backup-und-wiederherstellung-32)).
 - **WebView-Reload:** Die Verbindung lebt im Host weiter. `openDatabase` rollt
   deshalb eine evtl. offen gebliebene Transaktion zurück.
 
@@ -428,6 +428,53 @@ Verbindung sichtbar, die sie angelegt hat. 40 parallele Abfragen darauf
 gelingen mit dem eigenen Pool alle; mit einem per `load` geöffneten
 Standard-Pool schlugen 28 von 40 fehl (`no such table`). Ebenso bleibt
 `PRAGMA foreign_keys = OFF` über Aufrufe hinweg erhalten.
+
+### Backup und Wiederherstellung (#32)
+
+**Backup:** Einstellungen → Datensicherung → „Backup erstellen“ schreibt per
+`VACUUM INTO` eine konsistente Kopie der ganzen Datenbank (eine
+SQLite-Datei, Vorschlag `belegwerk-backup-YYYY-MM-DD_HHMM.db`) und prüft sie
+([Architektur](architecture.md#datensicherung-32)). Das Backup enthält alle
+Daten einschließlich des Stripe-Schlüssels (Klartext).
+
+**Backups nie im Datenordner der App speichern**
+(`%APPDATA%\de.belegwerk.desktop` und darunter): Die App lehnt ein solches
+Ziel vor jedem Schreibzugriff ab („Das Backup kann nicht im Datenordner der
+App gespeichert werden …“), weil das Überschreiben von `belegwerk.db` oder
+ihrem Journal die laufende Datenbank zerstören würde. Der Ordner würde zudem
+beim Deinstallieren oder Zurücksetzen mit gelöscht. Nicht erkannt werden
+Umwege über symbolische Links, Junctions, Hardlinks, zugeordnete Laufwerke,
+UNC-Pfade auf den eigenen Rechner (`\\localhost\C$\…`, `\\<rechnername>\…`)
+oder 8.3-Kurznamen des Ordners
+([Architektur](architecture.md#datensicherung-32)).
+
+**Wiederherstellen (manuell)** – Vorlage für das README (#34):
+
+1. Belegwerk schließen (das Fenster schließen; es darf kein Prozess
+   `belegwerk.exe` mehr laufen, sonst ist die Datei gesperrt).
+2. Den Ordner `%APPDATA%\de.belegwerk.desktop` öffnen (Explorer-Adresszeile).
+3. Die vorhandene `belegwerk.db` zur Sicherheit umbenennen oder wegkopieren,
+   z. B. in `belegwerk-vorher.db`.
+4. Die Backup-Datei in diesen Ordner kopieren und in `belegwerk.db`
+   umbenennen.
+5. Liegt dort eine `belegwerk.db-journal` (nur nach einem Absturz mitten in
+   einem Schreibvorgang), gehört sie zur alten Datenbank: löschen bzw. mit
+   verschieben – sonst würde SQLite sie auf das Backup anwenden. `-wal`/`-shm`
+   gibt es nicht (Journal-Modus `DELETE`).
+6. Belegwerk starten.
+
+Verhalten beim Start:
+
+- **Backup einer älteren App-Version:** Der Migrator wendet die fehlenden
+  Migrationen an; danach ist die Datenbank auf dem Stand der App.
+- **Backup einer neueren App-Version** (enthält Migrationen, die die App nicht
+  kennt): Der Start bricht mit dem Fehlerbildschirm ab (`MigrationError`
+  `unknown_migration`); die Datei bleibt unverändert. Dann die neuere
+  App-Version installieren oder die alte `belegwerk.db` zurücklegen.
+- **Keine gültige SQLite-Datei** (z. B. leer nach einem fehlgeschlagenen
+  Backup): Eine leere Datei wird wie eine neue Datenbank behandelt (leere
+  Datenbank mit Standardkategorien) – daher vor dem Ersetzen prüfen, dass die
+  Backup-Datei nicht 0 Byte groß ist.
 
 ### Drizzle (`sqlite-proxy`)
 
