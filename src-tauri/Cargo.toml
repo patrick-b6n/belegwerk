@@ -1,5 +1,7 @@
 [package]
 name = "belegwerk"
+# Not used for the exe: its version comes from package.json (tauri.conf.json,
+# docs/release.md). Kept in sync by hand.
 version = "0.1.0"
 description = "Belegwerk – Einnahmen/Ausgaben und Anlage EÜR"
 authors = ["Patrick"]

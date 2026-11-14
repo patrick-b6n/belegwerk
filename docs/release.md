@@ -17,8 +17,12 @@ pnpm release   # baut die .exe
    `.exe` einbetten. `--no-bundle` überspringt die Installer.
 2. Kopiert `src-tauri/target/release/belegwerk.exe` nach
    `release/belegwerk-<version>.exe` und schreibt die Prüfsumme nach
-   `release/belegwerk-<version>.exe.sha256` (Format von `sha256sum`).
-3. Gibt Pfad, Größe und SHA-256 aus.
+   `release/belegwerk-<version>.exe.sha256` (Format von `sha256sum`). Läuft
+   die `.exe` gerade (Datei gesperrt), bricht es mit einer Meldung ab.
+3. Prüft, dass die Dateiversion der `.exe` der `version` aus `package.json`
+   entspricht (bricht sonst ab).
+4. Gibt Pfad, Größe und SHA-256 aus. Builds sind nicht bitgenau
+   reproduzierbar; die Prüfsumme identifiziert nur diese Datei.
 
 `release/` ist git-ignoriert. Die Prüfungen laufen bewusst nicht in
 `pnpm release` (der Build dauert ohnehin einige Minuten; CI prüft jeden
@@ -33,7 +37,11 @@ Prüfsumme kontrollieren: `Get-FileHash belegwerk-0.1.0.exe` (PowerShell) bzw.
 - **Version:** einzige Quelle ist `version` in `package.json`.
   `src-tauri/tauri.conf.json` verweist mit `"version": "../package.json"`
   darauf; `tauri-build` schreibt sie als Datei- und Produktversion in die
-  `.exe`. Die `version` in `src-tauri/Cargo.toml` wird dafür nicht verwendet.
+  `.exe`. Da `tauri-build` nur bei Änderungen an `tauri.conf.json` neu
+  läuft, meldet `src-tauri/build.rs` zusätzlich `package.json` als Abhängigkeit
+  (`cargo:rerun-if-changed`) – sonst bliebe nach einer Versionserhöhung bei
+  inkrementellen Builds die alte Version in der `.exe`. Die `version` in
+  `src-tauri/Cargo.toml` wird dafür nicht verwendet (von Hand mitgezogen).
 - **Name:** `productName` „Belegwerk“ → Produktname und Dateibeschreibung,
   `bundle.publisher` „Belegwerk“ → Firma.
 - **Icon:** `src-tauri/icons/icon.ico` wird als Ressource eingebettet
@@ -69,7 +77,10 @@ statt ca. 0,5 min). CI baut dasselbe Profil.
 - **Eine Instanz:** `tauri-plugin-single-instance` (erstes Plugin in
   `src-tauri/src/lib.rs`). Ein zweiter Start beendet sich sofort und holt das
   laufende Fenster nach vorn (auch aus dem minimierten Zustand). So öffnen nie
-  zwei Prozesse dieselbe Datenbank.
+  zwei Prozesse dieselbe Datenbank. Das gilt auch für die Entwicklung:
+  Läuft die Release-`.exe`, beendet sich `pnpm tauri dev` sofort und holt das
+  Fenster der `.exe` nach vorn (gleicher Identifier, gleiche Datenbank) –
+  vorher die `.exe` schließen.
 - **WebView2:** Voraussetzung ist die WebView2-Runtime (bei Windows 11
   vorinstalliert, bei Windows 10 meist über Edge vorhanden). Fehlt sie, zeigt
   die `.exe` eine Fehlermeldung von Tauri („Could not find the WebView2

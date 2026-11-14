@@ -32,7 +32,9 @@ const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
   version: string;
 };
 
-// Only a hint: a release from uncommitted changes cannot be reproduced.
+// Only a hint: a release from uncommitted changes cannot be traced back to a
+// commit. (Builds are not bit-for-bit reproducible either way; the SHA-256
+// identifies this file, not the source.)
 try {
   if (run("git status --porcelain").trim() !== "") {
     console.warn("Warnung: Das Arbeitsverzeichnis enthält nicht committete Änderungen.");
@@ -55,7 +57,33 @@ const source = join(root, "src-tauri", "target", "release", "belegwerk.exe");
 const targetDir = join(root, "release");
 const target = join(targetDir, `belegwerk-${version}.exe`);
 mkdirSync(targetDir, { recursive: true });
-copyFileSync(source, target);
+try {
+  copyFileSync(source, target);
+} catch (error) {
+  console.error(`Kopieren nach ${relative(root, target)} fehlgeschlagen – läuft die .exe noch?`);
+  console.error(error);
+  process.exit(1);
+}
+
+// The version in the exe comes from package.json via tauri.conf.json; make
+// sure the build really picked it up (src-tauri/build.rs).
+let fileVersion: string;
+try {
+  fileVersion = run(
+    `powershell -NoProfile -NonInteractive -Command "(Get-Item -LiteralPath '${target}').VersionInfo.FileVersion"`,
+  ).trim();
+} catch (error) {
+  console.error("Version der .exe konnte nicht gelesen werden.");
+  console.error(error);
+  process.exit(1);
+}
+if (fileVersion !== version) {
+  console.error(
+    `Versionskonflikt: package.json hat ${version}, die .exe meldet ${fileVersion || "(keine)"}. ` +
+      "Bitte erneut bauen (ggf. src-tauri/target/release löschen).",
+  );
+  process.exit(1);
+}
 
 const sha256 = createHash("sha256").update(readFileSync(target)).digest("hex");
 // Format of `sha256sum`; check with `Get-FileHash` or `sha256sum -c`.
