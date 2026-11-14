@@ -50,6 +50,8 @@ sha2 = "0.10"
 # Opens the release notes in the default browser (#71); the capability allows
 # only this repository's release pages.
 tauri-plugin-opener = "2.7.3"
+# Remembers window size, position and maximized state between starts.
+tauri-plugin-window-state = "2"
 
 # Release build for the single .exe (#33, `pnpm release`; CI builds the same
 # profile). Size and speed instead of build time: one codegen unit and full

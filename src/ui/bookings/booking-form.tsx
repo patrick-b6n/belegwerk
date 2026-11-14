@@ -172,7 +172,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       ref={formRef}
       noValidate
       aria-label={booking ? m.booking_form_label_edit() : m.booking_form_label_new()}
-      className="flex max-w-3xl flex-col gap-6"
+      className="flex max-w-3xl flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
@@ -180,7 +180,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
     >
       {booking && booking.source !== "manual" && <ImportInfo booking={booking} />}
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         <form.Field
           name="date"
           validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
@@ -510,7 +510,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               {(control) => (
                 <Textarea
                   {...control}
-                  rows={3}
+                  rows={2}
                   maxLength={BOOKING_TEXT_MAX_LENGTH.note}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
@@ -538,7 +538,9 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Sticky at the bottom of the scrolling content area: save/cancel stay
+          reachable when the window is too low for the whole form. */}
+      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-3 bg-background px-2 py-3">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" disabled={isSubmitting}>

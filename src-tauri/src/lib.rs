@@ -5,6 +5,7 @@
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tauri::Manager;
 use tauri_plugin_sql::{DbInstances, DbPool};
+use tauri_plugin_window_state::StateFlags;
 
 mod updater;
 
@@ -49,6 +50,15 @@ pub fn run() {
         // Release notes of an update (#71) in the default browser; the
         // capability allows only this repository's release pages.
         .plugin(tauri_plugin_opener::init())
+        // Restores the last window size, position and maximized state and
+        // saves them on resize/close (`.window-state.json` in the app config
+        // directory). Only geometry: visibility, decorations and fullscreen
+        // stay as configured in tauri.conf.json.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             updater::check_for_update,
             updater::install_update
