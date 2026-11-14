@@ -448,7 +448,7 @@ UNC-Pfade auf den eigenen Rechner (`\\localhost\C$\…`, `\\<rechnername>\…`)
 oder 8.3-Kurznamen des Ordners
 ([Architektur](architecture.md#datensicherung-32)).
 
-**Wiederherstellen (manuell)** – Vorlage für das README (#34):
+**Wiederherstellen (manuell)** (für Nutzer: [README](../README.md#datensicherung)):
 
 1. Belegwerk schließen (das Fenster schließen; es darf kein Prozess
    `belegwerk.exe` mehr laufen, sonst ist die Datei gesperrt).

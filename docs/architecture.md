@@ -703,7 +703,7 @@ Entscheidungen und Ergebnisform:
 | `/buchungen/neu`        | Neue Buchung (Formular, #18)                                        |
 | `/euer`                 | EÜR-Jahresansicht; Jahr als Search-Param `jahr` (#26)               |
 | `/kategorien`           | Kategorienverwaltung                                                |
-| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe)                                 |
+| `/einstellungen`        | Einstellungen (Steuerjahre, Stripe, Datensicherung)                 |
 | alles andere            | `notFoundComponent` der Root-Route, innerhalb der Shell             |
 
 - **Pfade sind deutsch** wie die Fachbegriffe und die (einzige) UI-Sprache;
@@ -813,18 +813,18 @@ Schnellwahl-Zeiträume, Kategorie-Optionen – liegt getestet in
 **URL-Schema** (`validateSearch: validateBookingSearch`, alle Parameter
 optional; Standardwerte stehen nie in der URL):
 
-| Parameter                | Wert                                                    | `BookingQuery`           |
-| ------------------------ | ------------------------------------------------------- | ------------------------ |
-| `q`                      | Suchtext (getrimmt)                                     | `text`                   |
-| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive                   | `dateFrom`, `dateTo`     |
-| `art`                    | `einnahmen` oder `ausgaben`                             | `type`                   |
-| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)                    | `categoryIds`            |
-| `quelle`                 | `manuell` oder `stripe`                                 | `source`                 |
-| `ust`                    | USt-Sätze (Array aus `ohne`, `0`, `7`, `19`, `rc`; #26) | `vatRates`               |
-| `betragVon`, `betragBis` | Brutto in **Cent**                                      | `amountFrom`, `amountTo` |
-| `sortierung`             | `<spalte>-<auf\|ab>` (#23)                              | `sort`                   |
-| `seite`                  | Seite ab 2 (#23)                                        | `page`                   |
-| `proSeite`               | 25, 100 oder 200 (#23)                                  | `pageSize`               |
+| Parameter                | Wert                                                       | `BookingQuery`           |
+| ------------------------ | ---------------------------------------------------------- | ------------------------ |
+| `q`                      | Suchtext (getrimmt)                                        | `text`                   |
+| `von`, `bis`             | Zahlungsdatum `YYYY-MM-DD`, inklusive                      | `dateFrom`, `dateTo`     |
+| `art`                    | `einnahmen` oder `ausgaben`                                | `type`                   |
+| `kategorie`              | Kategorie-IDs (Array, z. B. `[1,7]`)                       | `categoryIds`            |
+| `quelle`                 | `manuell` oder `stripe`                                    | `source`                 |
+| `ust`                    | USt-Sätze (Array aus `ohne`, `0`, `7`, `19`, `rc`; #26)    | `vatRates`               |
+| `betragVon`, `betragBis` | Brutto in **Cent**                                         | `amountFrom`, `amountTo` |
+| `sortierung`             | `<spalte>-<auf\|ab>` (#23)                                 | `sort`                   |
+| `seite`                  | Seite ab 2 (#23)                                           | `page`                   |
+| `proSeite`               | 25, 100 oder 200 (Standard 50 steht nicht in der URL; #23) | `pageSize`               |
 
 - **Serialisierung:** Standard von TanStack Router (Werte als JSON, wo
   nötig). Strings, die wie JSON aussehen, werden gequotet (`?q=2025` wird
