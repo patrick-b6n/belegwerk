@@ -121,7 +121,9 @@ gibt es nur in `src/persistence`.
   Buchungen – Filtern, Sortieren, Blättern und Summieren per SQL. Details
   unter [Buchungssuche](#buchungssuche-21). Die EÜR (#25) liest
   `sumByCategoryAndVatRate(year)`: Summen je Kategorie, Art und USt-Satz in
-  einer Aggregat-Abfrage.
+  einer Aggregat-Abfrage. Die Textvorschläge des Formulars lesen
+  `listTextUsage(field)`: je exaktem Text (Beschreibung bzw. Gegenpartei) und
+  Art Anzahl und letztes Datum (`GROUP BY`).
 
 ### Transaktionen: nur über `UnitOfWork.run`
 
@@ -281,6 +283,19 @@ sie (`calculateBookingAmounts`).
   abgebildet: `unique` → `externalIdDuplicate`, `foreign_key` →
   `categoryNotFound`; alles andere wird weitergeworfen.
 
+- **`suggestTexts({ field, type?, limit? })`** (Textvorschläge des
+  Formulars): bisherige Werte von Beschreibung bzw. Gegenpartei, als Liste
+  von Strings (`rankBookingTextSuggestions` in
+  `booking-text-suggestions.ts`). **Ein Eintrag pro Text ohne
+  Groß-/Kleinschreibung** (`toLocaleLowerCase("de")`, NFC: „Müller GmbH“ =
+  „MÜLLER GMBH“), angezeigt in der häufigsten Schreibweise (dann der
+  jüngsten); die Nutzungen zählen zusammen. **Reihenfolge:** mit `type`
+  zuerst Texte, die mit dieser Art verwendet wurden, danach die nur mit der
+  anderen Art (Kunden und Lieferanten unterscheiden sich, bleiben aber
+  auffindbar); jeweils nach Anzahl, dann jüngstem Datum, dann alphabetisch.
+  Höchstens `limit` (Standard 300, max. 1000) – genug zum Filtern beim
+  Tippen, klein im Speicher. Unbekanntes Feld, Art oder Limit wirft
+  `RangeError` (Programmierfehler).
 - **`list(query?)`** (Buchungsliste #17, Suche #21) liefert eine Seite der
   passenden Buchungen, jeweils mit `category: { id, name, archived }`, dazu
   Gesamtanzahl und Summen – siehe [Buchungssuche](#buchungssuche-21).
@@ -763,7 +778,10 @@ Defaults wie `retry: false` sind App-Konfiguration, kein UI-Detail).
 z. B. `bookingQueryKeys` in `src/ui/bookings/booking-queries.ts`:
 `["bookings"]` (alles), `["bookings", "list", query]` (Suche mit ihrem
 `BookingQuery`, #21; Präfix `bookingQueryKeys.lists()`) und `["bookings", "detail", id]` (nur für
-ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`). Ebenso
+ganzzahlige IDs; `NaN` ergäbe den gemeinsamen Key `[…, null]`) und
+`["bookings", "suggestions", field, type]` (Textvorschläge des Formulars,
+`useBookingTextSuggestions`; unter `all`, also nach jeder Buchungsänderung
+und jedem Stripe-Import neu). Ebenso
 `categoryQueryKeys` (`src/ui/categories/category-queries.ts`,
 `useCategoryList()`) und `taxYearQueryKeys`
 (`src/ui/tax-years/tax-year-queries.ts`, `useTaxYear(year)`,
@@ -1141,6 +1159,28 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   (wird sie währenddessen archiviert, bleibt sie markiert sichtbar und der
   Service meldet `categoryArchived`). Wechselt die Art, wird eine unpassende
   Kategorie geleert.
+- **Beschreibung und Gegenpartei** schlagen bisherige Werte vor
+  (`BookingTextInput`, `suggestTexts` mit der Art des Formulars):
+  Freitext bleibt möglich, die Vorschläge helfen nur. Gefiltert wird beim
+  Tippen in `filterTextSuggestions` (Teilstring ohne
+  Groß-/Kleinschreibung, auch Umlaute und zerlegte Eingabe; Treffer am
+  Wort-/Textanfang zuerst; höchstens 50 sichtbar; ein Vorschlag gleich der
+  Eingabe entfällt). Die Liste öffnet nur, wenn etwas passt (beim Tippen
+  oder mit Pfeil runter) – kein „keine Vorschläge“-Popup bei jedem neuen
+  Text. Pfeiltasten wählen, Enter übernimmt (ohne Absenden), Escape
+  schließt die Liste und ändert den Text nie (Base UI 1.9.0 leert bei
+  geschlossener Liste das Feld mit Grund `escape-key` – diese Änderung
+  ignoriert `BookingTextInput`), Tab verlässt das Feld und schließt die
+  Liste; ohne markierten Vorschlag sendet Enter das Formular ab. Das
+  Formular wartet nicht auf die Vorschläge; die Vergleichsschlüssel
+  (`prepareTextSuggestions`) werden einmal pro geladener Liste berechnet.
+  **Komponente:** Base UI Autocomplete (`src/ui/components/ui/autocomplete.tsx`,
+  Stil wie shadcns `combobox`; base-nova hat in shadcn 4.23.0 kein
+  `autocomplete`) statt `<datalist>`: einheitliches Aussehen, eigene
+  Filterlogik (Umlaute, Reihenfolge), `aria-activedescendant`, und die
+  Props von `FormField` (`id`, `aria-invalid`, `aria-describedby`) landen
+  unverändert am Eingabefeld. Combobox passt nicht – sie wählt aus einer
+  festen Menge statt Freitext.
 - **Nach dem Speichern/Löschen** zurück zur Liste mit Toast; „nicht gefunden“
   ebenso, mit Hinweis. Löschen fragt in einem Alert-Dialog nach (Fokus auf
   „Abbrechen“, Escape schließt).

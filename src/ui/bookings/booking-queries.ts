@@ -1,7 +1,13 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppServices } from "@/app/app-services";
-import type { BookingFormInput, BookingQuery, ExportBookingsCsvRequest } from "@/business/bookings";
+import type {
+  BookingFormInput,
+  BookingQuery,
+  BookingTextField,
+  ExportBookingsCsvRequest,
+} from "@/business/bookings";
+import type { BookingType } from "@/business/model";
 import { categoryQueryKeys } from "@/ui/categories/category-queries";
 import { euerQueryKeys } from "@/ui/euer/euer-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
@@ -19,6 +25,9 @@ export const bookingQueryKeys = {
   /** One booking search (#21): `["bookings", "list", query]`. */
   list: (query: BookingQuery) => [...bookingQueryKeys.lists(), query] as const,
   detail: (id: number) => [...bookingQueryKeys.all, "detail", id] as const,
+  /** Text suggestions of the booking form: `["bookings", "suggestions", field, type]`. */
+  suggestions: (field: BookingTextField, type: BookingType) =>
+    [...bookingQueryKeys.all, "suggestions", field, type] as const,
 };
 
 /**
@@ -59,6 +68,23 @@ export function useBooking(id: number) {
     queryKey: bookingQueryKeys.detail(id),
     queryFn: () => bookings.get(id),
     enabled: Number.isInteger(id),
+  });
+}
+
+/**
+ * Earlier texts of `field` as suggestions for the booking form
+ * (`BookingService.suggestTexts`), those of `type` first. Under
+ * `bookingQueryKeys.all`, so every booking change (also the Stripe import)
+ * refreshes them. While the suggestions of another
+ * type load, the previous ones stay; until the first load there are none –
+ * the form does not wait for them.
+ */
+export function useBookingTextSuggestions(field: BookingTextField, type: BookingType) {
+  const { bookings } = useAppServices();
+  return useQuery({
+    queryKey: bookingQueryKeys.suggestions(field, type),
+    queryFn: () => bookings.suggestTexts({ field, type }),
+    placeholderData: (previous) => previous,
   });
 }
 

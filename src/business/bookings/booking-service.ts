@@ -30,6 +30,13 @@ import {
   type BookingQueryInvalid,
   normalizeBookingQuery,
 } from "./booking-query";
+import {
+  BOOKING_TEXT_SUGGESTION_FIELDS,
+  type BookingTextSuggestionRequest,
+  DEFAULT_BOOKING_TEXT_SUGGESTION_LIMIT,
+  MAX_BOOKING_TEXT_SUGGESTION_LIMIT,
+  rankBookingTextSuggestions,
+} from "./booking-text-suggestions";
 
 /**
  * What the booking form submits. Amounts are integer cents (gross, #1);
@@ -200,6 +207,14 @@ export interface BookingService {
   /** Replaces the booking's fields (see {@link BookingFormInput} for omitted optional ones). */
   update(id: number, input: BookingFormInput): Promise<UpdateBookingResult>;
   delete(id: number): Promise<DeleteBookingResult>;
+  /**
+   * Earlier values of description or counterparty as suggestions for the
+   * booking form, most relevant first, one per text ignoring case (see
+   * {@link rankBookingTextSuggestions}). An unknown field or type, or a
+   * limit outside 1–{@link MAX_BOOKING_TEXT_SUGGESTION_LIMIT}, is a
+   * programmer error (`RangeError`).
+   */
+  suggestTexts(request: BookingTextSuggestionRequest): Promise<string[]>;
 }
 
 export interface BookingServiceDependencies {
@@ -292,6 +307,20 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
       return unitOfWork.run(async (repos) =>
         (await repos.bookings.delete(id)) ? { ok: true } : NOT_FOUND,
       );
+    },
+
+    suggestTexts: async ({ field, type, limit = DEFAULT_BOOKING_TEXT_SUGGESTION_LIMIT }) => {
+      if (!BOOKING_TEXT_SUGGESTION_FIELDS.includes(field)) {
+        throw new RangeError(`Unknown text field: ${String(field)}`);
+      }
+      if (type !== undefined && !BOOKING_TYPES.includes(type)) {
+        throw new RangeError(`Unknown booking type: ${String(type)}`);
+      }
+      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_BOOKING_TEXT_SUGGESTION_LIMIT) {
+        throw new RangeError(`Invalid suggestion limit: ${limit}`);
+      }
+      const usages = await unitOfWork.run((repos) => repos.bookings.listTextUsage(field));
+      return rankBookingTextSuggestions(usages, { type, limit });
     },
   };
 
