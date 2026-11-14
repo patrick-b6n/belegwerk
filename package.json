@@ -14,7 +14,9 @@
     "test:watch": "vitest watch",
     "i18n:compile": "paraglide-js compile --project ./project.inlang --silent",
     "tauri": "tauri",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "release": "node scripts/release.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
