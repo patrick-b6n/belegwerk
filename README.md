@@ -233,16 +233,17 @@ Fenster nach vorn (gleiche Datenbank) – vorher die `.exe` schließen.
 ### CI
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) auf
-`windows-latest` für jeden Pull Request und jeden Push auf `main`:
+`windows-latest` für jeden Pull Request:
 Format-Check, Lint, Typecheck, Tests, Prüfung, dass die Migrationen zum Schema
 passen (`pnpm db:generate` ohne Änderung), und `pnpm tauri build --no-bundle`.
 Die gebaute `.exe` steht 7 Tage als Artefakt des Laufs zum Ausprobieren
 bereit.
 
-Jeder Push auf `main` startet zusätzlich
+Auf `main` läuft CI nicht noch einmal: Jeder Push startet stattdessen
 [`.github/workflows/release.yml`](.github/workflows/release.yml) und erzeugt ein
-Release: gleiche Prüfungen, Version aus der aktuellen Zeit in UTC (echt größer
-als das letzte Release-Tag, sonst dieses + 1 Minute), Build und ein
+Release: gleiche Prüfungen (inkl. Migrationen), Version aus der aktuellen
+Zeit in UTC (echt größer als das letzte Release-Tag, sonst dieses + 1
+Minute), Build und ein
 GitHub-Release mit `.exe` und `.sha256` samt Tag `v<YYYY-MM-DD-HHMM>` auf dem
 Commit. Die Läufe laufen nacheinander, keiner wird abgebrochen
 ([Release](docs/release.md#release-veröffentlichen-71-74)).

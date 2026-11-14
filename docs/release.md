@@ -39,7 +39,9 @@ gemergte Pull Request) startet `.github/workflows/release.yml`
 über „Run workflow“ (`workflow_dispatch`) starten – nur auf `main`, auf
 anderen Branches wird der Job übersprungen.
 
-1. `pnpm verify`.
+1. `pnpm verify` und die Migrationsprüfung (`pnpm db:generate` ohne
+   Änderung) – CI (`ci.yml`) läuft nur für Pull Requests, auf `main` prüft
+   allein dieser Workflow.
 2. **Version bestimmen** (`scripts/release-version.ts`): die aktuelle Zeit
    in **UTC** als `YYYY-MM-DD-HHMM` (`calVerFromDate`). Die vorhandenen
    Tags `v*` holt der Workflow über die GitHub-API
@@ -76,8 +78,9 @@ dessen Release enthält dann auch die Commits des übersprungenen.
 
 Der Job hat als einziger `contents: write`; der Checkout speichert keine
 Zugangsdaten (`persist-credentials: false`), `gh` nutzt das `GITHUB_TOKEN`.
-Den Cargo-Cache stellt der Job nur wieder her (von CI auf `main`
-gespeichert), er speichert keinen eigenen. Vorabversionen (in GitHub als
+Den Cargo-Cache von `main` speichert dieser Job (`shared-key:
+tauri-release`, derselbe Schlüssel wie in `ci.yml`); CI-Läufe in Pull
+Requests stellen ihn nur wieder her. Vorabversionen (in GitHub als
 „Pre-release“ markiert) und Entwürfe liefert die API unter
 `releases/latest` nicht aus; die App bietet sie also nicht an.
 

@@ -1,18 +1,17 @@
 name: CI
 
+# Pull requests only: on main, release.yml runs the same checks before it
+# builds and publishes, so a second run here would only duplicate it.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+# One group per PR: a new push cancels the superseded run.
 concurrency:
-  # PRs share a group (superseded runs are cancelled);
-  # every push to main gets its own group and runs to completion.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -43,8 +42,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          # Only main saves the cache; PRs restore it from main.
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Same key as release.yml, which saves main's cache; PRs only
+          # restore it.
+          shared-key: tauri-release
+          save-if: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
