@@ -72,14 +72,14 @@ jobs:
         if: steps.head.outputs.current == 'true'
         uses: dtolnay/rust-toolchain@stable
 
-      # Read only: CI (ci.yml) saves main's cache; the release run builds
-      # with the same profile and does not save a second one.
+      # Saves main's cache (ci.yml no longer runs on main). Same key as
+      # ci.yml, so PR runs restore it.
       - name: Cargo-Cache
         if: steps.head.outputs.current == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          save-if: false
+          shared-key: tauri-release
 
       - name: Install dependencies
         if: steps.head.outputs.current == 'true'
@@ -88,6 +88,17 @@ jobs:
       - name: Verify
         if: steps.head.outputs.current == 'true'
         run: pnpm verify
+
+      # Same check as ci.yml: schema (src/persistence/schema.ts) and committed
+      # migrations must match.
+      - name: Migrations up to date
+        if: steps.head.outputs.current == 'true'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          pnpm db:generate
+          git add -N src/persistence/migrations
+          git diff --exit-code -- src/persistence/migrations
 
       # Determine the version only after Verify, right before build and
       # release: the current time in UTC. If it is not strictly greater than
