@@ -39,7 +39,8 @@ export interface ControlProps {
 }
 
 /**
- * Label, control, description and error of one form field (shadcn `Field`).
+ * Label, description, control and error of one form field (shadcn `Field`);
+ * the description sits right below the label.
  * The control gets `id`, `aria-invalid` and `aria-describedby` (description
  * and error), so screen readers announce the error with the field.
  */
@@ -73,8 +74,12 @@ export function FormField({
       ) : (
         <FieldTitle id={`${id}-label`}>{label}</FieldTitle>
       )}
+      {description && (
+        <FieldDescription id={descriptionId} className="-mt-1.5!">
+          {description}
+        </FieldDescription>
+      )}
       {children({ id, "aria-invalid": invalid || undefined, "aria-describedby": describedBy })}
-      {description && <FieldDescription id={descriptionId}>{description}</FieldDescription>}
       {/* No live region: the error is linked to the control and focused on submit. */}
       <FieldError id={errorId} role={undefined} errors={shown} />
     </Field>
