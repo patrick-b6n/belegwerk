@@ -1,6 +1,6 @@
 import { cn } from "cn";
-import { RotateCcw, Search } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Filter, RotateCcw, Search, X } from "lucide-react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 
 import type { BookingQueryError, BookingQueryField } from "@/business/bookings";
 import type { CategoryWithUsage } from "@/business/categories";
@@ -10,6 +10,7 @@ import { m } from "@/paraglide/messages.js";
 import { Button } from "@/ui/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -141,6 +142,13 @@ function replaceWhenEditing(before: unknown, after: unknown): SearchChangeOption
  * writes them to the URL. Typed values (search text, amounts, custom dates)
  * are committed debounced, choices right away.
  *
+ * Next to the search field a "Filter" button (with the number of set
+ * filters) opens a popover with the filters that are not set; set filters
+ * show in the bar itself, each with a button that removes it. While the
+ * popover is open, the filters it shows stay in it (a filter set there does
+ * not jump out from under the pointer or the caret); they move to the bar
+ * when it closes.
+ *
  * Errors of the business layer's query validation (inverted ranges, too
  * long text from a URL) appear at the affected control.
  */
@@ -158,6 +166,172 @@ export function BookingFilterBar({
     errors.filter((error) => error.field === field).map(bookingQueryErrorMessage);
   const activeCount = countActiveFilters(search);
   const type = search.type === undefined ? undefined : TYPE_OF_PARAM[search.type];
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  // The filters the open popover shows: those unset when it opened.
+  const [inPopover, setInPopover] = useState<readonly string[]>([]);
+
+  const filters: FilterSlot[] = [
+    {
+      key: "period",
+      label: m.bookings_filter_period_label(),
+      active: search.from !== undefined || search.to !== undefined,
+      clear: { from: undefined, to: undefined },
+      node: (
+        <PeriodFilter
+          idPrefix={id("period")}
+          from={search.from}
+          to={search.to}
+          years={years}
+          fromErrors={errorsOf("dateFrom")}
+          toErrors={errorsOf("dateTo")}
+          onChange={(range, options) => onSearchChange({ from: range.from, to: range.to }, options)}
+        />
+      ),
+    },
+    {
+      key: "type",
+      label: m.bookings_filter_type_label(),
+      active: search.type !== undefined,
+      clear: { type: undefined },
+      node: (
+        <FilterField
+          id={id("type")}
+          label={m.bookings_filter_type_label()}
+          errors={errorsOf("type")}
+        >
+          {(control) => (
+            <Select<string>
+              items={[
+                { value: ALL, label: m.bookings_filter_type_all() },
+                ...TYPE_FILTERS.map((value) => ({ value, label: TYPE_FILTER_LABELS[value]() })),
+              ]}
+              value={search.type ?? ALL}
+              onValueChange={(value) => {
+                const typeParam =
+                  value === ALL || value === null ? undefined : (value as BookingTypeParam);
+                const nextType = typeParam === undefined ? undefined : TYPE_OF_PARAM[typeParam];
+                onSearchChange({
+                  type: typeParam,
+                  category: categoriesAfterTypeChange(search.category, categories, nextType),
+                });
+              }}
+            >
+              <SelectTrigger {...control} className={chipClass(search.type !== undefined)}>
+                <ChipLabel>{m.bookings_filter_type_label()}</ChipLabel>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{m.bookings_filter_type_all()}</SelectItem>
+                {TYPE_FILTERS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {TYPE_FILTER_LABELS[value]()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterField>
+      ),
+    },
+    {
+      key: "category",
+      label: m.bookings_filter_category_label(),
+      active: search.category !== undefined,
+      clear: { category: undefined },
+      node: (
+        <CategoryFilter
+          id={id("category")}
+          selected={search.category ?? []}
+          categories={categories}
+          type={type}
+          errors={errorsOf("categoryIds")}
+          onChange={(category) => onSearchChange({ category })}
+        />
+      ),
+    },
+    {
+      key: "source",
+      label: m.bookings_filter_source_label(),
+      active: search.source !== undefined,
+      clear: { source: undefined },
+      node: (
+        <FilterField
+          id={id("source")}
+          label={m.bookings_filter_source_label()}
+          errors={errorsOf("source")}
+        >
+          {(control) => (
+            <Select<string>
+              items={[
+                { value: ALL, label: m.bookings_filter_source_all() },
+                ...SOURCE_FILTERS.map((value) => ({ value, label: SOURCE_FILTER_LABELS[value]() })),
+              ]}
+              value={search.source ?? ALL}
+              onValueChange={(value) =>
+                onSearchChange({
+                  source:
+                    value === ALL || value === null ? undefined : (value as BookingSourceParam),
+                })
+              }
+            >
+              <SelectTrigger {...control} className={chipClass(search.source !== undefined)}>
+                <ChipLabel>{m.bookings_filter_source_label()}</ChipLabel>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{m.bookings_filter_source_all()}</SelectItem>
+                {SOURCE_FILTERS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {SOURCE_FILTER_LABELS[value]()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterField>
+      ),
+    },
+    {
+      key: "vat",
+      label: m.bookings_filter_vat_rate_label(),
+      active: search.vat !== undefined,
+      clear: { vat: undefined },
+      node: (
+        <VatRateFilter
+          id={id("vat-rate")}
+          selected={search.vat ?? []}
+          errors={errorsOf("vatRates")}
+          onChange={(vat) => onSearchChange({ vat })}
+        />
+      ),
+    },
+    {
+      key: "amount",
+      label: m.bookings_filter_amount_label(),
+      active: search.amountFrom !== undefined || search.amountTo !== undefined,
+      clear: { amountFrom: undefined, amountTo: undefined },
+      node: (
+        <AmountFilter
+          idPrefix={id("amount")}
+          from={search.amountFrom}
+          to={search.amountTo}
+          fromErrors={errorsOf("amountFrom")}
+          toErrors={errorsOf("amountTo")}
+          onCommitFrom={(amountFrom) =>
+            onSearchChange({ amountFrom }, replaceWhenEditing(search.amountFrom, amountFrom))
+          }
+          onCommitTo={(amountTo) =>
+            onSearchChange({ amountTo }, replaceWhenEditing(search.amountTo, amountTo))
+          }
+        />
+      ),
+    },
+  ];
+  const setCount = filters.filter((filter) => filter.active).length;
+  const shownInBar = filters.filter(
+    (filter) => filter.active && !(popoverOpen && inPopover.includes(filter.key)),
+  );
+  const shownInPopover = filters.filter((filter) => inPopover.includes(filter.key));
 
   return (
     <div
@@ -171,133 +345,76 @@ export function BookingFilterBar({
         errors={errorsOf("text")}
         onCommit={(q) => onSearchChange({ q }, replaceWhenEditing(search.q, q))}
       />
-      <PeriodFilter
-        idPrefix={id("period")}
-        from={search.from}
-        to={search.to}
-        years={years}
-        fromErrors={errorsOf("dateFrom")}
-        toErrors={errorsOf("dateTo")}
-        onChange={(range, options) => onSearchChange({ from: range.from, to: range.to }, options)}
-      />
 
-      <FilterField id={id("type")} label={m.bookings_filter_type_label()} errors={errorsOf("type")}>
-        {(control) => (
-          <Select<string>
-            items={[
-              { value: ALL, label: m.bookings_filter_type_all() },
-              ...TYPE_FILTERS.map((value) => ({ value, label: TYPE_FILTER_LABELS[value]() })),
-            ]}
-            value={search.type ?? ALL}
-            onValueChange={(value) => {
-              const typeParam =
-                value === ALL || value === null ? undefined : (value as BookingTypeParam);
-              const nextType = typeParam === undefined ? undefined : TYPE_OF_PARAM[typeParam];
-              onSearchChange({
-                type: typeParam,
-                category: categoriesAfterTypeChange(search.category, categories, nextType),
-              });
-            }}
-          >
-            <SelectTrigger {...control} className={chipClass(search.type !== undefined)}>
-              <ChipLabel>{m.bookings_filter_type_label()}</ChipLabel>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{m.bookings_filter_type_all()}</SelectItem>
-              {TYPE_FILTERS.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {TYPE_FILTER_LABELS[value]()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </FilterField>
-
-      <CategoryFilter
-        id={id("category")}
-        selected={search.category ?? []}
-        categories={categories}
-        type={type}
-        errors={errorsOf("categoryIds")}
-        onChange={(category) => onSearchChange({ category })}
-      />
-
-      <FilterField
-        id={id("source")}
-        label={m.bookings_filter_source_label()}
-        errors={errorsOf("source")}
-      >
-        {(control) => (
-          <Select<string>
-            items={[
-              { value: ALL, label: m.bookings_filter_source_all() },
-              ...SOURCE_FILTERS.map((value) => ({ value, label: SOURCE_FILTER_LABELS[value]() })),
-            ]}
-            value={search.source ?? ALL}
-            onValueChange={(value) =>
-              onSearchChange({
-                source: value === ALL || value === null ? undefined : (value as BookingSourceParam),
-              })
-            }
-          >
-            <SelectTrigger {...control} className={chipClass(search.source !== undefined)}>
-              <ChipLabel>{m.bookings_filter_source_label()}</ChipLabel>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{m.bookings_filter_source_all()}</SelectItem>
-              {SOURCE_FILTERS.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {SOURCE_FILTER_LABELS[value]()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </FilterField>
-
-      <VatRateFilter
-        id={id("vat-rate")}
-        selected={search.vat ?? []}
-        errors={errorsOf("vatRates")}
-        onChange={(vat) => onSearchChange({ vat })}
-      />
-
-      <div
-        role="group"
-        aria-label={m.bookings_filter_amount_label()}
-        className="flex items-start gap-1.5"
-      >
-        {/* The group's name; each field's own label is for screen readers. */}
-        <span aria-hidden className="text-sm leading-8 whitespace-nowrap text-muted-foreground">
-          {m.bookings_filter_amount_label()}
-        </span>
-        <AmountField
-          id={id("amount-from")}
-          label={m.bookings_filter_amount_from_label()}
-          placeholder={m.bookings_filter_amount_from_placeholder()}
-          cents={search.amountFrom}
-          errors={errorsOf("amountFrom")}
-          onCommit={(amountFrom) =>
-            onSearchChange({ amountFrom }, replaceWhenEditing(search.amountFrom, amountFrom))
+      <Popover
+        open={popoverOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setInPopover(filters.filter((filter) => !filter.active).map((filter) => filter.key));
           }
-        />
-        <AmountField
-          id={id("amount-to")}
-          label={m.bookings_filter_amount_to_label()}
-          placeholder={m.bookings_filter_amount_to_placeholder()}
-          cents={search.amountTo}
-          errors={errorsOf("amountTo")}
-          onCommit={(amountTo) =>
-            onSearchChange({ amountTo }, replaceWhenEditing(search.amountTo, amountTo))
-          }
-        />
-      </div>
+          setPopoverOpen(open);
+        }}
+      >
+        <PopoverTrigger render={<Button variant="outline" />}>
+          <Filter aria-hidden />
+          {m.bookings_filter_button()}
+          {setCount > 0 && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] leading-none font-semibold text-primary-foreground tabular-nums">
+              {setCount}
+            </span>
+          )}
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          aria-label={m.bookings_filter_label()}
+          className="w-[28rem] max-w-(--available-width) gap-4"
+        >
+          {shownInPopover.length === 0 ? (
+            <p className="text-muted-foreground">{m.bookings_filter_all_set()}</p>
+          ) : (
+            <FilterPanel.Provider value={true}>
+              <div className="grid grid-cols-2 items-start gap-x-4 gap-y-3">
+                {shownInPopover.map((filter) => (
+                  <div
+                    key={filter.key}
+                    className={cn(WIDE_FILTERS.includes(filter.key) && "col-span-2")}
+                  >
+                    {filter.node}
+                  </div>
+                ))}
+              </div>
+            </FilterPanel.Provider>
+          )}
+          {activeCount > 0 && (
+            <Button
+              variant="ghost"
+              className="-my-1 -ml-2.5 self-start text-primary hover:text-primary"
+              onClick={onReset}
+            >
+              {m.bookings_filter_reset_all()}
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
 
-      <div className="ml-auto flex items-center gap-2 self-center">
-        <span aria-live="polite" className="text-sm text-muted-foreground">
+      {shownInBar.map((filter) => (
+        <div key={filter.key} className="flex items-start">
+          {filter.node}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={m.bookings_filter_remove({ filter: filter.label })}
+            title={m.bookings_filter_remove({ filter: filter.label })}
+            onClick={() => onSearchChange(filter.clear)}
+          >
+            <X aria-hidden />
+          </Button>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-2 self-center">
+        {/* The number of set filters is on the "Filter" button; announced here. */}
+        <span aria-live="polite" className="sr-only">
           {activeCount === 0
             ? ""
             : activeCount === 1
@@ -316,13 +433,34 @@ export function BookingFilterBar({
   );
 }
 
+/**
+ * Whether filters render in the "Filter" popover's panel: there each has a
+ * visible label above a full-width control (in the bar the trigger names the
+ * filter itself, "Art: Alle").
+ */
+const FilterPanel = createContext(false);
+
+/** Filters that take the panel's full width (several controls). */
+const WIDE_FILTERS: readonly string[] = ["period", "amount"];
+
+/** One filter of the bar: where it shows depends on whether it is set. */
+interface FilterSlot {
+  readonly key: string;
+  readonly label: string;
+  readonly active: boolean;
+  /** The patch that removes the filter. */
+  readonly clear: BookingSearchPatch;
+  readonly node: ReactNode;
+}
+
 /** Classes of a filter's select trigger: highlighted while the filter is active. */
 function chipClass(active: boolean): string {
-  return cn("bg-background", active && "border-primary bg-primary/10 dark:bg-primary/15");
+  return cn(active && "border-primary/40 bg-primary/10 font-semibold dark:bg-primary/15");
 }
 
 /** The filter's name inside its trigger ("Art: Alle"); the label is for screen readers. */
 function ChipLabel({ children }: Readonly<{ children: ReactNode }>) {
+  if (useContext(FilterPanel)) return null;
   return (
     <span aria-hidden className="text-muted-foreground">
       {children}:
@@ -333,13 +471,15 @@ function ChipLabel({ children }: Readonly<{ children: ReactNode }>) {
 /**
  * Label, control and error of one filter (like `FormField`, compact): the
  * label is only for screen readers (the trigger names the filter itself) or,
- * with `inlineLabel`, shown left of the control. A description is only for
- * screen readers.
+ * with `inlineLabel`, shown left of the control. In the popover's panel the
+ * label is shown above a full-width control (unless `hideLabel`, for fields
+ * of a labelled group). A description is only for screen readers.
  */
 function FilterField({
   id,
   label,
   inlineLabel = false,
+  hideLabel = false,
   description,
   errors,
   className,
@@ -348,6 +488,7 @@ function FilterField({
   id: string;
   label: string;
   inlineLabel?: boolean;
+  hideLabel?: boolean;
   description?: string;
   errors: readonly unknown[];
   className?: string;
@@ -363,9 +504,20 @@ function FilterField({
     "aria-invalid": invalid || undefined,
     "aria-describedby": describedBy,
   });
+  const inPanel = useContext(FilterPanel);
   return (
-    <Field data-invalid={invalid || undefined} className={cn("w-auto gap-1", className)}>
-      {inlineLabel ? (
+    <Field
+      data-invalid={invalid || undefined}
+      className={cn("w-auto gap-1", inPanel && "w-full", className)}
+    >
+      {inPanel && !inlineLabel && !hideLabel ? (
+        <>
+          <FieldLabel htmlFor={id}>{label}</FieldLabel>
+          <div className="[&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:max-w-none">
+            {control}
+          </div>
+        </>
+      ) : inlineLabel ? (
         <div className="flex items-center gap-1.5">
           <FieldLabel htmlFor={id} className="font-normal whitespace-nowrap text-muted-foreground">
             {label}
@@ -502,8 +654,15 @@ function PeriodFilter({
       ? m.bookings_filter_range({ from: formatDate(range.from), to: formatDate(range.to) })
       : undefined;
 
+  const inPanel = useContext(FilterPanel);
   return (
-    <div className="flex flex-wrap items-start gap-2">
+    <div
+      className={cn(
+        inPanel
+          ? "grid grid-cols-2 items-start gap-x-4 gap-y-3"
+          : "flex flex-wrap items-start gap-2",
+      )}
+    >
       <FilterField
         id={`${idPrefix}-kind`}
         label={m.bookings_filter_period_label()}
@@ -693,6 +852,74 @@ function DateField({
 }
 
 /**
+ * Gross amount range: in the bar "Betrag (brutto)" left of the two fields, in
+ * the popover's panel the name above "ab – bis". The group names both fields;
+ * each field's own label is for screen readers.
+ */
+function AmountFilter({
+  idPrefix,
+  from,
+  to,
+  fromErrors,
+  toErrors,
+  onCommitFrom,
+  onCommitTo,
+}: Readonly<{
+  idPrefix: string;
+  from: number | undefined;
+  to: number | undefined;
+  fromErrors: readonly string[];
+  toErrors: readonly string[];
+  onCommitFrom: (cents: number | undefined) => void;
+  onCommitTo: (cents: number | undefined) => void;
+}>) {
+  const inPanel = useContext(FilterPanel);
+  const fields = (
+    <>
+      <AmountField
+        id={`${idPrefix}-from`}
+        label={m.bookings_filter_amount_from_label()}
+        placeholder={m.bookings_filter_amount_from_placeholder()}
+        cents={from}
+        errors={fromErrors}
+        onCommit={onCommitFrom}
+      />
+      {inPanel && (
+        <span aria-hidden className="leading-8 text-muted-foreground">
+          –
+        </span>
+      )}
+      <AmountField
+        id={`${idPrefix}-to`}
+        label={m.bookings_filter_amount_to_label()}
+        placeholder={m.bookings_filter_amount_to_placeholder()}
+        cents={to}
+        errors={toErrors}
+        onCommit={onCommitTo}
+      />
+    </>
+  );
+  return (
+    <div
+      role="group"
+      aria-label={m.bookings_filter_amount_label()}
+      className={cn(inPanel ? "flex flex-col gap-1" : "flex items-start gap-1.5")}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "text-sm whitespace-nowrap",
+          inPanel ? "font-semibold" : "leading-8 text-muted-foreground",
+        )}
+      >
+        {m.bookings_filter_amount_label()}
+      </span>
+      {inPanel ? <div className="flex items-start gap-2">{fields}</div> : fields}
+    </div>
+  );
+}
+
+/**
  * Amount bound in euros with decimal comma (`parseAmount`), stored in cents.
  * An unreadable amount is shown as error and not committed; on blur a valid
  * one is shown in canonical form ("1.500" → "1.500,00", the dot groups
@@ -733,6 +960,7 @@ function AmountField({
     },
     delay: VALUE_DELAY,
   });
+  const inPanel = useContext(FilterPanel);
   const parsed = parseAmountFilter(input.value);
   const ownError =
     invalidText !== undefined && invalidText === input.value && !parsed.ok
@@ -740,7 +968,13 @@ function AmountField({
       : undefined;
 
   return (
-    <FilterField id={id} label={label} errors={ownError ? [ownError] : errors}>
+    <FilterField
+      id={id}
+      label={label}
+      hideLabel
+      errors={ownError ? [ownError] : errors}
+      className={cn(inPanel && "min-w-0 flex-1")}
+    >
       {(control) => (
         <div className="relative">
           <Input
@@ -765,7 +999,8 @@ function AmountField({
               }
             }}
             className={cn(
-              "w-24 bg-background pr-7 text-right tabular-nums",
+              inPanel ? "w-full" : "w-24",
+              "bg-background pr-7 text-right tabular-nums",
               cents !== undefined && "border-primary bg-primary/10 dark:bg-primary/15",
             )}
           />

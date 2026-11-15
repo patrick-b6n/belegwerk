@@ -13,7 +13,13 @@ mod updater;
 /// frontend opens it with `Database.get(DB_NAME)` (src/persistence).
 const DB_NAME: &str = "sqlite:belegwerk.db";
 /// File name in the app data directory (`%APPDATA%\de.belegwerk.desktop`).
-const DB_FILE: &str = "belegwerk.db";
+/// Debug builds (`pnpm tauri dev`) use their own file, so development and
+/// testing never touch the real data; the release build uses `belegwerk.db`.
+const DB_FILE: &str = if cfg!(debug_assertions) {
+    "belegwerk-dev.db"
+} else {
+    "belegwerk.db"
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -89,8 +95,10 @@ async fn register_database(app: &tauri::AppHandle) -> Result<(), Box<dyn std::er
     let dir = app.path().app_data_dir()?;
     std::fs::create_dir_all(&dir)?;
 
+    let file = dir.join(DB_FILE);
+    log::info!("database file: {}", file.display());
     let options = SqliteConnectOptions::new()
-        .filename(dir.join(DB_FILE))
+        .filename(file)
         .create_if_missing(true)
         .foreign_keys(true);
     let pool = SqlitePoolOptions::new()

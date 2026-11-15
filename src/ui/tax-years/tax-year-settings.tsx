@@ -183,7 +183,7 @@ function TaxYearRow({ taxYear }: Readonly<{ taxYear: TaxYearOverview }>) {
             {!taxYear.explicit && (
               <span
                 title={m.tax_years_default_title()}
-                className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground"
+                className="shrink-0 rounded-md bg-muted px-1 text-xs text-muted-foreground"
               >
                 {m.tax_years_default()}
               </span>

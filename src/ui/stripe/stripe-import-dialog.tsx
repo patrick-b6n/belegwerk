@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { cn } from "cn";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, CloudDownload, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { type ComponentProps, useEffect, useId, useRef, useState } from "react";
 
 import { formatDate } from "@/business/format";
@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/ui/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
@@ -64,8 +63,8 @@ import { useStripeImport } from "./stripe-mutations";
 import { useStripeImportStatus, useStripeSettings } from "./stripe-queries";
 
 /**
- * "Stripe importieren" (#31) in the header of the booking list: opens the
- * import dialog.
+ * The "Stripe importieren" dialog (#31), opened from the booking list's
+ * "…" menu (`open` / `onOpenChange`).
  *
  * - Without a key, or with missing/invalid defaults, the dialog only explains
  *   and links to the settings.
@@ -79,31 +78,37 @@ import { useStripeImportStatus, useStripeSettings } from "./stripe-queries";
  * - Afterwards a summary "X new, Y skipped" with the entries not booked
  *   and a link to the imported bookings.
  */
-export function StripeImportButton() {
-  const [open, setOpen] = useState(false);
+export function StripeImportDialog({
+  open,
+  onOpenChange,
+}: Readonly<{ open: boolean; onOpenChange: (open: boolean) => void }>) {
   const [busy, setBusy] = useState(false);
   // A new panel (fresh form and result) for every opening.
   const [session, setSession] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setSession((count) => count + 1);
+  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (busy) return;
-        if (next) setSession((count) => count + 1);
-        setOpen(next);
+        onOpenChange(next);
       }}
     >
-      <DialogTrigger render={<Button variant="outline" title={m.stripe_import_button_hint()} />}>
-        <CloudDownload aria-hidden />
-        {m.stripe_import_button()}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-2xl" showCloseButton={!busy} aria-busy={busy || undefined}>
         <DialogHeader>
           <DialogTitle>{m.stripe_import_title()}</DialogTitle>
           <DialogDescription>{m.stripe_import_description()}</DialogDescription>
         </DialogHeader>
-        <StripeImportPanel key={session} onBusyChange={setBusy} onClose={() => setOpen(false)} />
+        <StripeImportPanel
+          key={session}
+          onBusyChange={setBusy}
+          onClose={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -454,7 +459,7 @@ function StripeImportForm({
                         onBlur={field.handleBlur}
                       />
                       <FieldContent>
-                        <FieldLabel htmlFor={controlId}>
+                        <FieldLabel htmlFor={controlId} className="font-normal">
                           {m.stripe_import_test_confirm()}
                         </FieldLabel>
                         <FieldError id={`${controlId}-error`} role={undefined} errors={errors} />
@@ -596,7 +601,7 @@ function FailureTable({ summary }: Readonly<{ summary: StripeImportSummary }>) {
     <div className="flex flex-col gap-2">
       <h4 className="font-medium">{m.stripe_import_failures_heading()}</h4>
       <p className="text-sm text-muted-foreground">{m.stripe_import_failures_hint()}</p>
-      <div className="max-h-64 overflow-auto rounded-lg border">
+      <div className="max-h-64 overflow-auto rounded-xl border">
         <Table>
           <TableCaption className="sr-only">{m.stripe_import_failures_caption()}</TableCaption>
           <TableHeader>

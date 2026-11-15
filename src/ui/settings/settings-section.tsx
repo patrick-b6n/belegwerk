@@ -1,8 +1,9 @@
 import { type ReactNode, useId } from "react";
 
 /**
- * One section of the settings page (`/settings`): a titled region with
- * an optional description. The page stacks sections ("Steuerjahre" #20,
+ * One section of the settings page (`/settings`), like a group in the
+ * Windows 11 settings: a heading with an optional description above a card
+ * that holds the section's content. The page stacks sections ("Steuerjahre" #20,
  * "Stripe" #28); each section owns its data, loading and error states.
  */
 export function SettingsSection({
@@ -16,10 +17,10 @@ export function SettingsSection({
     <section
       aria-labelledby={headingId}
       aria-describedby={description ? descriptionId : undefined}
-      className="flex flex-col gap-4 rounded-xl border p-6"
+      className="flex flex-col gap-2"
     >
       <div className="flex flex-col gap-1">
-        <h2 id={headingId} className="font-heading text-lg font-semibold">
+        <h2 id={headingId} className="text-sm font-semibold">
           {title}
         </h2>
         {description && (
@@ -28,7 +29,7 @@ export function SettingsSection({
           </p>
         )}
       </div>
-      {children}
+      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">{children}</div>
     </section>
   );
 }

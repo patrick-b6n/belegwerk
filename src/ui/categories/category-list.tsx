@@ -126,7 +126,7 @@ function CategoryGroupSection({
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={headingId} className="font-heading text-lg font-semibold">
+        <h2 id={headingId} className="font-heading text-xl font-semibold">
           {title}
         </h2>
         <Button variant="outline" size="sm" onClick={onCreate}>
@@ -169,7 +169,7 @@ function Badge({ children, title }: Readonly<{ children: string; title?: string 
   return (
     <span
       title={title}
-      className="shrink-0 rounded-sm bg-muted px-1 text-xs font-normal text-muted-foreground"
+      className="shrink-0 rounded-md bg-muted px-1 text-xs font-normal text-muted-foreground"
     >
       {children}
     </span>

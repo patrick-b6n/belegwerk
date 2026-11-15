@@ -91,17 +91,17 @@ const columns = column.columns([
         to="/bookings/$bookingId"
         params={{ bookingId: row.original.id }}
         title={row.original.description}
-        className="block truncate rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        className="block truncate rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
       >
         {row.original.description}
       </Link>
     ),
-    meta: { className: "w-full max-w-0 min-w-36", sortField: "description" },
+    meta: { className: "w-full max-w-0 min-w-60", sortField: "description" },
   }),
   column.accessor("counterparty", {
     header: () => COLUMN_LABELS.counterparty(),
     cell: ({ getValue }) => (
-      <span title={getValue()} className="block max-w-36 truncate">
+      <span title={getValue()} className="block max-w-40 truncate">
         {getValue()}
       </span>
     ),
@@ -114,7 +114,7 @@ const columns = column.columns([
       <span title={row.original.category.name} className="flex max-w-40 items-center gap-1.5">
         <span className="truncate">{row.original.category.name}</span>
         {row.original.category.archived && (
-          <span className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground">
+          <span className="shrink-0 rounded-md border bg-muted px-1.5 text-xs text-muted-foreground">
             {m.bookings_category_archived()}
           </span>
         )}
@@ -135,7 +135,7 @@ const columns = column.columns([
   column.accessor("grossCents", {
     header: () => COLUMN_LABELS.grossCents(),
     cell: ({ row }) => (
-      <span className={cn("font-medium", TYPE_AMOUNT_CLASS[row.original.type])}>
+      <span className={cn("font-semibold", TYPE_AMOUNT_CLASS[row.original.type])}>
         {formatCurrency(row.original.grossCents)}
       </span>
     ),
@@ -181,7 +181,7 @@ export function BookingTable({ bookings, sort, onSortChange }: BookingTableProps
   return (
     <Table
       containerClassName="w-full"
-      className="[&_td:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:first-child]:pl-3 [&_th:last-child]:pr-3"
+      className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4"
     >
       <TableCaption className="sr-only">
         {m.bookings_table_caption({
@@ -189,7 +189,7 @@ export function BookingTable({ bookings, sort, onSortChange }: BookingTableProps
           direction: DIRECTION_LABELS[sort.direction](),
         })}
       </TableCaption>
-      <TableHeader className="sticky top-0 z-10 bg-muted shadow-[inset_0_-1px_0_var(--color-border)] [&_tr]:border-b-0">
+      <TableHeader className="sticky top-0 z-10 bg-card shadow-[inset_0_-1px_0_var(--color-border)] [&_tr]:border-b-0">
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
             {group.headers.map((header) => {
@@ -261,12 +261,21 @@ function SortButton({
         column: COLUMN_LABELS[field](),
         direction: DIRECTION_LABELS[next.direction](),
       })}
-      className="-mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+        direction !== undefined && "font-semibold text-foreground",
+      )}
     >
       {children}
       <Icon
         aria-hidden
-        className={cn("size-3.5 shrink-0", direction === undefined && "text-muted-foreground/60")}
+        className={cn(
+          "size-3.5 shrink-0",
+          // Like Windows Explorer: only the sorted column shows its arrow;
+          // the others show it on hover and keyboard focus.
+          direction === undefined &&
+            "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60",
+        )}
       />
     </button>
   );
@@ -315,11 +324,11 @@ export function BookingSumsSummary({
   ];
   return (
     <div role="group" aria-label={caption}>
-      <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+      <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
         {items.map((item) => (
-          <div key={item.key} data-sum={item.key} className="flex items-baseline gap-1.5">
+          <div key={item.key} data-sum={item.key} className="flex items-baseline gap-2">
             <dt className="text-muted-foreground">{item.label}</dt>
-            <dd className={cn("font-medium tabular-nums", item.className)}>{item.value}</dd>
+            <dd className={cn("font-semibold tabular-nums", item.className)}>{item.value}</dd>
           </div>
         ))}
       </dl>
@@ -348,7 +357,7 @@ function BookingRow({
     void navigate({ to: "/bookings/$bookingId", params: { bookingId: row.original.id } });
   };
   return (
-    <TableRow data-booking-id={row.original.id} onClick={onClick} className="cursor-pointer">
+    <TableRow data-booking-id={row.original.id} onClick={onClick}>
       {children}
     </TableRow>
   );
@@ -357,14 +366,7 @@ function BookingRow({
 function BookingTypeBadge({ type }: Readonly<{ type: BookingType }>) {
   const Icon = type === "income" ? ArrowDownLeft : ArrowUpRight;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
-        type === "income"
-          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-          : "bg-rose-50 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
-      )}
-    >
+    <span className={cn("inline-flex items-center gap-1", TYPE_AMOUNT_CLASS[type])}>
       <Icon aria-hidden className="size-3.5" />
       {BOOKING_TYPE_LABELS[type]()}
     </span>

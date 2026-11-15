@@ -210,7 +210,19 @@ pnpm tauri dev   # startet Vite (Port 1420) und das Desktop-Fenster
 `pnpm dev` allein startet nur Vite; im normalen Browser gibt es kein Tauri und
 keine Datenbank, die App zeigt dann „Belegwerk läuft nur als Desktop-App“.
 Läuft die Release-`.exe`, beendet sich `pnpm tauri dev` sofort und holt deren
-Fenster nach vorn (gleiche Datenbank) – vorher die `.exe` schließen.
+Fenster nach vorn (eine Instanz pro App) – vorher die `.exe` schließen.
+
+Der Entwicklungs-Build arbeitet mit einer eigenen Datenbank,
+`%APPDATA%\de.belegwerk.desktop\belegwerk-dev.db`; die echten Daten in
+`belegwerk.db` bleiben beim Entwickeln und Testen unberührt. Zum Testen mit
+echten Daten eine Kopie von `belegwerk.db` unter diesem Namen ablegen (App
+vorher schließen).
+
+Ist die Entwicklungs-Datenbank leer (keine Buchungen), füllt der
+Entwicklungs-Build sie beim Start mit Beispieldaten: rund 14 Monate
+Buchungen bis heute (`src/app/dev-sample-data.ts`). Neu anfangen:
+`belegwerk-dev.db` löschen und die App neu starten. Release-Builds enthalten
+diesen Code nicht.
 
 ### Scripts
 

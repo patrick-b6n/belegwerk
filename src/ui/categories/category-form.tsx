@@ -155,6 +155,7 @@ export function CategoryForm({
           <FormField
             id={id("name")}
             label={m.category_form_name_label()}
+            required
             errors={field.state.meta.errors}
           >
             {(control) => (
@@ -199,6 +200,7 @@ export function CategoryForm({
             <FormField
               id={id("type")}
               label={m.category_form_type_label()}
+              required
               labelAs="group"
               description={m.category_form_type_description()}
               errors={field.state.meta.errors}
@@ -264,7 +266,7 @@ export function CategoryForm({
                       onBlur={field.handleBlur}
                     />
                     <FieldContent>
-                      <FieldLabel htmlFor={controlId}>
+                      <FieldLabel htmlFor={controlId} className="font-normal">
                         {m.category_form_reduces_income_label()}
                       </FieldLabel>
                       <FieldDescription id={`${controlId}-description`}>
@@ -343,7 +345,7 @@ export function CategoryForm({
         )}
       </form.Subscribe>
 
-      <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end">
+      <div className="-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-6 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onCancel}>
           {m.common_cancel()}
         </Button>

@@ -708,7 +708,12 @@ describe("BookingService.list", () => {
 
     const all = await listed(service, { pageSize: "all", page: 3 });
     expect(all.items).toHaveLength(DEFAULT_BOOKING_PAGE_SIZE + 5);
-    expect(all).toMatchObject({ page: 1, pageCount: 1, pageSize: "all", total: 55 });
+    expect(all).toMatchObject({
+      page: 1,
+      pageCount: 1,
+      pageSize: "all",
+      total: DEFAULT_BOOKING_PAGE_SIZE + 5,
+    });
   });
 
   it("rejects an invalid query without touching the database", async () => {

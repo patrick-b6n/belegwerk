@@ -82,7 +82,7 @@ export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
 
 function NoMappingHint({ year }: Readonly<{ year: string }>) {
   return (
-    <p className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-sm">
+    <p className="flex items-start gap-2 rounded-xl border border-dashed p-3 text-sm">
       <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       {m.euer_no_mapping({ year })}
     </p>
@@ -105,13 +105,16 @@ function EuerTable({
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-lg font-semibold">
+      <h2 id={headingId} className="font-heading text-xl font-semibold">
         {title}
       </h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed"
+          containerClassName="relative w-full overflow-x-auto rounded-xl border bg-card"
+        >
           <TableCaption className="sr-only">{title}</TableCaption>
           <TableHeader>
             <TableRow>
@@ -128,7 +131,7 @@ function EuerTable({
           <TableFooter>
             <TableRow className="hover:bg-transparent">
               <TableCell />
-              <th scope="row" className="p-2 text-left font-semibold">
+              <th scope="row" className="px-3 py-1.5 text-left font-semibold">
                 {totalLabel}
               </th>
               <TableCell className={cn(AMOUNT, "font-semibold")}>
@@ -189,7 +192,7 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
           {informational && (
             <span
               title={m.euer_informational_title()}
-              className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground"
+              className="shrink-0 rounded-md bg-muted px-1 text-xs text-muted-foreground"
             >
               {m.euer_informational()}
             </span>
@@ -225,10 +228,10 @@ function EuerResultSummary({ result }: Readonly<{ result: EuerResult }>) {
         : m.euer_result_zero();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-lg font-semibold">
+      <h2 id={headingId} className="font-heading text-xl font-semibold">
         {m.euer_result_title()}
       </h2>
-      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-lg border p-4 text-sm">
+      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-xl border bg-card p-4 text-sm">
         <dt>{m.euer_income_total()}</dt>
         <dd className={cn(AMOUNT, "pl-6")}>{formatCurrency(incomeCents)}</dd>
         <dt>{m.euer_expenses_total()}</dt>
@@ -298,7 +301,7 @@ function EuerWarnings({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40"
+      className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40"
     >
       <h2 id={headingId} className="flex items-center gap-2 font-semibold">
         <TriangleAlert aria-hidden className="size-4" />
