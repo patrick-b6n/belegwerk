@@ -140,3 +140,32 @@
     @apply font-sans;
   }
 }
+
+/* Startup screen (src/ui/layout/startup-screen.tsx): the logo's receipt lines
+   are written one after another, stay a moment and fade out, in a loop. */
+@keyframes logo-line {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  35%,
+  80% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.logo-line {
+  stroke-dasharray: 1;
+  animation: logo-line 2.2s ease-in-out infinite both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-line {
+    animation: none;
+  }
+}
