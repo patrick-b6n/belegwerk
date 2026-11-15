@@ -401,6 +401,9 @@ src/persistence/migrations/
 - **Ort:** `%APPDATA%\de.belegwerk.desktop\belegwerk.db` (Tauri `app_data_dir`
   des Identifiers; unter Windows identisch mit `app_config_dir`, das das
   Plugin selbst verwendet). Name im Plugin: `sqlite:belegwerk.db`.
+  Debug-Builds (`pnpm tauri dev`) öffnen unter demselben Plugin-Namen die
+  Datei `belegwerk-dev.db` (`DB_FILE` in `src-tauri/src/lib.rs`), damit
+  Entwicklung und Tests die echten Daten nie berühren.
 - **Genau eine Verbindung.** `tauri-plugin-sql` öffnet über `Database.load`
   einen sqlx-Pool mit bis zu zehn Verbindungen; einzelne `execute`-Aufrufe für
   `PRAGMA`, `BEGIN`, Statements und `COMMIT` landeten dann auf verschiedenen

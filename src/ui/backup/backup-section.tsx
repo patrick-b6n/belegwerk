@@ -11,7 +11,10 @@ import { useCreateBackup } from "./backup-mutations";
  * Where the Tauri host keeps the database (src-tauri/src/lib.rs,
  * docs/data-model.md) – shown for the manual restore.
  */
-const DATABASE_LOCATION = "%APPDATA%\\de.belegwerk.desktop\\belegwerk.db";
+const DATABASE_LOCATION = `%APPDATA%\\de.belegwerk.desktop\\${
+  // Development builds use their own file (src-tauri/src/lib.rs, DB_FILE).
+  import.meta.env.DEV ? "belegwerk-dev.db" : "belegwerk.db"
+}`;
 
 /**
  * Section "Backup" on `/settings` (#32): explains what a backup
