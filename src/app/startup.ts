@@ -43,7 +43,16 @@ async function start(): Promise<AppServices> {
     if (applied.length > 0) {
       console.info(`Applied migrations: ${applied.join(", ")}`);
     }
-    return createAppServices(database);
+    const services = createAppServices(database);
+    // Development builds only (own database, belegwerk-dev.db): fill an
+    // empty database with sample bookings. Loaded lazily, so release builds
+    // do not contain it.
+    if (import.meta.env.DEV) {
+      const { seedSampleData } = await import("./dev-sample-data");
+      const result = await seedSampleData(services);
+      if (result.seeded) console.info(`Sample data: ${result.created} bookings created`);
+    }
+    return services;
   } catch (error) {
     const reason = isDatabaseNotLoaded(error) ? "database-unavailable" : "error";
     throw new StartupError(reason, "Could not open the database", { cause: error });

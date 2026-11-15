@@ -218,6 +218,12 @@ Der Entwicklungs-Build arbeitet mit einer eigenen Datenbank,
 echten Daten eine Kopie von `belegwerk.db` unter diesem Namen ablegen (App
 vorher schließen).
 
+Ist die Entwicklungs-Datenbank leer (keine Buchungen), füllt der
+Entwicklungs-Build sie beim Start mit Beispieldaten: rund 14 Monate
+Buchungen bis heute (`src/app/dev-sample-data.ts`). Neu anfangen:
+`belegwerk-dev.db` löschen und die App neu starten. Release-Builds enthalten
+diesen Code nicht.
+
 ### Scripts
 
 | Script              | Zweck                                                                          |
