@@ -1,4 +1,5 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
+import { cn } from "cn";
 import { BookOpenText, Calculator, type LucideIcon, Settings, Tags } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -19,6 +20,14 @@ type NavItem = {
   to: LinkProps["to"];
 };
 
+/**
+ * A top-navigation item (Fluent): muted text, a subtle fill on hover; the
+ * active one in the foreground colour with a 16×3 px accent line at the
+ * bottom of the bar (each item sets the offset that puts it there).
+ */
+const NAV_ITEM =
+  "relative flex items-center rounded-md text-sm text-sidebar-foreground/80 outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[status=active]:text-foreground data-[status=active]:after:absolute data-[status=active]:after:left-1/2 data-[status=active]:after:h-[3px] data-[status=active]:after:w-4 data-[status=active]:after:-translate-x-1/2 data-[status=active]:after:rounded-full data-[status=active]:after:bg-sidebar-primary";
+
 const mainItems: NavItem[] = [
   { icon: BookOpenText, label: m.bookings_title, to: "/bookings" },
   { icon: Calculator, label: m.euer_title, to: "/euer" },
@@ -26,9 +35,10 @@ const mainItems: NavItem[] = [
 ];
 
 /**
- * App layout: a top bar (logo, main navigation, update notice, settings) and
- * the active area below it. Bar and a thin margin form a frame in the sidebar
- * colour around the content panel, which scrolls on its own.
+ * App layout in the style of a Windows 11 app (Fluent top navigation): a top
+ * bar (logo, main navigation, update notice, settings) in the sidebar colour
+ * and the content layer below it, flush with the window edges, which scrolls
+ * on its own. The active item is marked by a short accent line below it.
  */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -45,13 +55,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       >
         {m.nav_skip_to_content()}
       </a>
-      <header className="flex h-11 shrink-0 items-center gap-4 px-3">
-        <div className="flex items-center gap-2 pr-2">
-          <img src={iconUrl} alt="" className="size-6" />
-          <img src={wordmarkUrl} alt={m.app_title()} className="h-5" />
+      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4">
+        <div className="flex items-center gap-2.5 pr-4">
+          <img src={iconUrl} alt="" className="size-5" />
+          <img src={wordmarkUrl} alt={m.app_title()} className="h-4.5" />
         </div>
-        <nav aria-label={m.nav_label()} className="flex min-w-0 flex-1 items-center gap-3">
-          <ul className="flex items-center gap-0.5">
+        <nav aria-label={m.nav_label()} className="flex min-w-0 flex-1 items-center gap-2">
+          <ul className="flex items-center">
             {mainItems.map((item) => (
               <li key={item.to}>
                 <NavLink item={item} />
@@ -66,7 +76,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               to="/settings"
               aria-label={m.settings_title()}
               title={m.settings_title()}
-              className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[status=active]:bg-background data-[status=active]:text-foreground data-[status=active]:shadow-xs data-[status=active]:ring-1 data-[status=active]:ring-border"
+              className={cn(NAV_ITEM, "size-8 justify-center data-[status=active]:after:-bottom-2")}
             >
               <Settings aria-hidden className="size-4" />
             </Link>
@@ -77,7 +87,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         id={APP_CONTENT_ID}
         data-scroll-restoration-id={APP_CONTENT_ID}
         tabIndex={-1}
-        className="mx-1.5 mb-1.5 min-h-0 flex-1 overflow-auto rounded-lg border bg-background text-foreground outline-none"
+        className="min-h-0 flex-1 overflow-auto border-t bg-background text-foreground outline-none"
       >
         {children}
       </div>
@@ -89,7 +99,10 @@ function NavLink({ item: { icon: Icon, label, to } }: Readonly<{ item: NavItem }
   return (
     <Link
       to={to}
-      className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[status=active]:bg-background data-[status=active]:font-medium data-[status=active]:text-foreground data-[status=active]:shadow-xs data-[status=active]:ring-1 data-[status=active]:ring-border"
+      className={cn(
+        NAV_ITEM,
+        "h-10 gap-2 px-3 data-[status=active]:font-semibold data-[status=active]:after:-bottom-1",
+      )}
     >
       <Icon aria-hidden className="size-4" />
       {label()}

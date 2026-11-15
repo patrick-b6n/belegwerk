@@ -126,7 +126,7 @@ function CategoryGroupSection({
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={headingId} className="font-heading text-lg font-semibold">
+        <h2 id={headingId} className="font-heading text-xl font-semibold">
           {title}
         </h2>
         <Button variant="outline" size="sm" onClick={onCreate}>

@@ -318,7 +318,7 @@ export function BookingFilterBar({
 
 /** Classes of a filter's select trigger: highlighted while the filter is active. */
 function chipClass(active: boolean): string {
-  return cn("bg-background", active && "border-primary bg-primary/10 dark:bg-primary/15");
+  return cn(active && "border-primary/40 bg-primary/10 font-semibold dark:bg-primary/15");
 }
 
 /** The filter's name inside its trigger ("Art: Alle"); the label is for screen readers. */

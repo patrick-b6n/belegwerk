@@ -99,11 +99,22 @@ function BookingsPage() {
   const years = useMemo(() => taxYears.data?.map((taxYear) => taxYear.year) ?? [], [taxYears.data]);
 
   return (
-    <Page
-      title={m.bookings_title()}
-      fill
-      actions={
-        <div className="flex items-center gap-2">
+    <Page title={m.bookings_title()} fill compact>
+      {/* One toolbar: the filters, and the actions on the right. */}
+      <div className="flex shrink-0 flex-wrap items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <BookingFilterBar
+            key={resetCount}
+            search={search}
+            errors={errors}
+            categories={categories.data ?? []}
+            years={years}
+            searchInputId={searchInputId}
+            onSearchChange={changeSearch}
+            onReset={reset}
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
           <BookingExportButton
             query={exportQuery}
             // Not from the previous search's placeholder: its total may differ.
@@ -116,18 +127,7 @@ function BookingsPage() {
             {m.bookings_new()}
           </Link>
         </div>
-      }
-    >
-      <BookingFilterBar
-        key={resetCount}
-        search={search}
-        errors={errors}
-        categories={categories.data ?? []}
-        years={years}
-        searchInputId={searchInputId}
-        onSearchChange={changeSearch}
-        onReset={reset}
-      />
+      </div>
       <BookingList
         query={listQuery}
         sort={bookingSearchSort(search)}
@@ -227,7 +227,7 @@ function BookingList({
       ) : (
         // The table scrolls in its own box (sticky header); sums and pagination stay below.
         // At least min-h-48: in a low window the panel scrolls instead of squeezing the table.
-        <div className="flex min-h-48 flex-1 flex-col overflow-hidden rounded-lg border">
+        <div className="flex min-h-48 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
           <div className="min-h-0 flex-1 overflow-auto">
             <BookingTable
               bookings={data.items}
@@ -235,7 +235,7 @@ function BookingList({
               onSortChange={(next) => onSearchChange({ sort: sortSearchParam(next) })}
             />
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1.5 border-t px-3 py-1.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1.5 border-t py-1.5 pr-2 pl-4">
             <BookingSumsSummary sums={data.sums} filtered={filtered} />
             <BookingPagination
               id={paginationId}

@@ -172,7 +172,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       ref={formRef}
       noValidate
       aria-label={booking ? m.booking_form_label_edit() : m.booking_form_label_new()}
-      className="flex max-w-3xl flex-col gap-5"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
@@ -180,7 +180,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
     >
       {booking && booking.source !== "manual" && <ImportInfo booking={booking} />}
 
-      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+      <div className="grid gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
         <form.Field
           name="date"
           validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
@@ -540,7 +540,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
 
       {/* Sticky at the bottom of the scrolling content area: save/cancel stay
           reachable when the window is too low for the whole form. */}
-      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-3 bg-background px-2 py-3">
+      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-2 border-t bg-background px-2 py-4">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" disabled={isSubmitting}>
@@ -605,7 +605,7 @@ function AmountPreview({
 }: Readonly<{ amount: string; vatRate: VatRate | ""; smallBusiness: boolean }>) {
   const preview = previewAmounts(amount, vatRate, smallBusiness);
   return (
-    <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm sm:col-span-2">
+    <div className="border-t pt-4 text-sm sm:col-span-2">
       <span className="sr-only">{m.booking_form_preview_label()}: </span>
       <dl className="flex flex-wrap gap-x-6 gap-y-1">
         {(
@@ -633,8 +633,8 @@ function AmountPreview({
 /** Source and external ID of an imported booking: informational, not editable. */
 function ImportInfo({ booking }: Readonly<{ booking: Booking }>) {
   return (
-    <section className="rounded-lg border p-3 text-sm">
-      <h2 className="font-medium">{m.booking_form_import_title()}</h2>
+    <section className="rounded-xl border bg-card p-5 text-sm">
+      <h2 className="font-semibold">{m.booking_form_import_title()}</h2>
       <p className="text-muted-foreground">{m.booking_form_import_description()}</p>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="text-muted-foreground">{m.booking_form_source_label()}</dt>

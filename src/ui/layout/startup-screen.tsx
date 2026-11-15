@@ -30,10 +30,12 @@ export function StartupErrorScreen({
 }>) {
   return (
     <main className="mx-auto flex h-svh max-w-3xl flex-col justify-center gap-4 p-8">
-      <h1 className="font-heading text-2xl font-semibold">{m.startup_error_title()}</h1>
+      <h1 className="font-heading text-[28px] leading-9 font-semibold">
+        {m.startup_error_title()}
+      </h1>
       <p role="alert">{DESCRIPTIONS[reason]()}</p>
-      <details className="rounded-md border bg-muted p-3 text-sm">
-        <summary className="cursor-pointer">{m.startup_error_details()}</summary>
+      <details className="rounded-xl border bg-muted p-3 text-sm">
+        <summary>{m.startup_error_details()}</summary>
         <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words">{details}</pre>
       </details>
       <div>

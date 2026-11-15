@@ -33,7 +33,7 @@ export function UpdateNotice() {
 
   return (
     <Popover>
-      <PopoverTrigger className="flex h-7 items-center gap-1.5 rounded-full bg-amber-100 px-2.5 text-xs font-medium text-amber-900 outline-none hover:bg-amber-200 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900">
+      <PopoverTrigger className="flex h-7 items-center gap-1.5 rounded-full bg-amber-100 pr-2 pl-2.5 text-xs font-medium text-amber-900 outline-none hover:bg-amber-200 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900">
         <span aria-hidden className="size-1.5 rounded-full bg-chart-2" />
         {m.update_notice_title()}
       </PopoverTrigger>

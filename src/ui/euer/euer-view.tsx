@@ -105,13 +105,16 @@ function EuerTable({
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-lg font-semibold">
+      <h2 id={headingId} className="font-heading text-xl font-semibold">
         {title}
       </h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed"
+          containerClassName="relative w-full overflow-x-auto rounded-xl border bg-card"
+        >
           <TableCaption className="sr-only">{title}</TableCaption>
           <TableHeader>
             <TableRow>
@@ -128,7 +131,7 @@ function EuerTable({
           <TableFooter>
             <TableRow className="hover:bg-transparent">
               <TableCell />
-              <th scope="row" className="p-2 text-left font-semibold">
+              <th scope="row" className="px-3 py-1.5 text-left font-semibold">
                 {totalLabel}
               </th>
               <TableCell className={cn(AMOUNT, "font-semibold")}>
@@ -225,10 +228,10 @@ function EuerResultSummary({ result }: Readonly<{ result: EuerResult }>) {
         : m.euer_result_zero();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-lg font-semibold">
+      <h2 id={headingId} className="font-heading text-xl font-semibold">
         {m.euer_result_title()}
       </h2>
-      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-lg border p-4 text-sm">
+      <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-xl border bg-card p-4 text-sm">
         <dt>{m.euer_income_total()}</dt>
         <dd className={cn(AMOUNT, "pl-6")}>{formatCurrency(incomeCents)}</dd>
         <dt>{m.euer_expenses_total()}</dt>
