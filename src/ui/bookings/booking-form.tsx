@@ -181,7 +181,9 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
         {booking && booking.source !== "manual" && <ImportInfo booking={booking} />}
 
-        <div className="grid gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
+        {/* Fields in a row align at the bottom, so their inputs line up even when
+            only one of them has a description. */}
+        <div className="grid items-end gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
           <form.Field
             name="type"
             // No client check; lets a change clear a server error (see validation-logic.ts).
