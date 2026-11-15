@@ -540,10 +540,15 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
 
       {/* Sticky at the bottom of the scrolling content area: save/cancel stay
           reachable when the window is too low for the whole form. */}
-      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-2 border-t bg-background px-2 py-4">
+      {/* Cancel (and delete) on the left, the primary action on the right. */}
+      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-2 bg-background px-2 py-4">
+        <Button type="button" variant="outline" onClick={() => void navigate({ to: "/bookings" })}>
+          {m.common_cancel()}
+        </Button>
+        {booking && <DeleteBookingButton booking={booking} />}
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="ml-auto">
               {isSubmitting
                 ? m.booking_form_saving()
                 : booking
@@ -552,14 +557,6 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
             </Button>
           )}
         </form.Subscribe>
-        <Button type="button" variant="outline" onClick={() => void navigate({ to: "/bookings" })}>
-          {m.common_cancel()}
-        </Button>
-        {booking && (
-          <div className="ml-auto">
-            <DeleteBookingButton booking={booking} />
-          </div>
-        )}
       </div>
     </form>
   );
