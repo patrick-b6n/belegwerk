@@ -1,25 +1,31 @@
-import { Download, Loader2 } from "lucide-react";
-
 import type { BookingQuery } from "@/business/bookings";
 import { m } from "@/paraglide/messages.js";
-import { Button } from "@/ui/components/ui/button";
 import { toast } from "@/ui/components/ui/toast";
 
 import { todayIsoDate } from "./booking-form-model";
 import { bookingCsvLabels } from "./booking-messages";
 import { useBookingCsvExport } from "./booking-queries";
 
+export interface BookingExportAction {
+  /** Whether the export cannot run now (see `hint` for why). */
+  readonly disabled: boolean;
+  readonly running: boolean;
+  /** Tooltip: what the export does, or why it is disabled. */
+  readonly hint: string;
+  readonly run: () => Promise<void>;
+}
+
 /**
- * "Export CSV" (#24): saves **all** bookings of the current filters in
- * the list's sort order (not just the page) via the save dialog.
+ * "Export CSV" (#24), used by the booking list's "…" menu: saves **all**
+ * bookings of the current filters in the list's sort order (not just the
+ * page) via the save dialog.
  *
  * - Disabled while the filters are invalid, while nothing is loaded yet, if
- *   nothing matches and while an export runs (then with a spinner). It stays
- *   focusable, the reason is in the tooltip.
+ *   nothing matches and while an export runs; `hint` names the reason.
  * - Success: toast with the number of bookings and the file name. Cancelling
  *   the dialog shows nothing; errors show an error toast.
  */
-export function BookingExportButton({
+export function useBookingExportAction({
   query,
   total,
   invalid,
@@ -29,7 +35,7 @@ export function BookingExportButton({
   /** Number of matching bookings; `undefined` while not loaded. */
   total: number | undefined;
   invalid: boolean;
-}>) {
+}>): BookingExportAction {
   const csvExport = useBookingCsvExport();
   const running = csvExport.isPending;
   const disabled = invalid || total === undefined || total === 0 || running;
@@ -39,7 +45,7 @@ export function BookingExportButton({
       ? m.bookings_export_hint_empty()
       : m.bookings_export_hint();
 
-  const runExport = async () => {
+  const run = async () => {
     try {
       const result = await csvExport.mutateAsync({
         query,
@@ -52,7 +58,7 @@ export function BookingExportButton({
         },
         filterName: m.bookings_export_file_type(),
       });
-      // Invalid filters disable the button; a result for them is a race.
+      // Invalid filters disable the action; a result for them is a race.
       if (!result.ok) throw new Error(`Export with invalid filters: ${JSON.stringify(result)}`);
       if (!result.saved) return;
       toast.add({
@@ -72,20 +78,5 @@ export function BookingExportButton({
     }
   };
 
-  return (
-    <Button
-      variant="outline"
-      title={hint}
-      disabled={disabled}
-      // Stays focusable while the export runs (the focus would fall back to
-      // the page) and shows its tooltip when disabled.
-      focusableWhenDisabled
-      aria-busy={running || undefined}
-      className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-background"
-      onClick={() => void runExport()}
-    >
-      {running ? <Loader2 aria-hidden className="animate-spin" /> : <Download aria-hidden />}
-      {running ? m.bookings_export_running() : m.bookings_export()}
-    </Button>
-  );
+  return { disabled, running, hint, run };
 }

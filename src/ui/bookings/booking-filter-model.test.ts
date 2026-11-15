@@ -671,16 +671,16 @@ describe("sort, page and page size params (#23)", () => {
   });
 
   it("validates the params, dropping defaults and unreadable values", () => {
-    expect(validateBookingSearch({ sort: "gross-asc", page: 3, pageSize: 100 })).toEqual({
+    expect(validateBookingSearch({ sort: "gross-asc", page: 3, pageSize: 50 })).toEqual({
       sort: "gross-asc",
       page: 3,
-      pageSize: 100,
+      pageSize: 50,
     });
     expect(validateBookingSearch({ page: "4", pageSize: "25" })).toEqual({
       page: 4,
       pageSize: 25,
     });
-    const dropped = validateBookingSearch({ sort: "date-desc", page: 1, pageSize: 50 });
+    const dropped = validateBookingSearch({ sort: "date-desc", page: 1, pageSize: 100 });
     expect(cleanBookingSearch(dropped)).toEqual({});
     for (const raw of [
       { sort: "foo-asc" },
@@ -724,7 +724,7 @@ describe("sort, page and page size params (#23)", () => {
     expect(sortSearchParam({ field: "date", direction: "asc" })).toBe("date-asc");
     expect(pageSearchParam(1)).toBeUndefined();
     expect(pageSearchParam(2)).toBe(2);
-    expect(pageSizeSearchParam(50)).toBeUndefined();
+    expect(pageSizeSearchParam(100)).toBeUndefined();
     expect(pageSizeSearchParam(200)).toBe(200);
   });
 
@@ -732,7 +732,7 @@ describe("sort, page and page size params (#23)", () => {
     expect(bookingSearchToListQuery({})).toEqual({
       sort: { field: "date", direction: "desc" },
       page: 1,
-      pageSize: 50,
+      pageSize: 100,
     });
     expect(
       bookingSearchToListQuery({
@@ -766,10 +766,10 @@ describe("sort, page and page size params (#23)", () => {
       q: "a",
       sort: "net-desc",
     });
-    expect(updateBookingSearch(search, { pageSize: 100 })).toEqual({
+    expect(updateBookingSearch(search, { pageSize: 200 })).toEqual({
       q: "a",
       sort: "gross-asc",
-      pageSize: 100,
+      pageSize: 200,
     });
     // Page changes and patches that change nothing keep the page.
     expect(updateBookingSearch(search, { page: 4 })).toEqual({ ...search, page: 4 });

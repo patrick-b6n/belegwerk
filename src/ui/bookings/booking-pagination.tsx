@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { m } from "@/paraglide/messages.js";
@@ -29,8 +29,9 @@ export interface BookingPaginationProps {
 
 /**
  * Pagination in the footer of the booking list's box, right of the sums
- * (#23): first / previous / next / last page, "Page X of Y", the shown rows
- * of the total and the page size. Buttons that would not move are disabled.
+ * (#23), on one line: the shown rows of the total, the page size ("100 pro
+ * Seite") and previous / "Page X of Y" / next. Buttons that would not move
+ * are disabled.
  */
 export function BookingPagination({
   page,
@@ -46,7 +47,7 @@ export function BookingPagination({
   return (
     <nav
       aria-label={m.bookings_pagination_label()}
-      className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm"
+      className="ml-auto flex items-center gap-3 text-sm whitespace-nowrap"
     >
       <p className="text-muted-foreground tabular-nums">
         {m.bookings_pagination_range({
@@ -55,59 +56,46 @@ export function BookingPagination({
           total: String(total),
         })}
       </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label htmlFor={sizeId} className="text-muted-foreground">
-            {m.bookings_pagination_page_size()}
-          </label>
-          <Select<string>
-            items={BOOKING_PAGE_SIZES.map((size) => ({ value: String(size), label: String(size) }))}
-            value={String(pageSize)}
-            onValueChange={(value) => {
-              if (value !== null) onPageSizeChange(Number(value));
-            }}
-          >
-            <SelectTrigger id={sizeId} size="sm" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {BOOKING_PAGE_SIZES.map((size) => (
-                <SelectItem key={size} value={String(size)}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-1">
-          <PageButton
-            label={m.bookings_pagination_first()}
-            icon={ChevronsLeft}
-            disabled={page <= 1}
-            onClick={() => onPageChange(1)}
-          />
-          <PageButton
-            label={m.bookings_pagination_previous()}
-            icon={ChevronLeft}
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-          />
-          <span className="px-2 tabular-nums" aria-live="polite">
-            {m.bookings_pagination_page({ page: String(page), count: String(pageCount) })}
-          </span>
-          <PageButton
-            label={m.bookings_pagination_next()}
-            icon={ChevronRight}
-            disabled={page >= pageCount}
-            onClick={() => onPageChange(page + 1)}
-          />
-          <PageButton
-            label={m.bookings_pagination_last()}
-            icon={ChevronsRight}
-            disabled={page >= pageCount}
-            onClick={() => onPageChange(pageCount)}
-          />
-        </div>
+      <label htmlFor={sizeId} className="sr-only">
+        {m.bookings_pagination_page_size()}
+      </label>
+      <Select<string>
+        items={BOOKING_PAGE_SIZES.map((size) => ({
+          value: String(size),
+          label: m.bookings_pagination_per_page({ size: String(size) }),
+        }))}
+        value={String(pageSize)}
+        onValueChange={(value) => {
+          if (value !== null) onPageSizeChange(Number(value));
+        }}
+      >
+        <SelectTrigger id={sizeId} size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {BOOKING_PAGE_SIZES.map((size) => (
+            <SelectItem key={size} value={String(size)}>
+              {m.bookings_pagination_per_page({ size: String(size) })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="flex items-center">
+        <PageButton
+          label={m.bookings_pagination_previous()}
+          icon={ChevronLeft}
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        />
+        <span className="px-1 tabular-nums" aria-live="polite">
+          {m.bookings_pagination_page({ page: String(page), count: String(pageCount) })}
+        </span>
+        <PageButton
+          label={m.bookings_pagination_next()}
+          icon={ChevronRight}
+          disabled={page >= pageCount}
+          onClick={() => onPageChange(page + 1)}
+        />
       </div>
     </nav>
   );
@@ -126,12 +114,12 @@ function PageButton({
 }>) {
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       size="icon-sm"
       aria-label={label}
       title={label}
       disabled={disabled}
-      // Stays focusable: after "Letzte Seite" the focused button becomes
+      // Stays focusable: on the last page the focused "next" button becomes
       // disabled, and the focus must not fall back to the page.
       focusableWhenDisabled
       className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-transparent"

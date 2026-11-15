@@ -70,7 +70,7 @@ export interface BookingSearch {
   readonly sort?: BookingSortParam;
   /** Page (#23), an integer ≥ 2; absent = page 1. */
   readonly page?: number;
-  /** Page size (#23), one of {@link BOOKING_PAGE_SIZES} except the default; absent = 50. */
+  /** Page size (#23), one of {@link BOOKING_PAGE_SIZES} except the default; absent = 100. */
   readonly pageSize?: number;
 }
 
@@ -232,7 +232,7 @@ const SORT_DIRECTION_PARAMS: Readonly<Record<SortDirection, SortDirectionParam>>
   desc: "desc",
 };
 
-/** The page sizes the list offers; {@link DEFAULT_BOOKING_PAGE_SIZE} (50) is the default. */
+/** The page sizes the list offers; {@link DEFAULT_BOOKING_PAGE_SIZE} (100) is the default. */
 export const BOOKING_PAGE_SIZES: readonly number[] = [25, 50, 100, 200];
 
 /** The `sort` value of a sort order. */

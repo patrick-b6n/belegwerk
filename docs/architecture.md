@@ -840,9 +840,15 @@ Buchung kurz als „nicht gefunden“.
 ### Filter und Suche (#22)
 
 Suchfeld und Filterleiste (`src/ui/bookings/booking-filter-bar.tsx`) über der
-Liste, kompakt in einer (umbrechenden) Zeile: Die Labels der Auswahlfelder
-sind nur für Screenreader, der Trigger nennt den Filter selbst („Art: Alle“)
-und ist hervorgehoben, solange der Filter aktiv ist. Die reine Logik –
+Liste, links in der Werkzeugleiste (sie bricht früh um, die Aktionen „+“
+und „…“ bleiben rechts in der ersten Zeile): Neben dem Suchfeld öffnet
+„Filter“ (mit der Zahl gesetzter Filter) ein Popover mit den Filtern, die
+nicht gesetzt sind; gesetzte Filter stehen in der Leiste selbst, je mit
+einem ×, das sie entfernt. Solange das Popover offen ist, bleiben seine
+Filter darin (ein dort gesetzter Filter springt nicht unter Zeiger oder
+Cursor weg) und wandern beim Schließen in die Leiste. Die Labels der
+Auswahlfelder sind nur für Screenreader, der Trigger nennt den Filter selbst
+(„Art: Alle“) und ist hervorgehoben, solange der Filter aktiv ist. Die reine Logik –
 URL-Schema, Abbildung auf `BookingQuery`, Schnellwahl-Zeiträume,
 Kategorie-Optionen – liegt getestet in `booking-filter-model.ts`.
 
@@ -915,7 +921,7 @@ optional; Standardwerte stehen nie in der URL):
   erfolgreiches, `placeholderData`); ein ungültiger Filter fragt nicht ab
   (`enabled: false`).
 - **Zurücksetzen** leert alle Filter (nur sichtbar, wenn einer aktiv ist;
-  daneben „N Filter aktiv“), baut die Filterleiste neu auf und setzt den
+  „N Filter aktiv“ wird angesagt), baut die Filterleiste neu auf und setzt den
   Fokus ins Suchfeld.
 - **Zurücksetzen** behält Sortierung und Seitengröße (#23), die Seite geht
   auf 1.
@@ -930,7 +936,7 @@ optional; Standardwerte stehen nie in der URL):
   nicht in der URL. Abbildung in `booking-filter-model.ts` (`sortParam`,
   `parseSortParam`, `sortSearchParam`, `bookingSearchSort`).
 - **`page`** ab 1 (Seite 1 nicht in der URL), **`pageSize`** aus
-  `BOOKING_PAGE_SIZES` (25/50/100/200; 50 nicht in der URL). Andere Werte
+  `BOOKING_PAGE_SIZES` (25/50/100/200; 100 nicht in der URL). Andere Werte
   werden wie bei den Filtern verworfen. `bookingSearchToListQuery` baut
   daraus das Query der Liste.
 - **Seite zurück auf 1:** `updateBookingSearch` entfernt `page`, sobald
@@ -952,9 +958,11 @@ optional; Standardwerte stehen nie in der URL):
 - **Scrollen:** Die Tabelle scrollt in ihrem eigenen Kasten, der
   Spaltenkopf bleibt oben stehen (`sticky`); Summen und Pagination stehen
   fest in der Fußzeile des Kastens.
-- **Pagination** (`booking-pagination.tsx`, `<nav>`) rechts in der Fußzeile:
-  „51–100 von 120“, „Pro Seite“, Erste/Vorherige/Nächste/Letzte (Icons mit
-  `aria-label`, deaktiviert am Rand, aber fokussierbar – der Fokus bleibt nach „Letzte Seite“ stehen), „Seite X von Y“ (`aria-live`).
+- **Pagination** (`booking-pagination.tsx`, `<nav>`) rechts in der Fußzeile,
+  einzeilig: „101–192 von 192“, Seitengröße („100 pro Seite“),
+  Vorherige/Nächste (Icons mit `aria-label`, deaktiviert am Rand, aber
+  fokussierbar – der Fokus bleibt auf der letzten Seite stehen) um „Seite X
+  von Y“ (`aria-live`).
 - **Summen** (`BookingSumsSummary`) links in der Fußzeile: Einnahmen,
   Ausgaben, Saldo (brutto) des **gesamten** gefilterten Bestands (`sums`);
   der Gruppenname sagt „nicht nur dieser Seite“. Der Saldo hat
@@ -968,8 +976,8 @@ optional; Standardwerte stehen nie in der URL):
 
 ### CSV-Export (#24)
 
-„CSV exportieren“ im Kopf der Buchungsliste
-(`src/ui/bookings/booking-export-button.tsx`) speichert **alle** Buchungen der
+„CSV exportieren“ im „…“-Menü der Buchungsliste
+(`useBookingExportAction` in `src/ui/bookings/booking-export-button.tsx`) speichert **alle** Buchungen der
 aktuellen Filter in der Sortierung der Liste, nicht nur die Seite.
 
 **CSV-Format** (`src/business/csv`, `toCsv(rows)`; gilt für alle Exporte,
@@ -1312,7 +1320,7 @@ in `tax-year-mutations.ts`):
 
 ### Stripe-Import-Dialog (#31)
 
-„Stripe importieren“ im Kopf der Buchungsliste (neben „CSV exportieren“)
+„Stripe importieren“ im „…“-Menü der Buchungsliste (unter „CSV exportieren“)
 öffnet einen Dialog (`src/ui/stripe/stripe-import-dialog.tsx`). Reine Logik
 (Default-Zeitraum, Client-Prüfungen, Ergebnis → Zusammenfassung, Beträge
 fremder Währungen, Link-Filter) liegt getestet in `stripe-import-model.ts`,

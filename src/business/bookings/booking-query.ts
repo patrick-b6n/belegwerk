@@ -11,7 +11,7 @@ import type { BookingFilter, BookingSort, BookingSortField, SortDirection } from
 import { isId, trimText } from "../validation";
 
 /** Rows per page if the query does not say. */
-export const DEFAULT_BOOKING_PAGE_SIZE = 50;
+export const DEFAULT_BOOKING_PAGE_SIZE = 100;
 /** Largest page size; for every matching booking (CSV export, #24) use `pageSize: "all"`. */
 export const MAX_BOOKING_PAGE_SIZE = 500;
 /**

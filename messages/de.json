@@ -29,7 +29,7 @@
   "bookings_new": "Neue Buchung",
   "bookings_filter_label": "Buchungen filtern",
   "bookings_filter_search_label": "Suche",
-  "bookings_filter_search_placeholder": "Buchungen durchsuchen …",
+  "bookings_filter_search_placeholder": "Suchen",
   "bookings_filter_search_hint": "Sucht in Beschreibung, Gegenpartei, Referenz und Notiz",
   "bookings_filter_period_label": "Zeitraum",
   "bookings_filter_period_all": "Gesamter Zeitraum",
@@ -115,10 +115,8 @@
   "bookings_sums_balance_surplus": "Überschuss",
   "bookings_sums_balance_deficit": "Fehlbetrag",
   "bookings_pagination_label": "Seiten der Buchungsliste",
-  "bookings_pagination_first": "Erste Seite",
   "bookings_pagination_previous": "Vorherige Seite",
   "bookings_pagination_next": "Nächste Seite",
-  "bookings_pagination_last": "Letzte Seite",
   "bookings_pagination_page": "Seite {page} von {count}",
   "bookings_pagination_range": "{from}–{to} von {total}",
   "bookings_pagination_page_size": "Pro Seite",
@@ -571,5 +569,11 @@
   "update_error_unexpected": "Beim Update ist ein unerwarteter Fehler aufgetreten.",
   "update_error_unchanged": "Die installierte Version bleibt unverändert.",
   "form_field_required": "Pflichtfeld",
-  "form_field_hint": "Hinweis zu {label}"
+  "form_field_hint": "Hinweis zu {label}",
+  "bookings_more_actions": "Weitere Aktionen",
+  "bookings_filter_button": "Filter",
+  "bookings_filter_remove": "Filter „{filter}“ entfernen",
+  "bookings_filter_all_set": "Alle Filter sind gesetzt.",
+  "bookings_pagination_per_page": "{size} pro Seite",
+  "bookings_filter_reset_all": "Alle Filter zurücksetzen"
 }

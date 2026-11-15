@@ -96,12 +96,12 @@ const columns = column.columns([
         {row.original.description}
       </Link>
     ),
-    meta: { className: "w-full max-w-0 min-w-36", sortField: "description" },
+    meta: { className: "w-full max-w-0 min-w-60", sortField: "description" },
   }),
   column.accessor("counterparty", {
     header: () => COLUMN_LABELS.counterparty(),
     cell: ({ getValue }) => (
-      <span title={getValue()} className="block max-w-36 truncate">
+      <span title={getValue()} className="block max-w-40 truncate">
         {getValue()}
       </span>
     ),
@@ -262,14 +262,20 @@ function SortButton({
         direction: DIRECTION_LABELS[next.direction](),
       })}
       className={cn(
-        "-mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+        "group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
         direction !== undefined && "font-semibold text-foreground",
       )}
     >
       {children}
       <Icon
         aria-hidden
-        className={cn("size-3.5 shrink-0", direction === undefined && "text-muted-foreground/60")}
+        className={cn(
+          "size-3.5 shrink-0",
+          // Like Windows Explorer: only the sorted column shows its arrow;
+          // the others show it on hover and keyboard focus.
+          direction === undefined &&
+            "opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60",
+        )}
       />
     </button>
   );
