@@ -175,7 +175,10 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
       event.preventDefault();
-      if (document.querySelector('[role="alertdialog"], [role="dialog"]')) return;
+      // Only open ones: some popups stay mounted while closed (update notice).
+      if (document.querySelector('[role="alertdialog"][data-open], [role="dialog"][data-open]')) {
+        return;
+      }
       formRef.current?.requestSubmit();
     };
     window.addEventListener("keydown", onKeyDown);

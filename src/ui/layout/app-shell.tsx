@@ -105,7 +105,14 @@ function NavLink({ item: { icon: Icon, label, to } }: Readonly<{ item: NavItem }
       )}
     >
       <Icon aria-hidden className="size-4" />
-      {label()}
+      {/* An invisible bold copy reserves the active (bold) width, so selecting
+          an item does not shift its neighbours. */}
+      <span className="grid">
+        <span aria-hidden className="invisible col-start-1 row-start-1 font-semibold">
+          {label()}
+        </span>
+        <span className="col-start-1 row-start-1 text-center">{label()}</span>
+      </span>
     </Link>
   );
 }
