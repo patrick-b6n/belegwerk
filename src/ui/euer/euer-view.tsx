@@ -82,7 +82,7 @@ export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
 
 function NoMappingHint({ year }: Readonly<{ year: string }>) {
   return (
-    <p className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-sm">
+    <p className="flex items-start gap-2 rounded-xl border border-dashed p-3 text-sm">
       <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       {m.euer_no_mapping({ year })}
     </p>
@@ -192,7 +192,7 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
           {informational && (
             <span
               title={m.euer_informational_title()}
-              className="shrink-0 rounded-sm bg-muted px-1 text-xs text-muted-foreground"
+              className="shrink-0 rounded-md bg-muted px-1 text-xs text-muted-foreground"
             >
               {m.euer_informational()}
             </span>
@@ -301,7 +301,7 @@ function EuerWarnings({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40"
+      className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40"
     >
       <h2 id={headingId} className="flex items-center gap-2 font-semibold">
         <TriangleAlert aria-hidden className="size-4" />

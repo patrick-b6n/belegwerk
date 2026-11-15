@@ -123,14 +123,14 @@ function ApiKeyPanel({ apiKey }: Readonly<{ apiKey: StripeApiKeyInfo | null }>) 
       {apiKey ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted-foreground">{m.stripe_key_stored_label()}</span>
-          <code className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-sm">
+          <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm">
             {apiKey.masked}
           </code>
           <span
             className={
               apiKey.mode === "live"
-                ? "rounded-sm bg-emerald-100 px-1.5 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                : "rounded-sm bg-amber-100 px-1.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                ? "rounded-md bg-emerald-100 px-1.5 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                : "rounded-md bg-amber-100 px-1.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300"
             }
           >
             {keyModeLabel(apiKey.mode)}

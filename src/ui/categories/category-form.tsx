@@ -264,7 +264,7 @@ export function CategoryForm({
                       onBlur={field.handleBlur}
                     />
                     <FieldContent>
-                      <FieldLabel htmlFor={controlId}>
+                      <FieldLabel htmlFor={controlId} className="font-normal">
                         {m.category_form_reduces_income_label()}
                       </FieldLabel>
                       <FieldDescription id={`${controlId}-description`}>

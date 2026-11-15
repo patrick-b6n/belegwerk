@@ -532,7 +532,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
             ref={otherErrorsRef}
             tabIndex={-1}
             role="alert"
-            className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive outline-none"
+            className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive outline-none"
           >
             <p>{m.booking_form_other_errors()}</p>
             <ul className="ml-4 list-disc">

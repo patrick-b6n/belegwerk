@@ -729,12 +729,21 @@ Entscheidungen und Ergebnisform:
   eine URL für die Liste samt Search-Params, und die Navigation markiert sie
   eindeutig als aktiv.
 - Das Layout (`src/ui/layout/app-shell.tsx`) rendert die Root-Route um das
-  `<Outlet />`: oben eine Leiste (Logo, Hauptnavigation, Update-Hinweis,
-  Einstellungen), darunter der Inhalt als abgerundete Fläche; Leiste und ein
-  schmaler Rand in der Sidebar-Farbe rahmen ihn ein. Seiten nutzen `Page` aus
-  `src/ui/layout/page.tsx` (kompakte Kopfzeile mit Titel und Aktionen, volle
-  Breite; Formulare begrenzen ihre Breite selbst; `fill` für Seiten mit
-  eigenem Scrollbereich wie die Buchungsliste) und setzen den Dokumenttitel
+  `<Outlet />` im Stil einer Windows-11-App (Fluent, obere Navigation): oben
+  eine Leiste in der Sidebar-Farbe (Logo, Hauptnavigation, Update-Hinweis,
+  Einstellungen; der aktive Eintrag trägt einen kurzen Akzentstrich), darunter
+  bündig mit `border-t` die Inhaltsfläche. Schrift ist Segoe UI Variable;
+  Steuerelemente haben 4 px Radius (`rounded-lg`/`-md`), Ebenen wie Karten,
+  Dialoge und Popups 8 px (`rounded-xl` und größer, siehe
+  `src/ui/styles/globals.css`). Seiten nutzen `Page` aus
+  `src/ui/layout/page.tsx`: kein sichtbarer Seitentitel (das `h1` ist
+  `sr-only`, die Navigation zeigt den Ort), `actions` rechtsbündig über dem
+  Inhalt, volle Breite; Formulare begrenzen ihre Breite selbst. `fill` für
+  Seiten mit eigenem Scrollbereich, `compact` für schmale Ränder (die
+  Buchungsliste setzt Filter und Aktionen in eine Leiste), `stretch` für
+  Seiten, die mindestens die Fensterhöhe füllen – das Buchungsformular hat so
+  eine feste Befehlsleiste am unteren Rand (`#app-content` hält mit
+  `scroll-pb-20` fokussierte Felder darüber). Seiten setzen den Dokumenttitel
   über `head` (`m.page_title({ page })`).
 - Gescrollt wird der Inhaltsbereich (`#app-content`), nicht das Fenster;
   der Router setzt ihn bei Navigation zurück (`scrollToTopSelectors`).

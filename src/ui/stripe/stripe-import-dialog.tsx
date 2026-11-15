@@ -454,7 +454,7 @@ function StripeImportForm({
                         onBlur={field.handleBlur}
                       />
                       <FieldContent>
-                        <FieldLabel htmlFor={controlId}>
+                        <FieldLabel htmlFor={controlId} className="font-normal">
                           {m.stripe_import_test_confirm()}
                         </FieldLabel>
                         <FieldError id={`${controlId}-error`} role={undefined} errors={errors} />
@@ -596,7 +596,7 @@ function FailureTable({ summary }: Readonly<{ summary: StripeImportSummary }>) {
     <div className="flex flex-col gap-2">
       <h4 className="font-medium">{m.stripe_import_failures_heading()}</h4>
       <p className="text-sm text-muted-foreground">{m.stripe_import_failures_hint()}</p>
-      <div className="max-h-64 overflow-auto rounded-lg border">
+      <div className="max-h-64 overflow-auto rounded-xl border">
         <Table>
           <TableCaption className="sr-only">{m.stripe_import_failures_caption()}</TableCaption>
           <TableHeader>

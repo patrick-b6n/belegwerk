@@ -114,7 +114,7 @@ const columns = column.columns([
       <span title={row.original.category.name} className="flex max-w-40 items-center gap-1.5">
         <span className="truncate">{row.original.category.name}</span>
         {row.original.category.archived && (
-          <span className="shrink-0 rounded-sm border bg-muted px-1.5 text-xs text-muted-foreground">
+          <span className="shrink-0 rounded-md border bg-muted px-1.5 text-xs text-muted-foreground">
             {m.bookings_category_archived()}
           </span>
         )}

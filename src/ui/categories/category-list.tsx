@@ -169,7 +169,7 @@ function Badge({ children, title }: Readonly<{ children: string; title?: string 
   return (
     <span
       title={title}
-      className="shrink-0 rounded-sm bg-muted px-1 text-xs font-normal text-muted-foreground"
+      className="shrink-0 rounded-md bg-muted px-1 text-xs font-normal text-muted-foreground"
     >
       {children}
     </span>

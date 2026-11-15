@@ -87,7 +87,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         id={APP_CONTENT_ID}
         data-scroll-restoration-id={APP_CONTENT_ID}
         tabIndex={-1}
-        className="min-h-0 flex-1 overflow-auto border-t bg-background text-foreground outline-none"
+        className="min-h-0 flex-1 scroll-pb-20 overflow-auto border-t bg-background text-foreground outline-none"
       >
         {children}
       </div>
