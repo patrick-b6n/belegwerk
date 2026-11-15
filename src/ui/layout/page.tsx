@@ -12,6 +12,9 @@ import type { ReactNode } from "react";
  * whose last child can scroll on its own (`min-h-0 flex-1`), e.g. a table with
  * a sticky header and the pagination below it.
  *
+ * `stretch`: the page is at least as high as the panel and its content grows
+ * to fill it, e.g. so a form's command bar sits at the bottom of the window.
+ *
  * `compact`: narrow margins for dense pages such as the booking list, which
  * puts its actions into its own toolbar instead of `actions`.
  */
@@ -20,16 +23,18 @@ export function Page({
   children,
   compact = false,
   fill = false,
+  stretch = false,
   title,
 }: Readonly<{
   actions?: ReactNode;
   children: ReactNode;
   compact?: boolean;
   fill?: boolean;
+  stretch?: boolean;
   title: string;
 }>) {
   return (
-    <main className={cn("flex flex-col", fill && "h-full")}>
+    <main className={cn("flex flex-col", fill && "h-full", stretch && "min-h-full")}>
       <h1 className="sr-only">{title}</h1>
       {actions && (
         <div
@@ -47,6 +52,7 @@ export function Page({
           actions ? "pt-4" : "pt-6",
           compact && "gap-3 px-4 pt-3 pb-3",
           fill && "min-h-0 flex-1",
+          stretch && "flex-1",
         )}
       >
         {children}

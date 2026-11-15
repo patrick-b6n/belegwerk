@@ -16,7 +16,7 @@ export const Route = createFileRoute("/bookings/new")({
 
 function NewBookingPage() {
   return (
-    <Page title={m.booking_new_title()}>
+    <Page title={m.booking_new_title()} stretch>
       <NewBooking />
     </Page>
   );

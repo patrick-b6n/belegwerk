@@ -33,7 +33,7 @@ export const Route = createFileRoute("/bookings/$bookingId")({
 function EditBookingPage() {
   const { bookingId } = Route.useParams();
   return (
-    <Page title={m.booking_edit_title()}>
+    <Page title={m.booking_edit_title()} stretch>
       {Number.isInteger(bookingId) ? <EditBooking id={bookingId} /> : <BookingNotFound />}
     </Page>
   );

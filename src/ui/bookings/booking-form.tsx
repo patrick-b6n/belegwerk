@@ -172,374 +172,382 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       ref={formRef}
       noValidate
       aria-label={booking ? m.booking_form_label_edit() : m.booking_form_label_new()}
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5"
+      className="flex flex-1 flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
       }}
     >
-      {booking && booking.source !== "manual" && <ImportInfo booking={booking} />}
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+        {booking && booking.source !== "manual" && <ImportInfo booking={booking} />}
 
-      <div className="grid gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
-        <form.Field
-          name="date"
-          validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
-        >
-          {(field) => (
-            <FormField
-              id={id("date")}
-              label={m.booking_form_date_label()}
-              description={m.booking_form_date_description()}
-              errors={field.state.meta.errors}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="date"
-                  min="1000-01-01"
-                  max="9999-12-31"
-                  required
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  className="w-44"
-                />
-              )}
-            </FormField>
-          )}
-        </form.Field>
-
-        <form.Field
-          name="type"
-          // No client check; lets a change clear a server error (see validation-logic.ts).
-          validators={{ onDynamic: noValidation }}
-          listeners={{
-            onChange: ({ value, fieldApi }) => {
-              // Keep the category only if it fits the new type.
-              const current = fieldApi.form.getFieldValue("categoryId");
-              const next = categoryAfterTypeChange(
-                current,
-                categoryOptions(categories, value, [booking?.categoryId]),
-              );
-              if (next !== current) fieldApi.form.setFieldValue("categoryId", next);
-            },
-          }}
-        >
-          {(field) => (
-            <FormField
-              id={id("type")}
-              label={m.booking_form_type_label()}
-              labelAs="group"
-              errors={field.state.meta.errors}
-            >
-              {(control) => (
-                <RadioGroup
-                  aria-labelledby={`${control.id}-label`}
-                  aria-describedby={control["aria-describedby"]}
-                  aria-invalid={control["aria-invalid"]}
-                  value={field.state.value}
-                  onValueChange={(value) => field.handleChange(value as BookingType)}
-                  className="flex h-8 items-center gap-6"
-                >
-                  {BOOKING_TYPES.map((type) => (
-                    <div key={type} className="flex items-center gap-2">
-                      <RadioGroupItem
-                        id={`${control.id}-${type}`}
-                        value={type}
-                        onBlur={field.handleBlur}
-                      />
-                      <Label htmlFor={`${control.id}-${type}`}>{BOOKING_TYPE_LABELS[type]()}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-            </FormField>
-          )}
-        </form.Field>
-
-        <form.Field
-          name="amount"
-          validators={{ onDynamic: ({ value }) => message(checkAmount(value)) }}
-        >
-          {(field) => (
-            <FormField
-              id={id("amount")}
-              label={m.booking_form_amount_label()}
-              description={m.booking_form_amount_description()}
-              errors={field.state.meta.errors}
-            >
-              {(control) => (
-                <div className="relative w-44">
-                  <Input
-                    {...control}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    required
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={() => {
-                      // Show the recognized amount in its canonical form
-                      // ("1.500" → "1.500,00"): the dot is a thousands separator.
-                      const parsed = parseAmount(field.state.value);
-                      if (parsed.ok && parsed.cents > 0) {
-                        const canonical = formatAmountInput(parsed.cents);
-                        if (canonical !== field.state.value) field.handleChange(canonical);
-                      }
-                      field.handleBlur();
-                    }}
-                    className="pr-7 text-right tabular-nums"
-                  />
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground"
-                  >
-                    €
-                  </span>
-                </div>
-              )}
-            </FormField>
-          )}
-        </form.Field>
-
-        <form.Field
-          name="vatRate"
-          validators={{
-            onDynamic: ({ value }) => message(checkVatRate(value, smallBusinessRef.current)),
-          }}
-        >
-          {(field) =>
-            smallBusiness ? (
-              <SmallBusinessNote
-                id={id("vatRate")}
-                year={year}
-                errors={fieldErrors(field.state.meta.errors)}
-              />
-            ) : (
+        <div className="grid gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
+          <form.Field
+            name="date"
+            validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
+          >
+            {(field) => (
               <FormField
-                id={id("vatRate")}
-                label={m.booking_form_vat_rate_label()}
+                id={id("date")}
+                label={m.booking_form_date_label()}
+                description={m.booking_form_date_description()}
                 errors={field.state.meta.errors}
               >
                 {(control) => (
-                  <Select<VatRate>
-                    items={VAT_RATES.map((rate) => ({
-                      value: rate,
-                      label: VAT_RATE_LABELS[rate](),
-                    }))}
-                    value={field.state.value === "" ? null : field.state.value}
-                    onValueChange={(value) => field.handleChange(value ?? "")}
-                  >
-                    <SelectTrigger {...control} onBlur={field.handleBlur} className="w-44">
-                      <SelectValue placeholder={m.booking_form_vat_rate_placeholder()} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VAT_RATES.map((rate) => (
-                        <SelectItem key={rate} value={rate}>
-                          {VAT_RATE_LABELS[rate]()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    {...control}
+                    type="date"
+                    min="1000-01-01"
+                    max="9999-12-31"
+                    required
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-44"
+                  />
                 )}
               </FormField>
-            )
-          }
-        </form.Field>
+            )}
+          </form.Field>
 
-        <form.Subscribe selector={(state) => [state.values.amount, state.values.vatRate] as const}>
-          {([amount, vatRate]) => (
-            <AmountPreview amount={amount} vatRate={vatRate} smallBusiness={smallBusiness} />
-          )}
-        </form.Subscribe>
-
-        <form.Subscribe selector={(state) => state.values.type}>
-          {(type) => (
-            <form.Field
-              name="categoryId"
-              validators={{ onDynamic: ({ value }) => message(checkCategory(value)) }}
-            >
-              {(field) => {
-                const options = categoryOptions(categories, type, [
-                  booking?.categoryId,
-                  Number(field.state.value),
-                ]);
-                const items = options.map((category) => ({
-                  value: String(category.id),
-                  label: category.archived
-                    ? m.booking_form_category_archived({ name: category.name })
-                    : category.name,
-                }));
-                return (
-                  <FormField
-                    id={id("categoryId")}
-                    label={m.booking_form_category_label()}
-                    description={
-                      options.length === 0
-                        ? m.booking_form_category_none()
-                        : !smallBusiness && isTaxOfficeCategory(field.state.value, categories)
-                          ? m.booking_form_category_tax_office_hint()
-                          : undefined
-                    }
-                    errors={field.state.meta.errors}
-                    className="sm:col-span-2"
-                  >
-                    {(control) => (
-                      <Select<string>
-                        items={items}
-                        value={field.state.value === "" ? null : field.state.value}
-                        onValueChange={(value) => {
-                          const next = value ?? "";
-                          field.handleChange(next);
-                          // Tax-office payments contain no VAT: suggest rate 0.
-                          const current = field.form.getFieldValue("vatRate");
-                          const rate = vatRateAfterCategoryChange(next, categories, current);
-                          if (rate !== current) field.form.setFieldValue("vatRate", rate);
-                        }}
-                      >
-                        <SelectTrigger
-                          {...control}
-                          onBlur={field.handleBlur}
-                          className="w-full sm:w-96"
-                        >
-                          <SelectValue placeholder={m.booking_form_category_placeholder()} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {items.map((item) => (
-                            <SelectItem key={item.value} value={item.value}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </FormField>
+          <form.Field
+            name="type"
+            // No client check; lets a change clear a server error (see validation-logic.ts).
+            validators={{ onDynamic: noValidation }}
+            listeners={{
+              onChange: ({ value, fieldApi }) => {
+                // Keep the category only if it fits the new type.
+                const current = fieldApi.form.getFieldValue("categoryId");
+                const next = categoryAfterTypeChange(
+                  current,
+                  categoryOptions(categories, value, [booking?.categoryId]),
                 );
-              }}
-            </form.Field>
-          )}
-        </form.Subscribe>
+                if (next !== current) fieldApi.form.setFieldValue("categoryId", next);
+              },
+            }}
+          >
+            {(field) => (
+              <FormField
+                id={id("type")}
+                label={m.booking_form_type_label()}
+                labelAs="group"
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <RadioGroup
+                    aria-labelledby={`${control.id}-label`}
+                    aria-describedby={control["aria-describedby"]}
+                    aria-invalid={control["aria-invalid"]}
+                    value={field.state.value}
+                    onValueChange={(value) => field.handleChange(value as BookingType)}
+                    className="flex h-8 items-center gap-6"
+                  >
+                    {BOOKING_TYPES.map((type) => (
+                      <div key={type} className="flex items-center gap-2">
+                        <RadioGroupItem
+                          id={`${control.id}-${type}`}
+                          value={type}
+                          onBlur={field.handleBlur}
+                        />
+                        <Label htmlFor={`${control.id}-${type}`}>
+                          {BOOKING_TYPE_LABELS[type]()}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+              </FormField>
+            )}
+          </form.Field>
 
-        <form.Field
-          name="description"
-          validators={{
-            onDynamic: ({ value }) => message(checkRequiredText("description", value)),
-          }}
-        >
-          {(field) => (
-            <FormField
-              id={id("description")}
-              label={m.booking_form_description_label()}
-              errors={field.state.meta.errors}
-              className="sm:col-span-2"
-            >
-              {(control) => (
-                <BookingTextInput
-                  field="description"
-                  type={bookingType}
-                  control={control}
-                  maxLength={BOOKING_TEXT_MAX_LENGTH.description}
-                  listLabel={m.booking_form_description_suggestions()}
-                  value={field.state.value}
-                  onValueChange={field.handleChange}
-                  onBlur={field.handleBlur}
-                />
-              )}
-            </FormField>
-          )}
-        </form.Field>
+          <form.Field
+            name="amount"
+            validators={{ onDynamic: ({ value }) => message(checkAmount(value)) }}
+          >
+            {(field) => (
+              <FormField
+                id={id("amount")}
+                label={m.booking_form_amount_label()}
+                description={m.booking_form_amount_description()}
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <div className="relative w-44">
+                    <Input
+                      {...control}
+                      inputMode="decimal"
+                      autoComplete="off"
+                      required
+                      value={field.state.value}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                      onBlur={() => {
+                        // Show the recognized amount in its canonical form
+                        // ("1.500" → "1.500,00"): the dot is a thousands separator.
+                        const parsed = parseAmount(field.state.value);
+                        if (parsed.ok && parsed.cents > 0) {
+                          const canonical = formatAmountInput(parsed.cents);
+                          if (canonical !== field.state.value) field.handleChange(canonical);
+                        }
+                        field.handleBlur();
+                      }}
+                      className="pr-7 text-right tabular-nums"
+                    />
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground"
+                    >
+                      €
+                    </span>
+                  </div>
+                )}
+              </FormField>
+            )}
+          </form.Field>
 
-        <form.Field
-          name="counterparty"
-          validators={{
-            onDynamic: ({ value }) => message(checkRequiredText("counterparty", value)),
-          }}
-        >
-          {(field) => (
-            <FormField
-              id={id("counterparty")}
-              label={m.booking_form_counterparty_label()}
-              description={m.booking_form_counterparty_description()}
-              errors={field.state.meta.errors}
-            >
-              {(control) => (
-                <BookingTextInput
-                  field="counterparty"
-                  type={bookingType}
-                  control={control}
-                  maxLength={BOOKING_TEXT_MAX_LENGTH.counterparty}
-                  listLabel={m.booking_form_counterparty_suggestions()}
-                  value={field.state.value}
-                  onValueChange={field.handleChange}
-                  onBlur={field.handleBlur}
+          <form.Field
+            name="vatRate"
+            validators={{
+              onDynamic: ({ value }) => message(checkVatRate(value, smallBusinessRef.current)),
+            }}
+          >
+            {(field) =>
+              smallBusiness ? (
+                <SmallBusinessNote
+                  id={id("vatRate")}
+                  year={year}
+                  errors={fieldErrors(field.state.meta.errors)}
                 />
-              )}
-            </FormField>
-          )}
-        </form.Field>
+              ) : (
+                <FormField
+                  id={id("vatRate")}
+                  label={m.booking_form_vat_rate_label()}
+                  errors={field.state.meta.errors}
+                >
+                  {(control) => (
+                    <Select<VatRate>
+                      items={VAT_RATES.map((rate) => ({
+                        value: rate,
+                        label: VAT_RATE_LABELS[rate](),
+                      }))}
+                      value={field.state.value === "" ? null : field.state.value}
+                      onValueChange={(value) => field.handleChange(value ?? "")}
+                    >
+                      <SelectTrigger {...control} onBlur={field.handleBlur} className="w-44">
+                        <SelectValue placeholder={m.booking_form_vat_rate_placeholder()} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VAT_RATES.map((rate) => (
+                          <SelectItem key={rate} value={rate}>
+                            {VAT_RATE_LABELS[rate]()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormField>
+              )
+            }
+          </form.Field>
 
-        <form.Field name="reference" validators={{ onDynamic: noValidation }}>
-          {(field) => (
-            <FormField
-              id={id("reference")}
-              label={m.booking_form_reference_label()}
-              description={m.booking_form_reference_description()}
-              errors={field.state.meta.errors}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  maxLength={BOOKING_TEXT_MAX_LENGTH.reference}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              )}
-            </FormField>
-          )}
-        </form.Field>
+          <form.Subscribe
+            selector={(state) => [state.values.amount, state.values.vatRate] as const}
+          >
+            {([amount, vatRate]) => (
+              <AmountPreview amount={amount} vatRate={vatRate} smallBusiness={smallBusiness} />
+            )}
+          </form.Subscribe>
 
-        <form.Field name="note" validators={{ onDynamic: noValidation }}>
-          {(field) => (
-            <FormField
-              id={id("note")}
-              label={m.booking_form_note_label()}
-              description={m.booking_form_note_description()}
-              errors={field.state.meta.errors}
-              className="sm:col-span-2"
-            >
-              {(control) => (
-                <Textarea
-                  {...control}
-                  rows={2}
-                  maxLength={BOOKING_TEXT_MAX_LENGTH.note}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              )}
-            </FormField>
-          )}
-        </form.Field>
+          <form.Subscribe selector={(state) => state.values.type}>
+            {(type) => (
+              <form.Field
+                name="categoryId"
+                validators={{ onDynamic: ({ value }) => message(checkCategory(value)) }}
+              >
+                {(field) => {
+                  const options = categoryOptions(categories, type, [
+                    booking?.categoryId,
+                    Number(field.state.value),
+                  ]);
+                  const items = options.map((category) => ({
+                    value: String(category.id),
+                    label: category.archived
+                      ? m.booking_form_category_archived({ name: category.name })
+                      : category.name,
+                  }));
+                  return (
+                    <FormField
+                      id={id("categoryId")}
+                      label={m.booking_form_category_label()}
+                      description={
+                        options.length === 0
+                          ? m.booking_form_category_none()
+                          : !smallBusiness && isTaxOfficeCategory(field.state.value, categories)
+                            ? m.booking_form_category_tax_office_hint()
+                            : undefined
+                      }
+                      errors={field.state.meta.errors}
+                      className="sm:col-span-2"
+                    >
+                      {(control) => (
+                        <Select<string>
+                          items={items}
+                          value={field.state.value === "" ? null : field.state.value}
+                          onValueChange={(value) => {
+                            const next = value ?? "";
+                            field.handleChange(next);
+                            // Tax-office payments contain no VAT: suggest rate 0.
+                            const current = field.form.getFieldValue("vatRate");
+                            const rate = vatRateAfterCategoryChange(next, categories, current);
+                            if (rate !== current) field.form.setFieldValue("vatRate", rate);
+                          }}
+                        >
+                          <SelectTrigger
+                            {...control}
+                            onBlur={field.handleBlur}
+                            className="w-full sm:w-96"
+                          >
+                            <SelectValue placeholder={m.booking_form_category_placeholder()} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </FormField>
+                  );
+                }}
+              </form.Field>
+            )}
+          </form.Subscribe>
+
+          <form.Field
+            name="description"
+            validators={{
+              onDynamic: ({ value }) => message(checkRequiredText("description", value)),
+            }}
+          >
+            {(field) => (
+              <FormField
+                id={id("description")}
+                label={m.booking_form_description_label()}
+                errors={field.state.meta.errors}
+                className="sm:col-span-2"
+              >
+                {(control) => (
+                  <BookingTextInput
+                    field="description"
+                    type={bookingType}
+                    control={control}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.description}
+                    listLabel={m.booking_form_description_suggestions()}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field
+            name="counterparty"
+            validators={{
+              onDynamic: ({ value }) => message(checkRequiredText("counterparty", value)),
+            }}
+          >
+            {(field) => (
+              <FormField
+                id={id("counterparty")}
+                label={m.booking_form_counterparty_label()}
+                description={m.booking_form_counterparty_description()}
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <BookingTextInput
+                    field="counterparty"
+                    type={bookingType}
+                    control={control}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.counterparty}
+                    listLabel={m.booking_form_counterparty_suggestions()}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field name="reference" validators={{ onDynamic: noValidation }}>
+            {(field) => (
+              <FormField
+                id={id("reference")}
+                label={m.booking_form_reference_label()}
+                description={m.booking_form_reference_description()}
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.reference}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field name="note" validators={{ onDynamic: noValidation }}>
+            {(field) => (
+              <FormField
+                id={id("note")}
+                label={m.booking_form_note_label()}
+                description={m.booking_form_note_description()}
+                errors={field.state.meta.errors}
+                className="sm:col-span-2"
+              >
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    rows={2}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.note}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+        </div>
+
+        {otherErrors.length > 0 && (
+          <div
+            ref={otherErrorsRef}
+            tabIndex={-1}
+            role="alert"
+            className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive outline-none"
+          >
+            <p>{m.booking_form_other_errors()}</p>
+            <ul className="ml-4 list-disc">
+              {otherErrors.map((error) => (
+                <li key={error.field}>{bookingErrorMessage(error)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {otherErrors.length > 0 && (
-        <div
-          ref={otherErrorsRef}
-          tabIndex={-1}
-          role="alert"
-          className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive outline-none"
-        >
-          <p>{m.booking_form_other_errors()}</p>
-          <ul className="ml-4 list-disc">
-            {otherErrors.map((error) => (
-              <li key={error.field}>{bookingErrorMessage(error)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Below the form: cancel (and delete) on the left, the primary action on the right. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Command bar, sticky at the bottom of the window across the full width of
+          the content panel: save/cancel stay reachable when the form is taller
+          than the window. Cancel (and delete) left, the primary action right. */}
+      <div className="sticky bottom-0 -mx-8 mt-auto -mb-6 flex flex-wrap items-center gap-2 border-t bg-sidebar px-8 py-4">
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/bookings" })}>
           {m.common_cancel()}
         </Button>
