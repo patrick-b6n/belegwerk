@@ -183,34 +183,6 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
 
         <div className="grid gap-x-4 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-2">
           <form.Field
-            name="date"
-            validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
-          >
-            {(field) => (
-              <FormField
-                id={id("date")}
-                label={m.booking_form_date_label()}
-                description={m.booking_form_date_description()}
-                errors={field.state.meta.errors}
-              >
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="date"
-                    min="1000-01-01"
-                    max="9999-12-31"
-                    required
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    className="w-44"
-                  />
-                )}
-              </FormField>
-            )}
-          </form.Field>
-
-          <form.Field
             name="type"
             // No client check; lets a change clear a server error (see validation-logic.ts).
             validators={{ onDynamic: noValidation }}
@@ -259,6 +231,154 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               </FormField>
             )}
           </form.Field>
+
+          <form.Field
+            name="date"
+            validators={{ onDynamic: ({ value }) => message(checkDate(value)) }}
+          >
+            {(field) => (
+              <FormField
+                id={id("date")}
+                label={m.booking_form_date_label()}
+                description={m.booking_form_date_description()}
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="date"
+                    min="1000-01-01"
+                    max="9999-12-31"
+                    required
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-44"
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field
+            name="description"
+            validators={{
+              onDynamic: ({ value }) => message(checkRequiredText("description", value)),
+            }}
+          >
+            {(field) => (
+              <FormField
+                id={id("description")}
+                label={m.booking_form_description_label()}
+                errors={field.state.meta.errors}
+                className="sm:col-span-2"
+              >
+                {(control) => (
+                  <BookingTextInput
+                    field="description"
+                    type={bookingType}
+                    control={control}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.description}
+                    listLabel={m.booking_form_description_suggestions()}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field
+            name="counterparty"
+            validators={{
+              onDynamic: ({ value }) => message(checkRequiredText("counterparty", value)),
+            }}
+          >
+            {(field) => (
+              <FormField
+                id={id("counterparty")}
+                label={m.booking_form_counterparty_label()}
+                description={m.booking_form_counterparty_description()}
+                errors={field.state.meta.errors}
+              >
+                {(control) => (
+                  <BookingTextInput
+                    field="counterparty"
+                    type={bookingType}
+                    control={control}
+                    maxLength={BOOKING_TEXT_MAX_LENGTH.counterparty}
+                    listLabel={m.booking_form_counterparty_suggestions()}
+                    value={field.state.value}
+                    onValueChange={field.handleChange}
+                    onBlur={field.handleBlur}
+                  />
+                )}
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Subscribe selector={(state) => state.values.type}>
+            {(type) => (
+              <form.Field
+                name="categoryId"
+                validators={{ onDynamic: ({ value }) => message(checkCategory(value)) }}
+              >
+                {(field) => {
+                  const options = categoryOptions(categories, type, [
+                    booking?.categoryId,
+                    Number(field.state.value),
+                  ]);
+                  const items = options.map((category) => ({
+                    value: String(category.id),
+                    label: category.archived
+                      ? m.booking_form_category_archived({ name: category.name })
+                      : category.name,
+                  }));
+                  return (
+                    <FormField
+                      id={id("categoryId")}
+                      label={m.booking_form_category_label()}
+                      description={
+                        options.length === 0
+                          ? m.booking_form_category_none()
+                          : !smallBusiness && isTaxOfficeCategory(field.state.value, categories)
+                            ? m.booking_form_category_tax_office_hint()
+                            : undefined
+                      }
+                      errors={field.state.meta.errors}
+                    >
+                      {(control) => (
+                        <Select<string>
+                          items={items}
+                          value={field.state.value === "" ? null : field.state.value}
+                          onValueChange={(value) => {
+                            const next = value ?? "";
+                            field.handleChange(next);
+                            // Tax-office payments contain no VAT: suggest rate 0.
+                            const current = field.form.getFieldValue("vatRate");
+                            const rate = vatRateAfterCategoryChange(next, categories, current);
+                            if (rate !== current) field.form.setFieldValue("vatRate", rate);
+                          }}
+                        >
+                          <SelectTrigger {...control} onBlur={field.handleBlur} className="w-full">
+                            <SelectValue placeholder={m.booking_form_category_placeholder()} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </FormField>
+                  );
+                }}
+              </form.Field>
+            )}
+          </form.Subscribe>
 
           <form.Field
             name="amount"
@@ -356,131 +476,6 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <AmountPreview amount={amount} vatRate={vatRate} smallBusiness={smallBusiness} />
             )}
           </form.Subscribe>
-
-          <form.Subscribe selector={(state) => state.values.type}>
-            {(type) => (
-              <form.Field
-                name="categoryId"
-                validators={{ onDynamic: ({ value }) => message(checkCategory(value)) }}
-              >
-                {(field) => {
-                  const options = categoryOptions(categories, type, [
-                    booking?.categoryId,
-                    Number(field.state.value),
-                  ]);
-                  const items = options.map((category) => ({
-                    value: String(category.id),
-                    label: category.archived
-                      ? m.booking_form_category_archived({ name: category.name })
-                      : category.name,
-                  }));
-                  return (
-                    <FormField
-                      id={id("categoryId")}
-                      label={m.booking_form_category_label()}
-                      description={
-                        options.length === 0
-                          ? m.booking_form_category_none()
-                          : !smallBusiness && isTaxOfficeCategory(field.state.value, categories)
-                            ? m.booking_form_category_tax_office_hint()
-                            : undefined
-                      }
-                      errors={field.state.meta.errors}
-                      className="sm:col-span-2"
-                    >
-                      {(control) => (
-                        <Select<string>
-                          items={items}
-                          value={field.state.value === "" ? null : field.state.value}
-                          onValueChange={(value) => {
-                            const next = value ?? "";
-                            field.handleChange(next);
-                            // Tax-office payments contain no VAT: suggest rate 0.
-                            const current = field.form.getFieldValue("vatRate");
-                            const rate = vatRateAfterCategoryChange(next, categories, current);
-                            if (rate !== current) field.form.setFieldValue("vatRate", rate);
-                          }}
-                        >
-                          <SelectTrigger
-                            {...control}
-                            onBlur={field.handleBlur}
-                            className="w-full sm:w-96"
-                          >
-                            <SelectValue placeholder={m.booking_form_category_placeholder()} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {items.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </FormField>
-                  );
-                }}
-              </form.Field>
-            )}
-          </form.Subscribe>
-
-          <form.Field
-            name="description"
-            validators={{
-              onDynamic: ({ value }) => message(checkRequiredText("description", value)),
-            }}
-          >
-            {(field) => (
-              <FormField
-                id={id("description")}
-                label={m.booking_form_description_label()}
-                errors={field.state.meta.errors}
-                className="sm:col-span-2"
-              >
-                {(control) => (
-                  <BookingTextInput
-                    field="description"
-                    type={bookingType}
-                    control={control}
-                    maxLength={BOOKING_TEXT_MAX_LENGTH.description}
-                    listLabel={m.booking_form_description_suggestions()}
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                    onBlur={field.handleBlur}
-                  />
-                )}
-              </FormField>
-            )}
-          </form.Field>
-
-          <form.Field
-            name="counterparty"
-            validators={{
-              onDynamic: ({ value }) => message(checkRequiredText("counterparty", value)),
-            }}
-          >
-            {(field) => (
-              <FormField
-                id={id("counterparty")}
-                label={m.booking_form_counterparty_label()}
-                description={m.booking_form_counterparty_description()}
-                errors={field.state.meta.errors}
-              >
-                {(control) => (
-                  <BookingTextInput
-                    field="counterparty"
-                    type={bookingType}
-                    control={control}
-                    maxLength={BOOKING_TEXT_MAX_LENGTH.counterparty}
-                    listLabel={m.booking_form_counterparty_suggestions()}
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                    onBlur={field.handleBlur}
-                  />
-                )}
-              </FormField>
-            )}
-          </form.Field>
 
           <form.Field name="reference" validators={{ onDynamic: noValidation }}>
             {(field) => (
