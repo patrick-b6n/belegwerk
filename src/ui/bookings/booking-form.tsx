@@ -538,10 +538,8 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
         </div>
       )}
 
-      {/* Sticky at the bottom of the scrolling content area: save/cancel stay
-          reachable when the window is too low for the whole form. */}
-      {/* Cancel (and delete) on the left, the primary action on the right. */}
-      <div className="sticky bottom-0 -mx-2 flex flex-wrap items-center gap-2 bg-background px-2 py-4">
+      {/* Below the form: cancel (and delete) on the left, the primary action on the right. */}
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/bookings" })}>
           {m.common_cancel()}
         </Button>
