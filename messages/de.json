@@ -158,9 +158,8 @@
   "booking_form_counterparty_description": "Kunde, Lieferant oder Zahlungsempfänger",
   "booking_form_counterparty_suggestions": "Bisherige Gegenparteien",
   "booking_form_reference_label": "Referenz",
-  "booking_form_reference_description": "Optional, z. B. Rechnungsnummer",
+  "booking_form_reference_description": "z. B. Rechnungsnummer",
   "booking_form_note_label": "Notiz",
-  "booking_form_note_description": "Optional",
   "booking_form_import_title": "Importierte Buchung",
   "booking_form_import_description": "Quelle und externe ID stammen aus dem Import und bleiben beim Speichern erhalten.",
   "booking_form_source_label": "Quelle",
@@ -570,5 +569,7 @@
   "update_error_rollback_failed_no_path": "Die neue Version konnte nicht eingesetzt und die alte nicht wiederhergestellt werden. Bitte Belegwerk schließen und im Ordner der .exe die Datei mit der Endung „.old“ umbenennen: die Endung „.old“ entfernen. Danach startet die bisherige Version wieder.",
   "update_error_already_running": "Das Update wird bereits installiert.",
   "update_error_unexpected": "Beim Update ist ein unerwarteter Fehler aufgetreten.",
-  "update_error_unchanged": "Die installierte Version bleibt unverändert."
+  "update_error_unchanged": "Die installierte Version bleibt unverändert.",
+  "form_field_required": "Pflichtfeld",
+  "form_field_hint": "Hinweis zu {label}"
 }

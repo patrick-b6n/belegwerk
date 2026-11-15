@@ -155,6 +155,7 @@ export function CategoryForm({
           <FormField
             id={id("name")}
             label={m.category_form_name_label()}
+            required
             errors={field.state.meta.errors}
           >
             {(control) => (
@@ -199,6 +200,7 @@ export function CategoryForm({
             <FormField
               id={id("type")}
               label={m.category_form_type_label()}
+              required
               labelAs="group"
               description={m.category_form_type_description()}
               errors={field.state.meta.errors}

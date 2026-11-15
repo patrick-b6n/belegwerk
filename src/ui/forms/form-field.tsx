@@ -1,5 +1,8 @@
 import { cn } from "cn";
+import { Info } from "lucide-react";
 import type { ReactNode } from "react";
+
+import { m } from "@/paraglide/messages.js";
 
 import {
   Field,
@@ -8,6 +11,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/ui/components/ui/field";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/components/ui/tooltip";
 
 /**
  * Shared building blocks of the TanStack Form forms (booking form #18,
@@ -40,15 +44,19 @@ export interface ControlProps {
 }
 
 /**
- * Label, description, control and error of one form field (shadcn `Field`);
- * the description sits right below the label.
- * The control gets `id`, `aria-invalid` and `aria-describedby` (description
- * and error), so screen readers announce the error with the field.
+ * Label, control and error of one form field (shadcn `Field`). `required`
+ * marks the label with an asterisk (and "Pflichtfeld" for screen readers).
+ * The description is behind an info icon at the right end of the label row
+ * (tooltip on hover and focus); for screen readers it stays linked to the
+ * control. The control gets `id`, `aria-invalid` and `aria-describedby`
+ * (description and error), so screen readers announce the error with the
+ * field.
  */
 export function FormField({
   id,
   label,
   labelAs = "label",
+  required = false,
   description,
   errors,
   className,
@@ -58,6 +66,7 @@ export function FormField({
   label: string;
   /** `"group"`: a group of controls (radio buttons) labelled via `aria-labelledby`. */
   labelAs?: "label" | "group";
+  required?: boolean;
   description?: ReactNode;
   errors: readonly unknown[];
   className?: string;
@@ -68,15 +77,48 @@ export function FormField({
   const descriptionId = description ? `${id}-description` : undefined;
   const errorId = invalid ? `${id}-error` : undefined;
   const describedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
+  const labelContent = (
+    <>
+      {label}
+      {required && (
+        <>
+          <span aria-hidden className="-ml-1.5 text-destructive">
+            *
+          </span>
+          <span className="sr-only">{m.form_field_required()}</span>
+        </>
+      )}
+    </>
+  );
   return (
     <Field data-invalid={invalid || undefined} className={cn("gap-1", className)}>
-      {labelAs === "label" ? (
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      ) : (
-        <FieldTitle id={`${id}-label`}>{label}</FieldTitle>
-      )}
+      <div className="flex items-center gap-2">
+        {labelAs === "label" ? (
+          <FieldLabel htmlFor={id}>{labelContent}</FieldLabel>
+        ) : (
+          <FieldTitle id={`${id}-label`}>{labelContent}</FieldTitle>
+        )}
+        {description && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={m.form_field_hint({ label })}
+                  className="ml-auto flex size-5 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              }
+            >
+              <Info aria-hidden className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent side="top" align="end">
+              {description}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
       {description && (
-        <FieldDescription id={descriptionId} className="-mt-1! text-xs">
+        <FieldDescription id={descriptionId} className="sr-only">
           {description}
         </FieldDescription>
       )}

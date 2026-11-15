@@ -204,6 +204,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("type")}
                 label={m.booking_form_type_label()}
+                required
                 labelAs="group"
                 errors={field.state.meta.errors}
               >
@@ -242,6 +243,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("date")}
                 label={m.booking_form_date_label()}
+                required
                 description={m.booking_form_date_description()}
                 errors={field.state.meta.errors}
               >
@@ -272,6 +274,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("description")}
                 label={m.booking_form_description_label()}
+                required
                 errors={field.state.meta.errors}
                 className="sm:col-span-2"
               >
@@ -301,6 +304,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("counterparty")}
                 label={m.booking_form_counterparty_label()}
+                required
                 description={m.booking_form_counterparty_description()}
                 errors={field.state.meta.errors}
               >
@@ -341,6 +345,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
                     <FormField
                       id={id("categoryId")}
                       label={m.booking_form_category_label()}
+                      required
                       description={
                         options.length === 0
                           ? m.booking_form_category_none()
@@ -390,6 +395,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("amount")}
                 label={m.booking_form_amount_label()}
+                required
                 description={m.booking_form_amount_description()}
                 errors={field.state.meta.errors}
               >
@@ -443,6 +449,7 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
                 <FormField
                   id={id("vatRate")}
                   label={m.booking_form_vat_rate_label()}
+                  required
                   errors={field.state.meta.errors}
                 >
                   {(control) => (
@@ -505,7 +512,6 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
               <FormField
                 id={id("note")}
                 label={m.booking_form_note_label()}
-                description={m.booking_form_note_description()}
                 errors={field.state.meta.errors}
                 className="sm:col-span-2"
               >
