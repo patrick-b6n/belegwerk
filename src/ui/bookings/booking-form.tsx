@@ -603,7 +603,7 @@ function AmountPreview({
 }: Readonly<{ amount: string; vatRate: VatRate | ""; smallBusiness: boolean }>) {
   const preview = previewAmounts(amount, vatRate, smallBusiness);
   return (
-    <div className="border-t pt-4 text-sm sm:col-span-2">
+    <div className="text-sm sm:col-span-2">
       <span className="sr-only">{m.booking_form_preview_label()}: </span>
       <dl className="flex flex-wrap gap-x-6 gap-y-1">
         {(
