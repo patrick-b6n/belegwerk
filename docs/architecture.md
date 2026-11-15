@@ -1154,7 +1154,17 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
 
 - **Werte sind Strings;** beim Absenden wird daraus `BookingFormInput`. Quelle
   und externe ID werden nie gesendet (`update` behält sie); importierte
-  Buchungen zeigen sie nur zur Information.
+  Buchungen zeigen sie nur zur Information, als einzeilige Info-Leiste oben
+  im Formular („Importiert aus Stripe · Externe ID …“).
+- **Aufbau:** ein Feld pro Zeile, das Label darüber (Art, Datum,
+  Beschreibung, Gegenpartei, Kategorie, Bruttobetrag, USt-Satz, Referenz,
+  Notiz); Datum, Betrag und USt-Satz sind schmal (`max-w-50`/`w-50`). Die
+  Befehlsleiste steht fest am unteren Rand: Abbrechen und (beim Bearbeiten)
+  Löschen als rote Schaltfläche links, Speichern rechts.
+- **Tastatur:** Strg+S speichert (auch ohne Fokus im Formular, nicht bei
+  offenem Dialog), Esc bricht ab – außer Esc schließt zuerst etwas
+  (Vorschlagsliste mit `aria-expanded`, ein Popup). Die Tooltips der
+  Buttons nennen die Tasten.
 - **Validierung:** Der Service ist maßgeblich. Das Formular prüft vorab nur,
   was es selbst weiß (Pflichtfelder, Betragstext per `parseAmount`, Betrag
   größer 0) – beim Absenden, danach bei jeder Änderung
@@ -1178,8 +1188,10 @@ getestet in `booking-form-model.ts`, die Texte zu Fehlercodes in
   Kleinunternehmer-Jahr steht stattdessen ein Hinweis, gesendet wird `null`.
   Die Seiten laden den Status des Anfangsdatums vor dem Formular (kein
   Flackern).
-- **Vorschau** Netto/USt/Brutto live mit `calculateBookingAmounts`, „–“
-  solange Betrag oder Satz ungültig sind.
+- **Vorschau** „Netto … · USt …“ live mit `calculateBookingAmounts`, klein
+  neben dem USt-Satz (der Bruttobetrag ist das Eingabefeld selbst); solange
+  Betrag oder Satz ungültig sind, steht dort ein Hinweis. Im
+  Kleinunternehmer-Jahr (kein USt-Satz) entfällt sie.
 - **USt-Kategorien des Finanzamts:** Wählt der Nutzer eine Kategorie mit
   `UST_AN_FA` oder `UST_ERSTATTUNG` (`isTaxOfficePayment`), setzt das
   Formular den USt-Satz auf `0` und zeigt (regelbesteuert) einen Hinweis;

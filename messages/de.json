@@ -143,7 +143,6 @@
   "booking_vat_rate_0": "0 %",
   "booking_vat_rate_reverse_charge": "Reverse Charge",
   "booking_form_preview_label": "Berechnung",
-  "booking_form_preview_unavailable": "–",
   "booking_form_preview_unavailable_description": "Netto und USt erscheinen, sobald Betrag und USt-Satz gültig sind.",
   "booking_form_category_label": "Kategorie",
   "booking_form_category_placeholder": "Kategorie wählen",
@@ -158,9 +157,6 @@
   "booking_form_reference_label": "Referenz",
   "booking_form_reference_description": "z. B. Rechnungsnummer",
   "booking_form_note_label": "Notiz",
-  "booking_form_import_title": "Importierte Buchung",
-  "booking_form_import_description": "Quelle und externe ID stammen aus dem Import und bleiben beim Speichern erhalten.",
-  "booking_form_source_label": "Quelle",
   "booking_form_external_id_label": "Externe ID",
   "booking_form_create": "Buchung anlegen",
   "booking_form_save": "Speichern",
@@ -575,5 +571,8 @@
   "bookings_filter_remove": "Filter „{filter}“ entfernen",
   "bookings_filter_all_set": "Alle Filter sind gesetzt.",
   "bookings_pagination_per_page": "{size} pro Seite",
-  "bookings_filter_reset_all": "Alle Filter zurücksetzen"
+  "bookings_filter_reset_all": "Alle Filter zurücksetzen",
+  "booking_form_import_source": "Importiert aus {source}",
+  "booking_form_import_kept": "Bleibt beim Speichern erhalten",
+  "shortcut_hint": "{action} ({keys})"
 }
