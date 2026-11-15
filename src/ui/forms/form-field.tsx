@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import type { ReactNode } from "react";
 
 import {
@@ -68,14 +69,14 @@ export function FormField({
   const errorId = invalid ? `${id}-error` : undefined;
   const describedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
   return (
-    <Field data-invalid={invalid || undefined} className={className}>
+    <Field data-invalid={invalid || undefined} className={cn("gap-1", className)}>
       {labelAs === "label" ? (
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
       ) : (
         <FieldTitle id={`${id}-label`}>{label}</FieldTitle>
       )}
       {description && (
-        <FieldDescription id={descriptionId} className="-mt-1.5!">
+        <FieldDescription id={descriptionId} className="-mt-1! text-xs">
           {description}
         </FieldDescription>
       )}
