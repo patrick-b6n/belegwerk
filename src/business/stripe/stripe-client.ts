@@ -81,6 +81,11 @@ export type ListApplicationFeesResult =
   | { readonly ok: true; readonly fees: readonly StripeApplicationFee[] }
   | { readonly ok: false; readonly error: StripeClientError };
 
+export type GetAccountNameResult =
+  /** `name` is `null` if the account has no name the platform can see. */
+  | { readonly ok: true; readonly name: string | null }
+  | { readonly ok: false; readonly error: StripeClientError };
+
 export type VerifyStripeAccessResult =
   | { readonly ok: true; readonly livemode: boolean | null }
   | { readonly ok: false; readonly error: StripeClientError };
@@ -97,6 +102,18 @@ export interface StripeClient {
    * All or nothing: on the first error the fees fetched so far are dropped.
    */
   listApplicationFees(request: ListApplicationFeesRequest): Promise<ListApplicationFeesResult>;
+
+  /**
+   * The display name of a connected account (`GET /v1/accounts/{id}`), the
+   * counterparty of its fees: the public business name, else the dashboard
+   * display name, the company name or the individual's name. Needs the
+   * optional permission "Accounts: Read" – without it the result is
+   * `permissionDenied` and the import keeps the `acct_…` ID.
+   */
+  getAccountName(request: {
+    readonly apiKey: string;
+    readonly accountId: string;
+  }): Promise<GetAccountNameResult>;
 
   /**
    * Checks key and permission with the smallest possible request (one fee).

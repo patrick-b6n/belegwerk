@@ -11,6 +11,9 @@ import type {
  * service #30). Behaves like the HTTP client: filters fees by
  * `createdFrom ≤ created ≤ createdTo`, newest first, each with all its
  * refunds. `failWith` makes every call return that error.
+ *
+ * `accountNames` answers `getAccountName`; an account missing there is a 404
+ * (`stripeError`), `accountFailWith` fails only the account lookups.
  */
 export interface FakeStripeClient extends StripeClient {
   /** Fees the "account" has; refunds may be added later (mutable on purpose). */
@@ -18,6 +21,11 @@ export interface FakeStripeClient extends StripeClient {
   /** Every request, key included, to assert on what the caller sent. */
   readonly requests: ListApplicationFeesRequest[];
   failWith: StripeClientError | null;
+  /** Names by `acct_…` ID; `null` = account without a visible name. */
+  readonly accountNames: Map<string, string | null>;
+  /** The IDs `getAccountName` was asked for, in order. */
+  readonly accountRequests: string[];
+  accountFailWith: StripeClientError | null;
 }
 
 export function createFakeStripeClient(fees: StripeApplicationFee[] = []): FakeStripeClient {
@@ -25,6 +33,9 @@ export function createFakeStripeClient(fees: StripeApplicationFee[] = []): FakeS
     fees,
     requests: [],
     failWith: null,
+    accountNames: new Map(),
+    accountRequests: [],
+    accountFailWith: null,
     listApplicationFees: (request) => {
       client.requests.push(request);
       if (client.failWith) return Promise.resolve({ ok: false, error: client.failWith });
@@ -32,6 +43,23 @@ export function createFakeStripeClient(fees: StripeApplicationFee[] = []): FakeS
         .filter((fee) => fee.created >= request.createdFrom && fee.created <= request.createdTo)
         .toSorted((a, b) => b.created - a.created);
       return Promise.resolve({ ok: true, fees: inRange });
+    },
+    getAccountName: ({ accountId }) => {
+      client.accountRequests.push(accountId);
+      const error = client.failWith ?? client.accountFailWith;
+      if (error) return Promise.resolve({ ok: false, error });
+      if (!client.accountNames.has(accountId)) {
+        return Promise.resolve({
+          ok: false,
+          error: {
+            code: "stripeError",
+            status: 404,
+            stripeCode: "resource_missing",
+            message: null,
+          },
+        });
+      }
+      return Promise.resolve({ ok: true, name: client.accountNames.get(accountId) ?? null });
     },
     verifyAccess: () => {
       if (client.failWith) return Promise.resolve({ ok: false, error: client.failWith });

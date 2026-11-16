@@ -503,7 +503,8 @@ Services (eine Unit of Work pro Operation, Ergebnisobjekte mit Feldcodes).
   speichert bewusst nur eingeschränkte Leseschlüssel),
   `publishableKeyNotAllowed` (`pk_…`), `invalidKey`. Benötigte Berechtigung:
   „Application fees: Lesen“ (Connect; Fee-Refunds sind Unterressource der
-  Application Fees), sonst „Keine“.
+  Application Fees), optional „Accounts: Lesen“ (Namen der Connected Accounts
+  als Gegenpartei), sonst „Keine“.
 - **Standardwerte** (`setDefaults({ defaultVatRate, feeCategoryId,
   refundCategoryId })`, alle drei zusammen; `validateStripeDefaults`, auch
   gegen gespeicherte Werte nutzbar): USt-Satz ein `VatRate` (`required`,
@@ -545,6 +546,16 @@ fileSaver, stripeClient)` verdrahtet ihn, Tests geben einen Fake
   der Client den Rest über `GET /v1/application_fees/{id}/refunds` (ebenfalls
   paginiert). Ergebnis `{ ok: true, fees }` oder `{ ok: false, error }` –
   alles oder nichts.
+- **`getAccountName({ apiKey, accountId })`** – `GET /v1/accounts/{id}`,
+  der Name des Connected Accounts als Gegenpartei der Import-Buchungen:
+  `business_profile.name`, sonst `settings.dashboard.display_name`,
+  `company.name`, Vor- und Nachname von `individual` (erster nicht leerer,
+  getrimmt), `null` ohne Namen. Antwort mit anderem `object`/`id` →
+  `invalidResponse`. Der Import fragt jedes Konto **einmal** ab, nur für
+  noch nicht gebuchte Fees/Refunds; `permissionDenied` (optionale
+  Berechtigung „Accounts: Lesen“ fehlt), 404 (Konto gelöscht) und `null`
+  buchen die ID `acct_…`, andere Fehler brechen den Import ab. Namen über
+  200 Zeichen werden gekürzt.
 - **Domänentypen:** Fee `{ id ("fee_…"), amount (Cent, ≥ 0), currency
   (klein, "eur"), created (Epoch-Sekunden UTC), account ("acct_…"),
   livemode, refunds }`, Refund `{ id ("fr_…"), amount, currency, created }`.
@@ -580,8 +591,9 @@ fileSaver, stripeClient)` verdrahtet ihn, Tests geben einen Fake
   diese Version geschrieben.
 - **Tauri:** `tauri-plugin-http` (Rust, ohne Cookie-Store). Capability
   `http:default` mit Scope **nur** `https://api.stripe.com/v1/application_fees`
-  (Liste) und `https://api.stripe.com/v1/application_fees/*`
-  (Refunds-Unterressource; anderer Host, anderer Pfad wie
+  (Liste), `https://api.stripe.com/v1/application_fees/*`
+  (Refunds-Unterressource) und `https://api.stripe.com/v1/accounts/*`
+  (Kontonamen; anderer Host, anderer Pfad wie
   `/v1/application_feesX`, `http:` → vom Plugin abgelehnt). Query-Strings
   passen trotzdem: das Plugin setzt eine im Muster fehlende Suche auf `*`
   (`parse_url_pattern` in `tauri-plugin-http/src/scope.rs`). Weiterleitungen: der Client setzt
@@ -654,7 +666,7 @@ folgen der Erstattung der Zahlung). Mehr Rückblick kostet nur Anfragen
   | USt-Satz     | Standard; `null` im KU-Jahr | Standard; `null` im KU-Jahr               |
   | Kategorie    | Fee-Kategorie               | Refund-Kategorie (mindert Einnahmen)      |
   | Beschreibung | „Stripe Application Fee“    | „Stripe Application Fee – Rückerstattung“ |
-  | Gegenpartei  | Connected Account `acct_…`  | Connected Account der Fee                 |
+  | Gegenpartei  | Kontoname, sonst `acct_…`   | wie die Fee                               |
   | Referenz     | –                           | `fee_…` der erstatteten Fee               |
   | Notiz        | –                           | –                                         |
   | Quelle / ID  | `stripe` / `fee_…`          | `stripe` / `fr_…`                         |

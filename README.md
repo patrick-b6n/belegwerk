@@ -154,8 +154,10 @@ Schlüssel an.
 1. **Restricted Key anlegen:** im Stripe-Dashboard unter Entwickler →
    API-Schlüssel → „Eingeschränkten Schlüssel erstellen“ (englisch:
    Developers → API keys → Create restricted key). Berechtigung
-   **„Application fees: Lesen“** (Read), alle anderen auf **„Keine“**
-   (None). Rückerstattungen von Fees sind darin enthalten.
+   **„Application fees: Lesen“** (Read), optional **„Accounts: Lesen“**
+   (damit der Import den Namen des Connected Accounts als Gegenpartei bucht
+   statt der Konto-ID `acct_…`), alle anderen auf **„Keine“** (None).
+   Rückerstattungen von Fees sind darin enthalten.
 2. **Schlüssel hinterlegen:** in Belegwerk unter Einstellungen → Stripe
    einfügen und speichern. Angenommen werden nur `rk_live_…` und `rk_test_…`;
    geheime (`sk_…`) und veröffentlichbare (`pk_…`) Schlüssel werden
