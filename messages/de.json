@@ -367,7 +367,7 @@
   "stripe_loading": "Stripe-Einstellungen werden geladen …",
   "stripe_load_error": "Die Stripe-Einstellungen konnten nicht geladen werden.",
   "stripe_key_heading": "API-Schlüssel",
-  "stripe_key_permission_hint": "Benötigt wird ein eingeschränkter Schlüssel (Restricted Key, beginnt mit rk_live_ oder rk_test_) mit der Berechtigung „Application fees: Lesen“ (Connect-Ressourcen). Alle anderen Berechtigungen bleiben auf „Keine“; Rückerstattungen von Fees sind darin enthalten.",
+  "stripe_key_permission_hint": "Benötigt wird ein eingeschränkter Schlüssel (Restricted Key, beginnt mit rk_live_ oder rk_test_) mit der Berechtigung „Application fees: Lesen“ (Connect-Ressourcen). Optional „Accounts: Lesen“ (Connect-Ressourcen), damit der Import den Namen des Connected Accounts als Gegenpartei bucht – sonst steht dort die Konto-ID (acct_…). Alle anderen Berechtigungen bleiben auf „Keine“; Rückerstattungen von Fees sind darin enthalten.",
   "stripe_key_create_hint": "Anlegen im Stripe-Dashboard unter Entwickler → API-Schlüssel → „Eingeschränkten Schlüssel erstellen“. Geheime Schlüssel (sk_…) werden nicht angenommen, weil sie vollen Zugriff auf Ihr Stripe-Konto gewähren.",
   "stripe_key_storage_hint": "Der Schlüssel wird unverschlüsselt in der lokalen Datenbank gespeichert und nur maskiert angezeigt.",
   "stripe_key_stored_label": "Gespeicherter Schlüssel",

@@ -32,6 +32,7 @@ export type {
 } from "./stripe-settings-service";
 export { STRIPE_FEE_REFUND_LOOKBACK_DAYS } from "./stripe-client";
 export type {
+  GetAccountNameResult,
   ListApplicationFeesRequest,
   ListApplicationFeesResult,
   StripeApplicationFee,

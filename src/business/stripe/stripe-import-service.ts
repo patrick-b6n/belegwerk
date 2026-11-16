@@ -11,12 +11,17 @@
  *    transaction stays open during the HTTP requests.
  * 3. Select fees whose own `created` is in the range and refunds whose own
  *    `created` is in the range (whatever the fee's date).
+ * 3a. Resolve the names of the connected accounts of items not booked yet
+ *    (one read-only unit of work for the existing IDs, then Stripe outside
+ *    of it) – the counterparty. Without the optional permission or for a
+ *    deleted account the `acct_…` ID stays the counterparty.
  * 4. One unit of work: read the settings again (they may have changed during
  *    the request; a different key gives `settingsChanged`), skip external IDs that exist, validate and insert the rest
  *    with the booking rules (`prepareBooking`) and store the last import.
  *    All or nothing: an unexpected error rolls everything back.
  */
 import {
+  BOOKING_TEXT_MAX_LENGTH,
   type BookingFieldError,
   type BookingFormInput,
   type BookingLookups,
@@ -244,6 +249,25 @@ export function createStripeImportService({
           (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
       );
 
+      const existing = await unitOfWork.run((repos) =>
+        repos.bookings.findExistingExternalIds(
+          "stripe",
+          sorted.map((item) => item.id),
+        ),
+      );
+      const accounts = [
+        ...new Set(sorted.filter((item) => !existing.has(item.id)).map((item) => item.account)),
+      ];
+      const counterparties = new Map<string, string>();
+      for (const accountId of accounts) {
+        const resolved = await stripeClient.getAccountName({ apiKey: settings.apiKey, accountId });
+        if (resolved.ok) {
+          if (resolved.name !== null) counterparties.set(accountId, fitCounterparty(resolved.name));
+        } else if (!isMissingAccountName(resolved.error)) {
+          return { ok: false, reason: "stripe", error: resolved.error };
+        }
+      }
+
       return unitOfWork.run(async (repos): Promise<StripeImportResult> => {
         // Again in the writing transaction: key or defaults may have changed
         // (category archived) while Stripe answered.
@@ -252,7 +276,7 @@ export function createStripeImportService({
         // The fees belong to the account of the key used for the request; a
         // different key now may be another account – book nothing.
         if (current.apiKey !== settings.apiKey) return { ok: false, reason: "settingsChanged" };
-        const booked = await book(repos, sorted, current);
+        const booked = await book(repos, sorted, current, counterparties);
         await repos.settings.set(STRIPE_SETTING_KEYS.lastImportAt, clock().toISOString());
         const previousTo = await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo);
         if (previousTo === undefined || !parseIsoDate(previousTo) || previousTo < to) {
@@ -267,6 +291,29 @@ export function createStripeImportService({
       });
     },
   };
+}
+
+/**
+ * Lookup failures that keep the `acct_…` ID as counterparty instead of
+ * failing the import: the key lacks the optional "Accounts: Read" (403) or
+ * the account is gone (404).
+ */
+function isMissingAccountName(error: StripeClientError): boolean {
+  return (
+    error.code === "permissionDenied" || (error.code === "stripeError" && error.status === 404)
+  );
+}
+
+/** Cuts an overlong name to the counterparty limit (whole code points). */
+function fitCounterparty(name: string): string {
+  const max = BOOKING_TEXT_MAX_LENGTH.counterparty;
+  if (name.length <= max) return name;
+  let result = "";
+  for (const char of name) {
+    if (result.length + char.length > max) break;
+    result += char;
+  }
+  return result;
 }
 
 function validateRange(request: StripeImportRequest, today: string): StripeImportFieldError[] {
@@ -297,6 +344,8 @@ async function book(
   repos: Repositories,
   items: readonly ImportItem[],
   defaults: ImportDefaults,
+  /** Resolved account names by `acct_…` ID; missing ones book the ID. */
+  counterparties: ReadonlyMap<string, string>,
 ): Promise<
   Pick<
     Extract<StripeImportResult, { ok: true }>,
@@ -363,7 +412,7 @@ async function book(
       vatRate: year !== undefined && smallBusiness.get(year) ? null : defaults.defaultVatRate,
       categoryId: item.kind === "fee" ? defaults.feeCategory.id : defaults.refundCategory.id,
       description: STRIPE_BOOKING_DESCRIPTIONS[item.kind],
-      counterparty: item.account,
+      counterparty: counterparties.get(item.account) ?? item.account,
       // A refund points to the refunded fee (the fee's external ID).
       reference: item.feeId,
       note: null,

@@ -14,7 +14,8 @@ import type {
  *
  * - Capability (`src-tauri/capabilities/default.json`): `http:default` with
  *   the scope `https://api.stripe.com/v1/application_fees` and
- *   `…/application_fees/*` only (query strings match: the plugin sets an
+ *   `…/application_fees/*` and `…/accounts/*` (connected account names)
+ *   only (query strings match: the plugin sets an
  *   omitted search to `*`); redirects are not followed (`maxRedirections: 0`).
  * - The key goes into the `Authorization: Bearer` header only – never into
  *   the URL – and into no result, error or log.
@@ -214,6 +215,15 @@ export function createStripeHttpClient(options: StripeHttpClientOptions = {}): S
       return { ok: true, fees };
     },
 
+    getAccountName: async ({ apiKey, accountId }) => {
+      if (!isId(accountId, "acct_")) throw new RangeError("accountId must be an acct_ ID");
+      const response = await getJson(apiKey, `/accounts/${encodeURIComponent(accountId)}`, {});
+      if (!response.ok) return response;
+      const name = parseAccountName(response.value, accountId);
+      if (name === undefined) return { ok: false, error: { code: "invalidResponse" } };
+      return { ok: true, name };
+    },
+
     verifyAccess: async ({ apiKey }) => {
       const response = await getJson(apiKey, "/application_fees", { limit: "1" });
       if (!response.ok) return response;
@@ -297,6 +307,31 @@ function parseFee(value: unknown): ParsedFee | undefined {
     if (!embedded) return undefined;
   }
   return { fee: { id, amount, currency, created, account, livemode }, refunds: embedded };
+}
+
+/**
+ * The name of an `account` object: the public business name, else the
+ * dashboard display name, the company name, the individual's first and last
+ * name – the first non-blank one, trimmed. `null` without any; `undefined`
+ * if the object is no account or another one than requested.
+ */
+function parseAccountName(value: unknown, accountId: string): string | null | undefined {
+  if (!isRecord(value) || value.object !== "account" || value.id !== accountId) return undefined;
+  const field = (parent: unknown, key: string): string | null => {
+    if (!isRecord(parent)) return null;
+    const text = parent[key];
+    return typeof text === "string" && text.trim() !== "" ? text.trim() : null;
+  };
+  const individual = value.individual;
+  const person = [field(individual, "first_name"), field(individual, "last_name")]
+    .filter((part) => part !== null)
+    .join(" ");
+  return (
+    field(value.business_profile, "name") ??
+    field(isRecord(value.settings) ? value.settings.dashboard : null, "display_name") ??
+    field(value.company, "name") ??
+    (person === "" ? null : person)
+  );
 }
 
 /** Wait before the next attempt: `Retry-After` if sent, else 1 s, 2 s, … – capped. */

@@ -14,7 +14,8 @@
       "identifier": "http:default",
       "allow": [
         { "url": "https://api.stripe.com/v1/application_fees" },
-        { "url": "https://api.stripe.com/v1/application_fees/*" }
+        { "url": "https://api.stripe.com/v1/application_fees/*" },
+        { "url": "https://api.stripe.com/v1/accounts/*" }
       ]
     },
     "allow-check-for-update",

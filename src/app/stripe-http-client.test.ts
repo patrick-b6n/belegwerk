@@ -355,3 +355,68 @@ describe("createStripeHttpClient – verifyAccess", () => {
     });
   });
 });
+
+const account = (extra: Record<string, unknown> = {}) => ({
+  id: "acct_1Connected",
+  object: "account",
+  business_profile: { name: null },
+  settings: { dashboard: { display_name: null } },
+  ...extra,
+});
+
+describe("createStripeHttpClient – getAccountName", () => {
+  beforeEach(() => {
+    plugin.fetch.mockReset();
+    sleep.mockReset().mockResolvedValue(undefined);
+  });
+
+  const request = { apiKey: API_KEY, accountId: "acct_1Connected" };
+
+  it("requests the account with the key as header and returns the business name", async () => {
+    plugin.fetch.mockResolvedValueOnce(
+      json(account({ business_profile: { name: "  Yoga Studio  " } })),
+    );
+    expect(await client().getAccountName(request)).toEqual({ ok: true, name: "Yoga Studio" });
+    const [url] = requestedUrls();
+    expect(`${url?.origin}${url?.pathname}`).toBe(
+      "https://api.stripe.com/v1/accounts/acct_1Connected",
+    );
+    expect(url?.toString()).not.toContain(API_KEY);
+    const init = plugin.fetch.mock.calls[0]?.[1];
+    expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${API_KEY}`);
+  });
+
+  it.each([
+    ["dashboard display name", { settings: { dashboard: { display_name: "Display" } } }, "Display"],
+    ["company name", { company: { name: "Firma GmbH" } }, "Firma GmbH"],
+    [
+      "individual's name",
+      { individual: { first_name: "Erika", last_name: "Muster" } },
+      "Erika Muster",
+    ],
+    ["nothing", {}, null],
+  ])("falls back to the %s", async (_, extra, name) => {
+    plugin.fetch.mockResolvedValueOnce(json(account(extra)));
+    expect(await client().getAccountName(request)).toEqual({ ok: true, name });
+  });
+
+  it("rejects another object or account and maps 403", async () => {
+    plugin.fetch.mockResolvedValueOnce(json(account({ id: "acct_Other" })));
+    expect(await client().getAccountName(request)).toEqual({
+      ok: false,
+      error: { code: "invalidResponse" },
+    });
+    plugin.fetch.mockResolvedValueOnce(json({ error: { message: "no" } }, 403));
+    expect(await client().getAccountName(request)).toEqual({
+      ok: false,
+      error: { code: "permissionDenied" },
+    });
+  });
+
+  it("refuses an ID that is no account ID", async () => {
+    await expect(
+      client().getAccountName({ apiKey: API_KEY, accountId: "../application_fees" }),
+    ).rejects.toThrow(RangeError);
+    expect(plugin.fetch).not.toHaveBeenCalled();
+  });
+});

@@ -410,6 +410,76 @@ describe("StripeImportService – duplicates and failures", () => {
     });
   });
 
+  it("books the connected account's name as counterparty, looked up once per account", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.accountNames.set("acct_A", "Yoga Studio Müller");
+    stripeClient.fees.push(
+      stripeFee({
+        id: "fee_a1",
+        account: "acct_A",
+        created: at("2025-02-01T12:00:00Z"),
+        refunds: [stripeFeeRefund({ id: "fr_a1", created: at("2025-02-03T12:00:00Z") })],
+      }),
+      stripeFee({ id: "fee_a2", account: "acct_A", created: at("2025-02-02T12:00:00Z") }),
+    );
+    expect(await service.import(RANGE)).toMatchObject({ ok: true, created: 3 });
+    expect(stripeClient.accountRequests).toEqual(["acct_A"]);
+    expect((await bookings()).map((b) => b.counterparty)).toEqual([
+      "Yoga Studio Müller",
+      "Yoga Studio Müller",
+      "Yoga Studio Müller",
+    ]);
+  });
+
+  it("keeps the account ID without a name, permission or account", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.accountNames.set("acct_unnamed", null);
+    stripeClient.fees.push(
+      stripeFee({ id: "fee_1", account: "acct_unnamed", created: at("2025-02-01T12:00:00Z") }),
+      stripeFee({ id: "fee_2", account: "acct_deleted", created: at("2025-02-02T12:00:00Z") }),
+    );
+    expect(await service.import(RANGE)).toMatchObject({ ok: true, created: 2 });
+    expect((await bookings()).map((b) => b.counterparty)).toEqual(["acct_unnamed", "acct_deleted"]);
+
+    const denied = await setup();
+    denied.stripeClient.accountFailWith = { code: "permissionDenied" };
+    denied.stripeClient.fees.push(
+      stripeFee({ account: "acct_A", created: at("2025-02-01T12:00:00Z") }),
+    );
+    expect(await denied.service.import(RANGE)).toMatchObject({ ok: true, created: 1 });
+    expect((await denied.bookings()).map((b) => b.counterparty)).toEqual(["acct_A"]);
+  });
+
+  it("fails the import on other lookup errors and books nothing", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.accountFailWith = { code: "rateLimited", retryAfterSeconds: 5 };
+    stripeClient.fees.push(stripeFee({ account: "acct_A", created: at("2025-02-01T12:00:00Z") }));
+    expect(await service.import(RANGE)).toEqual({
+      ok: false,
+      reason: "stripe",
+      error: { code: "rateLimited", retryAfterSeconds: 5 },
+    });
+    expect(await bookings()).toEqual([]);
+  });
+
+  it("looks up no accounts whose items are all booked already", async () => {
+    const { service, stripeClient } = await setup();
+    stripeClient.accountNames.set("acct_A", "A GmbH");
+    stripeClient.fees.push(stripeFee({ account: "acct_A", created: at("2025-02-01T12:00:00Z") }));
+    await service.import(RANGE);
+    stripeClient.accountRequests.length = 0;
+    expect(await service.import(RANGE)).toMatchObject({ ok: true, created: 0, skipped: 1 });
+    expect(stripeClient.accountRequests).toEqual([]);
+  });
+
+  it("cuts an overlong account name to the counterparty limit", async () => {
+    const { service, stripeClient, bookings } = await setup();
+    stripeClient.accountNames.set("acct_A", `${"x".repeat(199)}\u{1F600}`);
+    stripeClient.fees.push(stripeFee({ account: "acct_A", created: at("2025-02-01T12:00:00Z") }));
+    expect(await service.import(RANGE)).toMatchObject({ ok: true, created: 1 });
+    expect((await bookings())[0]?.counterparty).toBe("x".repeat(199));
+  });
+
   it("books a fee listed twice once", async () => {
     const { service, stripeClient } = await setup();
     const fee = stripeFee({ id: "fee_dup", created: at("2025-02-01T12:00:00Z") });
@@ -538,7 +608,8 @@ describe("StripeImportService – settings, errors, last import", () => {
       clock,
     });
     await expect(service.import(RANGE)).rejects.toThrow("disk full");
-    expect(runs).toBe(2);
+    // Settings, existing IDs (read only), then the writing transaction.
+    expect(runs).toBe(3);
     expect(await db.bookings()).toEqual([]);
   });
 });
