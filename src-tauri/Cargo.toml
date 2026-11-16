@@ -46,7 +46,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] }
 serde = { version = "1", features = ["derive"] }
 semver = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 # Opens the release notes in the default browser (#71); the capability allows
 # only this repository's release pages.
 tauri-plugin-opener = "2.7.3"
