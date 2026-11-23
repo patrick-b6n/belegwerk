@@ -13,8 +13,8 @@ import { euerQueryKeys } from "@/ui/euer/euer-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
 
 /**
- * TanStack Query keys of the booking data (docs/architecture.md, "TanStack
- * Query"). Hierarchical, so mutations invalidate everything about bookings
+ * TanStack Query keys of the booking data.
+ * Hierarchical, so mutations invalidate everything about bookings
  * with `queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all })`
  * – the list and every loaded single booking.
  */

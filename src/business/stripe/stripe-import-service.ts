@@ -1,8 +1,7 @@
 /**
  * Stripe import (#30): books the platform's application fees as income and
  * their refunds as expenses (Erlösminderung) – regular bookings with
- * `source: "stripe"` and the Stripe ID as external ID (docs/architecture.md,
- * "Stripe import (#30)").
+ * `source: "stripe"` and the Stripe ID as external ID.
  *
  * Flow of `import({ from, to })`:
  * 1. Unit of work: read key and defaults (`loadStripeImportSettings`).
@@ -51,7 +50,7 @@ import { loadStripeImportSettings } from "./stripe-settings-service";
 
 /**
  * Descriptions of imported bookings. Stored data like the seeded category
- * names (docs/i18n.md: values from the database are not translated), not UI
+ * names (values from the database are not translated), not UI
  * texts – the user may edit them like any booking.
  */
 export const STRIPE_BOOKING_DESCRIPTIONS = {

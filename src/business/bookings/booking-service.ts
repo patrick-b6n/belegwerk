@@ -8,7 +8,7 @@
  *   state, and a failed validation writes nothing. Inside the callback only
  *   the callback's repositories are used (docs/architecture.md – deadlock).
  * - Rule violations from user input are returned as result objects with
- *   field-addressable codes (no UI texts, docs/i18n.md); the form shows them
+ *   field-addressable codes (no UI texts); the form shows them
  *   at the field. Programmer errors (e.g. a non-string description) throw.
  * - Net and VAT are always computed here from gross amount, VAT rate and the
  *   tax status of the date's year; callers never pass them.
@@ -244,7 +244,7 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
                   : { filter, sort, limit: pageSize, offset: (page - 1) * pageSize },
               );
         // Categories joined here: they are few, and a SQL join would need an
-        // explicit select object (duplicate column names, docs/data-model.md).
+        // explicit select object (duplicate column names).
         const categories = new Map(
           (await repos.categories.list()).map((category) => [category.id, category]),
         );

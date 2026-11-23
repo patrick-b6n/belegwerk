@@ -9,7 +9,7 @@
  * `2026-11-14-2000` → `2026.1114.2000`, `2026-01-05-0930` → `2026.105.930`.
  * The order of both forms is the same. The committed package.json has the
  * development placeholder `0.0.0`; the release scripts set the real version
- * for the build only (docs/release.md).
+ * for the build only.
  *
  * No imports: `scripts/` (Node) uses this file directly. The Rust updater has
  * the same conversion (src-tauri/src/updater.rs).

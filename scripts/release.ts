@@ -9,7 +9,6 @@
 // installer), then copies src-tauri/target/release/belegwerk.exe to
 // release/belegwerk-<calver>.exe and writes its SHA-256 next to it.
 // Checks (format, lint, typecheck, tests) are separate: `pnpm verify`.
-// See docs/release.md.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";

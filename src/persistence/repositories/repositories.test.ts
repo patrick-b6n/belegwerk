@@ -9,7 +9,7 @@ import { createRepositories, createUnitOfWork } from ".";
 // Every repository query runs here against better-sqlite3 – through the same
 // migrations, proxy adapter and connection as the app. The test client
 // rejects duplicate result column names, which the plugin would silently
-// collapse (docs/data-model.md). The contract starts from an empty store,
+// collapse. The contract starts from an empty store,
 // without the default categories.
 describeRepositoryContract("Drizzle on better-sqlite3", async (clock) => {
   const { database } = await createTestDb({ defaultCategories: false });

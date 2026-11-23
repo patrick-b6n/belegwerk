@@ -5,7 +5,7 @@
  * against these interfaces. src/persistence implements them with Drizzle,
  * business tests use the in-memory fakes in `__tests__/`.
  *
- * Rules for callers (docs/architecture.md, "Repositories and unit of work (#11)"):
+ * Rules for callers (#11, docs/architecture.md):
  *
  * - Several writes that belong together run in {@link UnitOfWork.run} and use
  *   **only** the repositories passed to the callback. Using other

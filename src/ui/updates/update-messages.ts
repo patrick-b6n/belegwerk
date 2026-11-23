@@ -1,6 +1,6 @@
 /**
  * UI texts of the auto-update (#71): the error kinds of the updater and the
- * result of a check (docs/i18n.md: business returns codes, the UI translates
+ * result of a check (business returns codes, the UI translates
  * them).
  */
 import {

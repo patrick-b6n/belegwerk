@@ -29,8 +29,8 @@ AfA/Anlageverzeichnis, Fremdwährungen (nur EUR), PDF-Ausgabe und
 ELSTER-Übermittlung. Es gibt genau einen Betrieb und eine EÜR pro
 Kalenderjahr.
 
-> **Keine Steuerberatung.** Belegwerk rechnet nach festen Regeln
-> ([Datenmodell](data-model.md#eür-calculation-25)); die Ergebnisse sind vor
+> **Keine Steuerberatung.** Belegwerk rechnet nach festen Regeln;
+> die Ergebnisse sind vor
 > der Übernahme in die Steuererklärung zu prüfen. Bekannte Grenzen u. a.:
 >
 > - **Bewirtung:** Die App teilt pauschal 70 % abziehbar / 30 % nicht
@@ -48,12 +48,9 @@ Belegwerk ist eine **einzelne `.exe`** ohne Installer und ohne
 Code-Signierung. Bezugsquellen:
 
 - **GitHub-Releases** (`belegwerk-<version>.exe` samt `.sha256`), entstehen
-  automatisch bei jedem Push auf `main`
-  ([Release](release.md#publishing-a-release-71-74)). Die Version ist
-  Datum und Uhrzeit des Releases in UTC, z. B. `2026-11-14-2000`
-  ([Versionsschema](release.md#version-scheme-71)).
-- **Selbst bauen** mit `pnpm release` (siehe [Development](development.md) und
-  [Release](release.md)); legt `release/belegwerk-<version>.exe` samt
+  automatisch bei jedem Push auf `main`. Die Version ist
+  Datum und Uhrzeit des Releases in UTC, z. B. `2026-11-14-2000`.
+- **Selbst bauen** mit `pnpm release` (siehe [Development](development.md)); legt `release/belegwerk-<version>.exe` samt
   `.sha256` an. Lokale Builds werden nicht veröffentlicht.
 - **Artefakt eines CI-Laufs** (nur zum Ausprobieren, 7 Tage aufbewahrt, siehe
   [CI](development.md#ci)).
@@ -77,8 +74,7 @@ Code-Signierung. Bezugsquellen:
   Hinweis; „Jetzt aktualisieren“ lädt sie herunter, prüft die Prüfsumme,
   ersetzt die `.exe` und startet neu. Manuell: Einstellungen → „Nach Updates
   suchen“. Bei Fehlern bleibt die alte Version unverändert. Die `.exe` muss
-  dafür in einem Ordner mit Schreibrechten liegen
-  ([Auto-Update](release.md#auto-update-71)). Von Hand geht es weiterhin:
+  dafür in einem Ordner mit Schreibrechten liegen. Von Hand geht es weiterhin:
   App schließen, die alte `.exe` durch die neue ersetzen. Die Daten bleiben
   erhalten; ausstehende Datenbank-Migrationen laufen beim Start. Vorher ein
   Backup erstellen.
@@ -137,8 +133,6 @@ Verhalten beim Start:
   App-Version verwenden oder die alte `belegwerk.db` zurücklegen.
 - **Leere Datei** (z. B. nach einem fehlgeschlagenen Backup): wird wie eine
   neue Datenbank behandelt – leer, nur mit Standardkategorien.
-
-Details: [Datenmodell – Backup und Wiederherstellung](data-model.md#backup-and-restore-32).
 
 ## Stripe einrichten
 

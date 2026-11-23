@@ -1,7 +1,7 @@
 //! Auto-update from GitHub releases (#71).
 //!
 //! Tauri's updater plugin needs an installer or archive; Belegwerk ships a
-//! bare, unsigned `.exe` (docs/release.md). So the app replaces itself:
+//! bare, unsigned `.exe`. So the app replaces itself:
 //!
 //! 1. `check_for_update`: `GET /repos/{REPOSITORY}/releases/latest` and a
 //!    SemVer comparison with the running version.

@@ -76,7 +76,7 @@
               },
               {
                 "regex": "^(@/|(\\.\\./)+)paraglide(/|$)",
-                "message": "Business gibt Codes statt UI-Texten zurück; übersetzt wird in src/ui bzw. src/routes (docs/i18n.md)."
+                "message": "Business gibt Codes statt UI-Texten zurück; übersetzt wird in src/ui bzw. src/routes."
               },
               {
                 "regex": "^(drizzle-orm|drizzle-kit|better-sqlite3)(/|$)",

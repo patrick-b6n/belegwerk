@@ -1,7 +1,7 @@
 /**
  * UI texts of the category management (#19): group headings, the EÜR
  * position display and the texts of the service's error codes
- * (docs/i18n.md: business returns codes, the UI translates them).
+ * (business returns codes, the UI translates them).
  */
 import { CATEGORY_NAME_MAX_LENGTH, type CategoryFieldError } from "@/business/categories";
 import { describePosition, isEuerPosition } from "@/business/euer";

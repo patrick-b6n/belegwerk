@@ -7,7 +7,7 @@
  * - Every operation runs in one {@link UnitOfWork.run}; inside the callback
  *   only the callback's repositories are used.
  * - Rule violations are result objects with field-addressable codes (no UI
- *   texts, docs/i18n.md); programmer errors throw.
+ *   texts); programmer errors throw.
  *
  * **EÜR position changes apply retroactively.** Bookings store only the
  * category; the EÜR (#25) takes the position and "reduces income" from the

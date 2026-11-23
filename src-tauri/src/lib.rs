@@ -89,7 +89,7 @@ pub fn run() {
 ///
 /// One connection is required: the frontend runs `PRAGMA`s and transactions
 /// as separate `execute` calls, which only work if they all hit the same
-/// connection (docs/data-model.md). The connection is never recycled, so an
+/// connection. The connection is never recycled, so an
 /// open transaction cannot get lost between two calls.
 async fn register_database(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let dir = app.path().app_data_dir()?;

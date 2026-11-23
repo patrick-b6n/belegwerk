@@ -1,6 +1,6 @@
 /**
  * UI texts of the "Stripe" settings (#28) and the import dialog (#31): key
- * mode and the texts of the services' error codes (docs/i18n.md: business
+ * mode and the texts of the services' error codes (business
  * returns codes, the UI translates them).
  */
 import type {

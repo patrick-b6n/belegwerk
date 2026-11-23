@@ -4,8 +4,8 @@ import { useAppServices } from "@/app/app-services";
 import type { ExportEuerCsvRequest } from "@/business/euer";
 
 /**
- * TanStack Query keys of the EÜR (#26, docs/architecture.md, "TanStack
- * Query"). The EÜR depends on bookings, categories (position and flag at
+ * TanStack Query keys of the EÜR (#26).
+ * The EÜR depends on bookings, categories (position and flag at
  * calculation time, #15) and the tax status of the year, so booking,
  * category and tax year mutations invalidate `euerQueryKeys.all`.
  */

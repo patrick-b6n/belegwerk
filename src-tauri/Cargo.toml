@@ -1,7 +1,7 @@
 [package]
 name = "belegwerk"
 # Unused: the exe's version comes from package.json (tauri.conf.json), which
-# the release scripts set from the build time (CalVer, docs/release.md).
+# the release scripts set from the build time (CalVer).
 version = "0.1.0"
 description = "Belegwerk – income/expenses and Anlage EÜR"
 authors = ["Patrick"]

@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAppServices } from "@/app/app-services";
 
 /**
- * TanStack Query keys of the category data (docs/architecture.md, "TanStack
- * Query"). The list carries each category's `bookingCount`, so booking
+ * TanStack Query keys of the category data.
+ * The list carries each category's `bookingCount`, so booking
  * mutations (#18) invalidate `categoryQueryKeys.all` as well; the category
  * management (#19) invalidates it after its own changes.
  */

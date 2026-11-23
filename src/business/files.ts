@@ -1,5 +1,5 @@
 /**
- * Port for saving files (docs/architecture.md, "Platform access"): Business
+ * Port for saving files: business
  * stays free of Tauri; `src/app` implements it with `tauri-plugin-dialog`
  * (save dialog) and `tauri-plugin-fs` (writing).
  */

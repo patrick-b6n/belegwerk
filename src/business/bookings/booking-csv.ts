@@ -29,7 +29,7 @@ export type BookingCsvColumn = (typeof BOOKING_CSV_COLUMNS)[number];
 
 /**
  * Texts of the export: column headers and the labels of the coded values.
- * They are UI texts (Paraglide), so the UI passes them in (docs/i18n.md).
+ * They are UI texts (Paraglide), so the UI passes them in.
  */
 export interface BookingCsvLabels {
   readonly columns: Readonly<Record<BookingCsvColumn, string>>;

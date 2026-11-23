@@ -35,21 +35,21 @@ restart the app. Release builds do not contain this code.
 
 ## Scripts
 
-| Script              | Purpose                                                                    |
-| ------------------- | -------------------------------------------------------------------------- |
-| `pnpm dev`          | Vite dev server (frontend only, see above)                                 |
-| `pnpm build`        | Build the frontend (`dist/client`)                                         |
-| `pnpm tauri …`      | Tauri CLI, e.g. `pnpm tauri dev`, `pnpm tauri build --no-bundle`           |
-| `pnpm typecheck`    | Compile Paraglide messages, then `tsc -b`                                  |
-| `pnpm lint`         | oxlint (including layer boundaries), warnings are errors                   |
-| `pnpm format`       | oxfmt: format                                                              |
-| `pnpm format:check` | oxfmt: check only                                                          |
-| `pnpm test`         | Vitest, run all tests once                                                 |
-| `pnpm test:watch`   | Vitest in watch mode                                                       |
-| `pnpm db:generate`  | drizzle-kit: generate a migration from the schema                          |
-| `pnpm i18n:compile` | Compile Paraglide messages to `src/paraglide/`                             |
-| `pnpm verify`       | `format:check`, `lint`, `typecheck`, `test` – before every commit/release  |
-| `pnpm release`      | Build the release `.exe` and copy it to `release/` ([Release](release.md)) |
+| Script              | Purpose                                                                   |
+| ------------------- | ------------------------------------------------------------------------- |
+| `pnpm dev`          | Vite dev server (frontend only, see above)                                |
+| `pnpm build`        | Build the frontend (`dist/client`)                                        |
+| `pnpm tauri …`      | Tauri CLI, e.g. `pnpm tauri dev`, `pnpm tauri build --no-bundle`          |
+| `pnpm typecheck`    | Compile Paraglide messages, then `tsc -b`                                 |
+| `pnpm lint`         | oxlint (including layer boundaries), warnings are errors                  |
+| `pnpm format`       | oxfmt: format                                                             |
+| `pnpm format:check` | oxfmt: check only                                                         |
+| `pnpm test`         | Vitest, run all tests once                                                |
+| `pnpm test:watch`   | Vitest in watch mode                                                      |
+| `pnpm db:generate`  | drizzle-kit: generate a migration from the schema                         |
+| `pnpm i18n:compile` | Compile Paraglide messages to `src/paraglide/`                            |
+| `pnpm verify`       | `format:check`, `lint`, `typecheck`, `test` – before every commit/release |
+| `pnpm release`      | Build the release `.exe` and copy it to `release/`                        |
 
 ## CI
 
@@ -65,42 +65,9 @@ creates a release: the same checks (including migrations), a version from the
 current UTC time (strictly greater than the last release tag, otherwise that
 tag + 1 minute), the build, and a GitHub release with `.exe` and `.sha256`
 plus the tag `v<YYYY-MM-DD-HHMM>` on the commit. Only one run is active at a
-time; a new push cancels the running one
-([Release](release.md#publishing-a-release-71-74)).
+time; a new push cancels the running one.
 
-## Architecture
+## Further reading
 
-Tauri v2 is only the host (window, SQLite, file dialogs, HTTP, auto-update);
-all logic runs in TypeScript inside the WebView – TanStack Start in SPA mode
-with TanStack Router/Query/Table/Form, shadcn/ui and Tailwind. Persistence via
-`tauri-plugin-sql` and Drizzle ORM (`sqlite-proxy`), UI texts via Paraglide JS
-(German only).
-
-```
-src/routes ─┬──────────────────► src/app ──────────────┐
-src/ui ─────┤                   (composition root)     │ wires up
-            │                        │                 ▼
-            └──► src/business ◄──────┴────────── src/persistence
-```
-
-Arrows = "imports from".
-
-| Layer             | Contents                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| `src/routes`      | File-based routes, thin: read parameters, call services, render UI                     |
-| `src/ui`          | Presentation: components, styles, shadcn/ui                                            |
-| `src/business`    | Domain logic, validation, services and repository interfaces – no React, no Tauri      |
-| `src/persistence` | Drizzle schema, migrations, implementations of the repository interfaces               |
-| `src/app`         | Composition root: opens the DB, migrates, creates services and provides them to the UI |
-
-UI and routes reach data only through services from `src/app`; business does
-not know persistence (dependency inversion). oxlint enforces the boundaries
-(`no-restricted-imports`, [`.oxlintrc.json`](../.oxlintrc.json)).
-
-Further reading:
-
-- [Architecture](architecture.md) – layers, services, routes, Stripe, backup
-- [Data model](data-model.md) – tables, EÜR positions and calculation, migrations, backup
-- [i18n & formatting](i18n.md) – Paraglide, format helpers
-- [Tests](testing.md) – Vitest, fakes, persistence tests
-- [Release](release.md) – release on every push to `main`, auto-update, building the `.exe`, versioning, storage locations
+- [Architecture](architecture.md) – stack, layers, conventions
+- [Tests](testing.md) – what is special about the tests

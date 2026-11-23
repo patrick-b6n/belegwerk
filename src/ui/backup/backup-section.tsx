@@ -8,8 +8,7 @@ import { toast } from "@/ui/components/ui/toast";
 import { useCreateBackup } from "./backup-mutations";
 
 /**
- * Where the Tauri host keeps the database (src-tauri/src/lib.rs,
- * docs/data-model.md) – shown for the manual restore.
+ * Where the Tauri host keeps the database (src-tauri/src/lib.rs) – shown for the manual restore.
  */
 const DATABASE_LOCATION = `%APPDATA%\\de.belegwerk.desktop\\${
   // Development builds use their own file (src-tauri/src/lib.rs, DB_FILE).

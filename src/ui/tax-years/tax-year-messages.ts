@@ -1,6 +1,6 @@
 /**
  * UI texts of the "Steuerjahre" settings (#20): status labels, hints and the
- * texts of the service's error codes (docs/i18n.md: business returns codes,
+ * texts of the service's error codes (business returns codes,
  * the UI translates them).
  */
 import { TAX_YEAR_MAX, TAX_YEAR_MIN, type TaxYearFieldError } from "@/business/tax-years";

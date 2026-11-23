@@ -2,7 +2,7 @@ name: Release
 
 # Every push to main builds the .exe and creates a GitHub release tagged
 # `v<YYYY-MM-DD-HHMM>` (#71, #74). On startup the app checks the latest
-# release and updates itself from it (docs/release.md).
+# release and updates itself from it.
 on:
   push:
     branches: [main]

@@ -285,7 +285,7 @@ const SORT_EXPRESSIONS: Readonly<Record<BookingSortField, SQLWrapper>> = {
   date: bookings.date,
   description: sql`${bookings.description} COLLATE NOCASE`,
   counterparty: sql`${bookings.counterparty} COLLATE NOCASE`,
-  // Subquery instead of a join: no duplicate column names (docs/data-model.md).
+  // Subquery instead of a join: no duplicate column names.
   category: sql`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${bookings.categoryId}) COLLATE NOCASE`,
   netCents: bookings.netCents,
   vatCents: bookings.vatCents,

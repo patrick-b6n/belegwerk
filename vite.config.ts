@@ -39,7 +39,7 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       router: {
-        // Tests next to route files are not routes (docs/testing.md).
+        // Tests next to route files are not routes.
         // Matched against each file/folder name in src/routes.
         routeFileIgnorePattern: String.raw`\.test\.tsx?$|^__tests__$`,
       },

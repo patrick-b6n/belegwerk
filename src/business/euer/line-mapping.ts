@@ -2,7 +2,7 @@
  * Line numbers and official labels of the EÜR positions per tax year (#13).
  *
  * The labels are the line texts of the official form – legal form data like
- * the line numbers, not UI texts (docs/i18n.md). Remarks in the form that are
+ * the line numbers, not UI texts. Remarks in the form that are
  * only instructions (references to other lines, the 10-day rule) are left
  * out; text in parentheses that describes the content (examples, inclusions
  * like "auch zurückgezahlte Hilfen/Zuschüsse …") is kept.
@@ -11,7 +11,8 @@
  * falls back to the bare position (see {@link describePosition}). Never
  * guess a line: only add lines verified against the official form.
  *
- * Adding a tax year: see docs/data-model.md, "Adding a new tax year".
+ * Adding a tax year: add a constant with its official source, check every line
+ * against the form, register it in `EUER_LINE_MAPPINGS` and pin it in the tests.
  */
 
 import type { EuerPosition } from "./positions";

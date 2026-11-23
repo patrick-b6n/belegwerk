@@ -2,7 +2,7 @@
  * CSV export of the EÜR (#27): maps an {@link EuerResult} to rows of the
  * shared CSV format (`src/business/csv`, same format as the booking export).
  *
- * Layout (docs/architecture.md, "CSV export of the EÜR (#27)"): a header row,
+ * Layout (#27): a header row,
  * then one row per position – income in the order of the view (line 13
  * right after line 12), then expenses – and at the end the totals:
  *
@@ -40,7 +40,7 @@ export type EuerCsvColumn = (typeof EUER_CSV_COLUMNS)[number];
 
 /**
  * Texts of the export: they are UI texts (Paraglide), so the UI passes them
- * in (docs/i18n.md). The official line labels are form data and come from
+ * in. The official line labels are form data and come from
  * the result.
  */
 export interface EuerCsvLabels {

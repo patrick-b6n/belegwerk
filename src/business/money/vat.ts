@@ -8,7 +8,7 @@
  * always positive amounts here the same as half away from zero); the net
  * amount is the rest, `gross − vat`. This is how German receipts and
  * invoices state the contained VAT, and `net + vat = gross` holds by
- * construction (DB CHECK, docs/data-model.md).
+ * construction (DB CHECK).
  *
  * VAT-first and net-first (`net = round(gross × 100 / (100 + rate))`) could
  * only disagree when the exact quotient ends in exactly ½ cent. With the

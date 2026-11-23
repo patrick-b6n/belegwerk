@@ -4,8 +4,7 @@
 // Reads the existing tag names (one per line, e.g. `v2026-11-14-2000`) from
 // stdin and prints the CalVer `YYYY-MM-DD-HHMM` of the current time in UTC –
 // or, if that is not strictly newer than the highest release tag (two pushes
-// in the same minute, a clock behind), one minute after that tag. See
-// docs/release.md.
+// in the same minute, a clock behind), one minute after that tag.
 
 import { readFileSync } from "node:fs";
 

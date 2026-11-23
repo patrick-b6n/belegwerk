@@ -1,6 +1,6 @@
 /**
  * UI texts of the booking area: labels of types, sources and VAT rates, and
- * the booking form's and the list filters' error codes (docs/i18n.md: business
+ * the booking form's and the list filters' error codes (business
  * returns codes, the UI translates them).
  */
 import {

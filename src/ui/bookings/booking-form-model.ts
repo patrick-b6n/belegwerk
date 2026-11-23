@@ -101,7 +101,7 @@ export function taxYearOf(date: string): number | undefined {
  * What the form submits to `BookingService.create`/`update`. In a small
  * business year the VAT rate is `null` (the field is hidden). `source` and
  * `externalId` are omitted: `create` uses the defaults, `update` keeps the
- * booking's values (docs/architecture.md, Buchungs-Service).
+ * booking's values.
  *
  * Invalid values are passed on as the service expects them (an unparsable
  * amount as `NaN`, no category as `NaN`), so the service reports them, too.
@@ -239,7 +239,7 @@ export function previewAmounts(
  * not archived – plus the categories in `keep` even if archived:
  *
  * - the edited booking's current category, since a booking may keep its
- *   archived category (docs/architecture.md, Buchungs-Service);
+ *   archived category;
  * - the selected one: if it is archived while the form is open, it stays
  *   visible with its "archived" mark and the service's error
  *   (`categoryArchived`) instead of silently vanishing from the select.

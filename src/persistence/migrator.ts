@@ -36,7 +36,7 @@ export interface MigrateResult {
 }
 
 /**
- * Applies all pending migrations in one transaction (docs/data-model.md):
+ * Applies all pending migrations in one transaction:
  *
  * 1. `PRAGMA foreign_keys = OFF` – outside the transaction, where SQLite
  *    ignores it; table rebuilds by drizzle-kit need it,
