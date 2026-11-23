@@ -292,10 +292,13 @@ export function createStripeImportService({
 
 /** The day of a stored UTC timestamp; `undefined` if missing or unreadable. */
 function storedDay(value: string | undefined): string | undefined {
-  if (value === undefined || !/^\d{4}-\d{2}-\d{2}T/.test(value)) return undefined;
-  if (Number.isNaN(Date.parse(value))) return undefined;
-  const day = bookingDayOf(value);
-  return parseIsoDate(day) ? day : undefined;
+  if (value === undefined) return undefined;
+  try {
+    const day = bookingDayOf(value);
+    return parseIsoDate(day) ? day : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

@@ -5,7 +5,7 @@
  * in **Europe/Berlin** (CET/CEST) – a fee at 23:30 UTC on 31 Dec belongs to
  * 1 Jan of the next year, and so to the next EÜR year.
  *
- * Uses `Intl` with an explicit time zone, so the result is the same on every
+ * Uses `Temporal` with an explicit time zone, so the result is the same on every
  * machine whatever its local time zone.
  */
 import { berlinDay, berlinEndOfDay, berlinStartOfDay } from "../format";

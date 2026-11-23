@@ -63,10 +63,10 @@ Code-Signierung. Bezugsquellen:
   Herunterladen „Der Computer wurde durch Windows geschützt“. Über **„Weitere
   Informationen“ → „Trotzdem ausführen“** starten, oder vorher in den
   Dateieigenschaften „Zulassen“ anhaken.
-- **WebView2:** Die WebView2-Runtime wird vorausgesetzt (bei Windows 11
-  vorinstalliert, bei Windows 10 meist über Edge vorhanden). Fehlt sie, zeigt
-  die App eine Fehlermeldung mit Link zum Download bei Microsoft und beendet
-  sich.
+- **WebView2:** Die WebView2-Runtime wird ab Version 144 vorausgesetzt (bei
+  Windows 11 vorinstalliert, bei Windows 10 meist über Edge vorhanden; sie
+  aktualisiert sich normalerweise selbst). Fehlt sie, zeigt die App eine
+  Fehlermeldung mit Link zum Download bei Microsoft und beendet sich.
 - **Eine Instanz:** Ein zweiter Start holt das laufende Fenster nach vorn,
   statt eine zweite Instanz zu öffnen.
 - **Aktualisieren:** Belegwerk prüft beim Start, ob auf GitHub eine neuere

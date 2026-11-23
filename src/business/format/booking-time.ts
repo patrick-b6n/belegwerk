@@ -7,97 +7,71 @@ import { parseIsoDate } from "./date";
 
 export const BOOKING_TIME_ZONE = "Europe/Berlin";
 
-const berlinParts = new Intl.DateTimeFormat("en-US", {
-  timeZone: BOOKING_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
-
-interface LocalDateTime {
-  readonly year: number;
-  readonly month: number;
-  readonly day: number;
-  readonly hour: number;
-  readonly minute: number;
-  readonly second: number;
-}
-
-function toBerlin(epochSeconds: number): LocalDateTime {
-  const values: Record<string, number> = {};
-  for (const part of berlinParts.formatToParts(new Date(epochSeconds * 1000))) {
-    if (part.type !== "literal") values[part.type] = Number(part.value);
+/** @throws {RangeError} for an invalid ISO date (see `parseIsoDate`). */
+function toPlainDate(isoDate: string): Temporal.PlainDate {
+  // Temporal alone would also accept e.g. "20250307" or a date with a time.
+  if (!parseIsoDate(isoDate)) {
+    throw new RangeError(`Expected an existing ISO date (YYYY-MM-DD), got "${isoDate}"`);
   }
-  return {
-    year: values.year ?? Number.NaN,
-    month: values.month ?? Number.NaN,
-    day: values.day ?? Number.NaN,
-    hour: values.hour ?? Number.NaN,
-    minute: values.minute ?? Number.NaN,
-    second: values.second ?? Number.NaN,
-  };
+  return Temporal.PlainDate.from(isoDate);
 }
 
-/** Offset of Berlin time to UTC at the instant, in seconds (3600 or 7200). */
-function berlinOffsetSeconds(epochSeconds: number): number {
-  const local = toBerlin(epochSeconds);
-  const asUtc =
-    Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second) / 1000;
-  return asUtc - epochSeconds;
+function startOfDay(isoDate: string): Temporal.ZonedDateTime {
+  return toPlainDate(isoDate).toZonedDateTime(BOOKING_TIME_ZONE);
 }
 
-function pad(value: number, length = 2): string {
-  return String(value).padStart(length, "0");
+/** The first moment after the day: the start of the next calendar day. */
+function endOfDay(isoDate: string): Temporal.ZonedDateTime {
+  return toPlainDate(isoDate).add({ days: 1 }).toZonedDateTime(BOOKING_TIME_ZONE);
+}
+
+function toEpochSeconds(time: Temporal.ZonedDateTime): number {
+  return time.epochMilliseconds / 1000;
+}
+
+/** Same format as `Date#toISOString()`. */
+function toTimestamp(time: Temporal.ZonedDateTime): string {
+  return time.toInstant().toString({ fractionalSecondDigits: 3 });
+}
+
+function dayOf(instant: Temporal.Instant): string {
+  return instant.toZonedDateTimeISO(BOOKING_TIME_ZONE).toPlainDate().toString();
 }
 
 /**
- * The first second (epoch seconds) of a calendar day in Europe/Berlin –
- * 00:00 local time, which never falls into a DST gap (switches are at
- * 02:00/03:00).
+ * The first second (epoch seconds) of a calendar day in Europe/Berlin.
  *
  * @throws {RangeError} for an invalid ISO date (see `parseIsoDate`).
  */
 export function berlinStartOfDay(isoDate: string): number {
-  return berlinMidnight(isoDate, 0);
+  return toEpochSeconds(startOfDay(isoDate));
 }
 
 /** The first second (epoch seconds) after a calendar day in Europe/Berlin. */
 export function berlinEndOfDay(isoDate: string): number {
-  return berlinMidnight(isoDate, 1);
-}
-
-function berlinMidnight(isoDate: string, addDays: number): number {
-  const parts = parseIsoDate(isoDate);
-  if (!parts) throw new RangeError(`Expected an existing ISO date (YYYY-MM-DD), got "${isoDate}"`);
-  const midnightUtc = Date.UTC(parts.year, parts.month - 1, parts.day + addDays) / 1000;
-  // Guess with the offset at UTC midnight, then correct with the offset at
-  // the guess (differs only on DST switch days).
-  let result = midnightUtc - berlinOffsetSeconds(midnightUtc);
-  result = midnightUtc - berlinOffsetSeconds(result);
-  return result;
+  return toEpochSeconds(endOfDay(isoDate));
 }
 
 /** The calendar day (`YYYY-MM-DD`) in Europe/Berlin of epoch seconds. */
 export function berlinDay(epochSeconds: number): string {
-  const { year, month, day } = toBerlin(epochSeconds);
-  return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
+  return dayOf(Temporal.Instant.fromEpochMilliseconds(epochSeconds * 1000));
 }
 
 /** UTC timestamp (`toISOString()`) of 00:00 in Europe/Berlin on a calendar day. */
 export function startOfBookingDay(isoDate: string): string {
-  return new Date(berlinStartOfDay(isoDate) * 1000).toISOString();
+  return toTimestamp(startOfDay(isoDate));
 }
 
 /** UTC timestamp of the first moment after a calendar day in Europe/Berlin. */
 export function endOfBookingDay(isoDate: string): string {
-  return new Date(berlinEndOfDay(isoDate) * 1000).toISOString();
+  return toTimestamp(endOfDay(isoDate));
 }
 
-/** The calendar day in Europe/Berlin of a UTC timestamp. */
+/**
+ * The calendar day in Europe/Berlin of a UTC timestamp.
+ *
+ * @throws {RangeError} if `timestamp` is no timestamp with time zone.
+ */
 export function bookingDayOf(timestamp: string): string {
-  return berlinDay(Math.floor(Date.parse(timestamp) / 1000));
+  return dayOf(Temporal.Instant.from(timestamp));
 }
