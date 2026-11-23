@@ -2,7 +2,7 @@
  * Version scheme (#71, #74): Belegwerk versions are the date and time of the
  * release in UTC (published releases and local builds alike), shown as
  * `YYYY-MM-DD-HHMM` (e.g. `2026-11-14-2000`) – in the tag
- * (`v2026-11-14-2000`), the asset names and the UI.
+ * (`v2026-11-14-2000`), the release names and the UI.
  *
  * Tauri and the Windows file version need SemVer with numeric parts of at
  * most 65535, so package.json carries `YYYY.(MM*100+DD).(HH*100+MM)`:

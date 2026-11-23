@@ -14,7 +14,7 @@ const CHECK = {
   currentVersion: "2026-11-01-0930",
   latestVersion: "2026-11-14-2000",
   updateAvailable: true,
-  releaseUrl: "https://github.com/patrick-b6n/belegwerk-next/releases/tag/v2026-11-14-2000",
+  releaseUrl: "https://github.com/patrick-b6n/belegwerk/releases/tag/v2026-11-14-2000",
 };
 
 describe("updateErrorKindMessage", () => {

@@ -14,7 +14,7 @@ import {
  * Release pages the app opens; the same prefix as the opener capability in
  * `src-tauri/capabilities/default.json` (and the check in the host).
  */
-export const RELEASE_PAGE_PREFIX = "https://github.com/patrick-b6n/belegwerk-next/releases/";
+export const RELEASE_PAGE_PREFIX = "https://github.com/patrick-b6n/belegwerk/releases/";
 
 /**
  * {@link Updater} of the app (#71): the host commands `check_for_update` and

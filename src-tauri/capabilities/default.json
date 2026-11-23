@@ -22,7 +22,7 @@
     "allow-install-update",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/patrick-b6n/belegwerk-next/releases/*" }]
+      "allow": [{ "url": "https://github.com/patrick-b6n/belegwerk/releases/*" }]
     }
   ]
 }
