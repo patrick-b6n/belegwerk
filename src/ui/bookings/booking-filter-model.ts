@@ -616,14 +616,6 @@ export interface YearMonth {
   readonly month: number;
 }
 
-/**
- * The period after choosing `kind` in the period select, starting from
- * `current`: keeps its year (else the current year) and, for quarter/month,
- * the narrower part it already has (the month's quarter, the quarter's first
- * month, a custom range's starting month) – otherwise today's quarter/month in the current year and the first
- * one in other years. "custom" starts with the current range, so the dates
- * can be adjusted.
- */
 /** The month a period starts in, if it has one (custom: of its start, else of its end). */
 function periodMonth(period: Period): number | undefined {
   switch (period.kind) {
@@ -641,6 +633,14 @@ function periodMonth(period: Period): number | undefined {
   }
 }
 
+/**
+ * The period after choosing `kind` in the period select, starting from
+ * `current`: keeps its year (else the current year) and, for quarter/month,
+ * the narrower part it already has (the month's quarter, the quarter's first
+ * month, a custom range's starting month) – otherwise today's quarter/month in
+ * the current year and the first one in other years. "custom" starts with the
+ * current range, so the dates can be adjusted.
+ */
 export function switchPeriodKind(current: Period, kind: PeriodKind, today: YearMonth): Period {
   const year = periodYear(current) ?? today.year;
   const month = periodMonth(current) ?? (year === today.year ? today.month : 1);
