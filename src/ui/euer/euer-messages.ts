@@ -3,7 +3,6 @@ import { m } from "@/paraglide/messages.js";
 
 import { euerPositionName } from "./position-name";
 
-/** Texts of the EÜR CSV export (#27); same wording as the view. */
 export function euerCsvLabels(): EuerCsvLabels {
   return {
     columns: {

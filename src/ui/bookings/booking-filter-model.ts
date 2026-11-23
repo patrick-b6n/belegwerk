@@ -85,7 +85,6 @@ const SOURCE_PARAMS: Readonly<Record<BookingSourceParam, BookingSource>> = {
   stripe: "stripe",
 };
 
-/** Every VAT rate param, in display order. */
 export const VAT_RATE_PARAMS: readonly VatRateParam[] = ["none", "0", "7", "19", "rc"];
 
 const VAT_RATE_OF_PARAM: Readonly<Record<VatRateParam, VatRate | null>> = {
@@ -96,13 +95,11 @@ const VAT_RATE_OF_PARAM: Readonly<Record<VatRateParam, VatRate | null>> = {
   rc: "reverse_charge",
 };
 
-/** The URL value of a VAT rate (`null` = no rate). */
 export function vatRateParam(rate: VatRate | null): VatRateParam {
   if (rate === null) return "none";
   return rate === "reverse_charge" ? "rc" : rate;
 }
 
-/** The VAT rate of a URL value (`null` = no rate). */
 export function vatRateOfParam(param: VatRateParam): VatRate | null {
   return VAT_RATE_OF_PARAM[param];
 }
@@ -200,7 +197,6 @@ function searchText(value: unknown): string | undefined {
 // ---------------------------------------------------------------------------
 // Sort order and pages (#23)
 
-/** The column names of the `sort` param. */
 export type BookingSortFieldParam =
   | "date"
   | "type"
@@ -211,7 +207,6 @@ export type BookingSortFieldParam =
   | "vat"
   | "gross"
   | "source";
-/** `asc` = ascending, `desc` = descending. */
 export type SortDirectionParam = "asc" | "desc";
 /** Value of the `sort` param, e.g. `gross-asc`. */
 export type BookingSortParam = `${BookingSortFieldParam}-${SortDirectionParam}`;
@@ -235,12 +230,10 @@ const SORT_DIRECTION_PARAMS: Readonly<Record<SortDirection, SortDirectionParam>>
 /** The page sizes the list offers; {@link DEFAULT_BOOKING_PAGE_SIZE} (100) is the default. */
 export const BOOKING_PAGE_SIZES: readonly number[] = [25, 50, 100, 200];
 
-/** The `sort` value of a sort order. */
 export function sortParam(sort: BookingSort): BookingSortParam {
   return `${SORT_FIELD_PARAMS[sort.field]}-${SORT_DIRECTION_PARAMS[sort.direction]}`;
 }
 
-/** The sort order of a `sort` value; `undefined` if it is none. */
 export function parseSortParam(value: unknown): BookingSort | undefined {
   if (typeof value !== "string") return undefined;
   const separator = value.lastIndexOf("-");
@@ -261,7 +254,6 @@ function isDefaultSort(sort: BookingSort): boolean {
   );
 }
 
-/** The sort order of the search params (default: date descending). */
 export function bookingSearchSort(search: BookingSearch): BookingSort {
   return parseSortParam(search.sort) ?? DEFAULT_BOOKING_SORT;
 }
@@ -293,12 +285,10 @@ export function sortSearchParam(sort: BookingSort): BookingSortParam | undefined
   return isDefaultSort(sort) ? undefined : sortParam(sort);
 }
 
-/** The page of the search params (1-based). */
 export function bookingSearchPage(search: BookingSearch): number {
   return search.page ?? 1;
 }
 
-/** The page size of the search params. */
 export function bookingSearchPageSize(search: BookingSearch): number {
   return search.pageSize ?? DEFAULT_BOOKING_PAGE_SIZE;
 }
@@ -455,10 +445,6 @@ export function bookingSearchToQuery(search: BookingSearch): BookingQuery {
   return query;
 }
 
-/**
- * The list's query (#23): filters, sort order, page and page size of the
- * search params.
- */
 export function bookingSearchToListQuery(search: BookingSearch): BookingQuery {
   return {
     ...bookingSearchToQuery(search),
@@ -520,7 +506,6 @@ export function parseAmountFilter(text: string): AmountFilterResult {
 
 export type Quarter = 1 | 2 | 3 | 4;
 export const QUARTERS: readonly Quarter[] = [1, 2, 3, 4];
-/** Months 1–12. */
 export const MONTHS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export type Period =
@@ -546,7 +531,6 @@ function isoOf(year: number, month: number, day: number): string {
   return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
 }
 
-/** Days of `month` (1–12) in `year`, with leap years (Gregorian). */
 export function daysInMonth(year: number, month: number): number {
   // Day 0 of the next month is the last day of this one (UTC: no DST shifts).
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -632,14 +616,6 @@ export interface YearMonth {
   readonly month: number;
 }
 
-/**
- * The period after choosing `kind` in the period select, starting from
- * `current`: keeps its year (else the current year) and, for quarter/month,
- * the narrower part it already has (the month's quarter, the quarter's first
- * month, a custom range's starting month) – otherwise today's quarter/month in the current year and the first
- * one in other years. "custom" starts with the current range, so the dates
- * can be adjusted.
- */
 /** The month a period starts in, if it has one (custom: of its start, else of its end). */
 function periodMonth(period: Period): number | undefined {
   switch (period.kind) {
@@ -657,6 +633,14 @@ function periodMonth(period: Period): number | undefined {
   }
 }
 
+/**
+ * The period after choosing `kind` in the period select, starting from
+ * `current`: keeps its year (else the current year) and, for quarter/month,
+ * the narrower part it already has (the month's quarter, the quarter's first
+ * month, a custom range's starting month) – otherwise today's quarter/month in
+ * the current year and the first one in other years. "custom" starts with the
+ * current range, so the dates can be adjusted.
+ */
 export function switchPeriodKind(current: Period, kind: PeriodKind, today: YearMonth): Period {
   const year = periodYear(current) ?? today.year;
   const month = periodMonth(current) ?? (year === today.year ? today.month : 1);

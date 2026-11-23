@@ -215,7 +215,6 @@ function sumOf(column: SQLWrapper) {
   return sql<number>`sum(${column})`.mapWith(Number);
 }
 
-/** Sum of the gross amounts of the bookings of `type`; 0 if there are none. */
 function grossOf(type: "income" | "expense") {
   return sql<number>`coalesce(sum(case when ${bookings.type} = ${type} then ${bookings.grossCents} end), 0)`.mapWith(
     Number,
@@ -285,7 +284,7 @@ const SORT_EXPRESSIONS: Readonly<Record<BookingSortField, SQLWrapper>> = {
   date: bookings.date,
   description: sql`${bookings.description} COLLATE NOCASE`,
   counterparty: sql`${bookings.counterparty} COLLATE NOCASE`,
-  // Subquery instead of a join: no duplicate column names (docs/data-model.md).
+  // Subquery instead of a join: no duplicate column names.
   category: sql`(SELECT ${categories.name} FROM ${categories} WHERE ${categories.id} = ${bookings.categoryId}) COLLATE NOCASE`,
   netCents: bookings.netCents,
   vatCents: bookings.vatCents,

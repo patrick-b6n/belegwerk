@@ -9,7 +9,6 @@ import { euerToCsv } from "./euer-csv";
 import { createEuerExportService } from "./euer-export-service";
 import { createEuerService, type EuerService } from "./euer-service";
 
-/** A fake save dialog: answers with `result` and records every request. */
 function fakeFileSaver(result: (request: SaveTextFileRequest) => SaveTextFileResult) {
   const requests: SaveTextFileRequest[] = [];
   const fileSaver: FileSaver = {

@@ -48,7 +48,6 @@ export function defaultImportPeriod(
   return { from: from > today ? today : from, to: today };
 }
 
-/** Initial form values: the default period, no confirmation yet. */
 export function stripeImportFormValues(
   status: StripeImportStatus,
   today: string,
@@ -61,7 +60,6 @@ function checkDate(value: string): "required" | "invalidDate" | undefined {
   return parseIsoDate(value) === undefined ? "invalidDate" : undefined;
 }
 
-/** Client check of `from` (same codes as the service). */
 export function checkImportFrom(from: string): StripeImportFieldError | undefined {
   const code = checkDate(from);
   return code ? { field: "from", code } : undefined;
@@ -94,7 +92,6 @@ export function importErrorsByField(
   return byField;
 }
 
-/** One fee or refund that was not booked, ready to show. */
 export interface StripeImportFailureRow {
   /** Unique within the result (the Stripe ID). */
   readonly key: string;
@@ -108,7 +105,6 @@ export interface StripeImportFailureRow {
   readonly errors: readonly BookingFieldError[];
 }
 
-/** What the dialog shows after a successful import. */
 export interface StripeImportSummary {
   readonly from: string;
   readonly to: string;
@@ -121,7 +117,6 @@ export interface StripeImportSummary {
   readonly failures: readonly StripeImportFailureRow[];
 }
 
-/** The summary of a successful import result. */
 export function stripeImportSummary(
   result: Extract<StripeImportResult, { ok: true }>,
 ): StripeImportSummary {

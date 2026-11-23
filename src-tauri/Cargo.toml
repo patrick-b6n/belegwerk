@@ -1,7 +1,7 @@
 [package]
 name = "belegwerk"
 # Unused: the exe's version comes from package.json (tauri.conf.json), which
-# the release scripts set from the build time (CalVer, docs/release.md).
+# the release scripts set from the build time (CalVer).
 version = "0.1.0"
 description = "Belegwerk – income/expenses and Anlage EÜR"
 authors = ["Patrick"]
@@ -50,7 +50,6 @@ sha2 = "0.11"
 # Opens the release notes in the default browser (#71); the capability allows
 # only this repository's release pages.
 tauri-plugin-opener = "2.7.3"
-# Remembers window size, position and maximized state between starts.
 tauri-plugin-window-state = "2"
 
 # Release build for the single .exe (#33, `pnpm release`; CI builds the same

@@ -8,7 +8,7 @@
  *   state, and a failed validation writes nothing. Inside the callback only
  *   the callback's repositories are used (docs/architecture.md – deadlock).
  * - Rule violations from user input are returned as result objects with
- *   field-addressable codes (no UI texts, docs/i18n.md); the form shows them
+ *   field-addressable codes (no UI texts); the form shows them
  *   at the field. Programmer errors (e.g. a non-string description) throw.
  * - Net and VAT are always computed here from gross amount, VAT rate and the
  *   tax status of the date's year; callers never pass them.
@@ -131,7 +131,6 @@ export type BookingField = keyof BookingFieldErrorCodes;
 
 export type BookingErrorCode = BookingFieldErrorCodes[BookingField];
 
-/** A validation error at a form field. */
 export type BookingFieldError = {
   readonly [F in BookingField]: { readonly field: F; readonly code: BookingFieldErrorCodes[F] };
 }[BookingField];
@@ -156,10 +155,8 @@ export type UpdateBookingResult =
 
 export type DeleteBookingResult = { readonly ok: true } | BookingNotFound;
 
-/** What the booking list shows of a booking's category. */
 export type BookingListCategory = Pick<Category, "id" | "name" | "archived">;
 
-/** A booking with the category data the list displays (#17). */
 export interface BookingListItem extends Booking {
   readonly category: BookingListCategory;
 }
@@ -172,11 +169,9 @@ export interface BookingSums {
   readonly balanceCents: number;
 }
 
-/** Result of {@link BookingService.list}. */
 export type BookingListResult =
   | {
       readonly ok: true;
-      /** The bookings of the page, in the query's sort order. */
       readonly items: readonly BookingListItem[];
       /** Number of all matching bookings. */
       readonly total: number;
@@ -244,7 +239,7 @@ export function createBookingService({ unitOfWork }: BookingServiceDependencies)
                   : { filter, sort, limit: pageSize, offset: (page - 1) * pageSize },
               );
         // Categories joined here: they are few, and a SQL join would need an
-        // explicit select object (duplicate column names, docs/data-model.md).
+        // explicit select object (duplicate column names).
         const categories = new Map(
           (await repos.categories.list()).map((category) => [category.id, category]),
         );
@@ -354,7 +349,6 @@ function invalid(errors: readonly BookingFieldError[]): BookingInvalid {
   return { ok: false, reason: "invalid", errors };
 }
 
-/** Result of {@link prepareBooking}: the row to write, or all field errors. */
 export type PrepareBookingResult =
   | { readonly ok: true; readonly input: BookingInput }
   | BookingInvalid;
@@ -369,11 +363,9 @@ export interface BookingLookups {
   findCategory(id: number): Promise<Category | undefined>;
   /** Tax status of the year; a year without a record is regularly taxed (#16). */
   isSmallBusinessYear(year: number): Promise<boolean>;
-  /** Whether another booking of `source` already has `externalId`. */
   externalIdExists(source: BookingSource, externalId: string): Promise<boolean>;
 }
 
-/** {@link BookingLookups} reading from the repositories of a unit of work. */
 export function repositoryBookingLookups(repos: Repositories): BookingLookups {
   return {
     findCategory: (id) => repos.categories.findById(id),
@@ -399,17 +391,14 @@ export async function prepareBooking(
 ): Promise<PrepareBookingResult> {
   const errors: BookingFieldError[] = [];
 
-  // Date
   const date = trimText(input.date);
   const dateParts = date === "" ? undefined : parseIsoDate(date);
   if (date === "") errors.push({ field: "date", code: "required" });
   else if (!dateParts) errors.push({ field: "date", code: "invalidDate" });
 
-  // Type
   const typeValid = BOOKING_TYPES.includes(input.type);
   if (!typeValid) errors.push({ field: "type", code: "invalidType" });
 
-  // Gross amount
   const { grossCents } = input;
   const grossValid =
     Number.isSafeInteger(grossCents) && grossCents > 0 && grossCents <= MAX_AMOUNT_CENTS;
@@ -455,7 +444,6 @@ export async function prepareBooking(
     errors.push({ field: "categoryId", code: "categoryArchived" });
   }
 
-  // Texts
   const description = requiredText(input.description, "description", errors);
   const counterparty = requiredText(input.counterparty, "counterparty", errors);
   const reference = optionalText(input.reference, "reference", errors);

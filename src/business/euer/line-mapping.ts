@@ -2,7 +2,7 @@
  * Line numbers and official labels of the EÜR positions per tax year (#13).
  *
  * The labels are the line texts of the official form – legal form data like
- * the line numbers, not UI texts (docs/i18n.md). Remarks in the form that are
+ * the line numbers, not UI texts. Remarks in the form that are
  * only instructions (references to other lines, the 10-day rule) are left
  * out; text in parentheses that describes the content (examples, inclusions
  * like "auch zurückgezahlte Hilfen/Zuschüsse …") is kept.
@@ -11,15 +11,14 @@
  * falls back to the bare position (see {@link describePosition}). Never
  * guess a line: only add lines verified against the official form.
  *
- * Adding a tax year: see docs/data-model.md, "EÜR-Positionen".
+ * Adding a tax year: add a constant with its official source, check every line
+ * against the form, register it in `EUER_LINE_MAPPINGS` and pin it in the tests.
  */
 
 import type { EuerPosition } from "./positions";
 
 export interface EuerLine {
-  /** Line number ("Zeile") in the Anlage EÜR of the year. */
   readonly line: number;
-  /** Line text of the official form. */
   readonly label: string;
 }
 
@@ -170,13 +169,11 @@ const ANLAGE_EUER_2026 = withLabels(
   LABELS_2025_2026,
 );
 
-/** Mapping per tax year. */
 export const EUER_LINE_MAPPINGS: Readonly<Record<number, EuerLineMapping>> = {
   2025: ANLAGE_EUER_2025,
   2026: ANLAGE_EUER_2026,
 };
 
-/** Whether a line mapping exists for the year (EÜR view hint, #26). */
 export function hasLineMapping(year: number): boolean {
   return Object.hasOwn(EUER_LINE_MAPPINGS, year);
 }

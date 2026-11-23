@@ -5,7 +5,6 @@
  * (connection lock, migrator, Drizzle adapter) is the same in both.
  */
 
-/** Values that can be bound to a statement. */
 export type SqlValue = string | number | null;
 
 /** A result row, keyed by column name (as the plugin returns it). */

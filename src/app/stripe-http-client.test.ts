@@ -53,7 +53,6 @@ const fee = (id: string, refunds = list([]), extra: Record<string, unknown> = {}
   ...extra,
 });
 
-/** The requested URLs, parsed. */
 const requestedUrls = () => plugin.fetch.mock.calls.map(([input]) => new URL(input));
 
 const sleep = vi.fn<(ms: number) => Promise<void>>();

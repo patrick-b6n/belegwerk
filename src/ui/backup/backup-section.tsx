@@ -8,26 +8,13 @@ import { toast } from "@/ui/components/ui/toast";
 import { useCreateBackup } from "./backup-mutations";
 
 /**
- * Where the Tauri host keeps the database (src-tauri/src/lib.rs,
- * docs/data-model.md) – shown for the manual restore.
+ * Where the Tauri host keeps the database (src-tauri/src/lib.rs) – shown for the manual restore.
  */
 const DATABASE_LOCATION = `%APPDATA%\\de.belegwerk.desktop\\${
   // Development builds use their own file (src-tauri/src/lib.rs, DB_FILE).
   import.meta.env.DEV ? "belegwerk-dev.db" : "belegwerk.db"
 }`;
 
-/**
- * Section "Backup" on `/settings` (#32): explains what a backup
- * contains and how to restore it, and "Backup erstellen" saves a copy of the
- * database via the save dialog.
- *
- * - While the backup runs the button is disabled (still focusable) with a
- *   spinner.
- * - Success: toast with the file name. Cancelling the dialog shows nothing.
- *   A target in the app's data folder is refused (own error toast, nothing
- *   written); other errors show an error toast – saying whether the target
- *   file was emptied – with details in the console.
- */
 export function BackupSection() {
   const createBackup = useCreateBackup();
   const running = createBackup.isPending;

@@ -25,8 +25,7 @@ import type { Database } from "@/persistence/database";
  *    `writeTextFile(path, "")` – the permission the CSV export already has
  *    (`fs:allow-write-text-file`), and the dialog put exactly this path into
  *    the fs scope. No `fs:allow-remove`/`rename`/`copy-file` and no temporary
- *    file that would need a static scope (docs/architecture.md,
- *    "Datensicherung").
+ *    file that would need a static scope.
  * 3. If writing or checking fails, the file is truncated again (best effort):
  *    an empty file is plainly no backup, a half-written one might pass for
  *    one. The error is a {@link BackupWriteError} saying whether the target

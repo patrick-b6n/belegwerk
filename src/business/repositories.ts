@@ -5,7 +5,7 @@
  * against these interfaces. src/persistence implements them with Drizzle,
  * business tests use the in-memory fakes in `__tests__/`.
  *
- * Rules for callers (docs/architecture.md, "Repositories und Unit of Work"):
+ * Rules for callers (#11, docs/architecture.md):
  *
  * - Several writes that belong together run in {@link UnitOfWork.run} and use
  *   **only** the repositories passed to the callback. Using other
@@ -43,7 +43,6 @@ export interface BookingRepository {
     source: BookingSource,
     externalIds: readonly string[],
   ): Promise<Set<string>>;
-  /** Number of bookings using the category (archive or delete, #15). */
   countByCategory(categoryId: number): Promise<number>;
   /**
    * Number of bookings per category id in one query (category list, #15).
@@ -87,7 +86,6 @@ export interface BookingRepository {
   listTextUsage(field: BookingTextField): Promise<BookingTextUsage[]>;
 }
 
-/** Text fields of a booking with suggestions from earlier bookings. */
 export type BookingTextField = "description" | "counterparty";
 
 /** One group of {@link BookingRepository.listTextUsage}. */
@@ -219,11 +217,9 @@ export interface TaxYearRepository {
   find(year: number): Promise<TaxYear | undefined>;
   /** All recorded years, ascending. */
   list(): Promise<TaxYear[]>;
-  /** Creates or replaces the record of `taxYear.year`. */
   upsert(taxYear: TaxYear): Promise<TaxYear>;
 }
 
-/** Key-value settings (e.g. Stripe key, last import, defaults – #29 ff.). */
 export interface SettingsRepository {
   get(key: string): Promise<string | undefined>;
   set(key: string, value: string): Promise<void>;
@@ -250,7 +246,6 @@ export interface UnitOfWork {
   run<T>(fn: (repos: Repositories) => Promise<T>): Promise<T>;
 }
 
-/** Current time; injected so tests can use a fixed clock. */
 export type Clock = () => Date;
 
 export type ConstraintKind =

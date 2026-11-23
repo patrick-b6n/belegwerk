@@ -10,8 +10,7 @@ import type { FileSaver, SavePathPicker } from "@/business/files";
  * Permissions (`src-tauri/capabilities/default.json`): only `dialog:allow-save`
  * and `fs:allow-write-text-file` without a configured scope. The dialog adds
  * the chosen path to the fs scope at runtime, so the WebView can write exactly
- * the files the user picked – no other path (docs/architecture.md, "Dateien
- * speichern").
+ * the files the user picked – no other path.
  */
 export function createTauriFileSaver(): FileSaver {
   return {

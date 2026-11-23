@@ -453,7 +453,6 @@ interface FilterSlot {
   readonly node: ReactNode;
 }
 
-/** Classes of a filter's select trigger: highlighted while the filter is active. */
 function chipClass(active: boolean): string {
   return cn(active && "border-primary/40 bg-primary/10 font-semibold dark:bg-primary/15");
 }
@@ -1021,7 +1020,6 @@ function unknownLabel(categoryId: number): string {
   return m.bookings_filter_category_unknown_id({ id: String(categoryId) });
 }
 
-/** A category as the filter shows it: archived ones marked. */
 function categoryLabel(category: CategoryWithUsage): string {
   return category.archived
     ? m.bookings_filter_category_archived({ name: category.name })
@@ -1121,7 +1119,6 @@ function CategoryFilter({
   );
 }
 
-/** The selected VAT rates as the trigger shows them. */
 function vatRateSummary(rates: readonly VatRateParam[]): string {
   if (rates.length === 0) return m.bookings_filter_vat_rate_all();
   return rates.map((rate) => VAT_RATE_FILTER_LABELS[rate]()).join(", ");

@@ -9,10 +9,8 @@
  */
 import { isTaxYear, type TaxYearFieldError, type TaxYearOverview } from "@/business/tax-years";
 
-/** Errors the form detects itself. */
 export type TaxYearClientError = "required" | "invalidYear";
 
-/** The years, oldest first (chronological, like a calendar). */
 export function sortYearsAscending(years: readonly TaxYearOverview[]): TaxYearOverview[] {
   const sorted = [...years];
   sorted.sort((a, b) => a.year - b.year);
@@ -37,7 +35,6 @@ export function parseYear(text: string): number {
   return /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
 }
 
-/** Client check of the year input (`undefined` = valid). */
 export function checkYear(text: string): TaxYearClientError | undefined {
   if (text.trim() === "") return "required";
   return isTaxYear(parseYear(text)) ? undefined : "invalidYear";

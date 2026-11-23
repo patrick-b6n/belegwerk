@@ -7,7 +7,6 @@ import type { Db } from "../database";
 import { categories } from "../schema";
 import { mapConstraintErrors } from "./constraint-errors";
 
-/** Drizzle implementation of {@link CategoryRepository} on `db` (or a transaction's `tx`). */
 export function createCategoryRepository(db: Db): CategoryRepository {
   const findById = async (id: number) => {
     const row = await db.select().from(categories).where(eq(categories.id, id)).get();

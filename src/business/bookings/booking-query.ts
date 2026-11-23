@@ -10,7 +10,6 @@ import { isVatRate } from "../money";
 import type { BookingFilter, BookingSort, BookingSortField, SortDirection } from "../repositories";
 import { isId, trimText } from "../validation";
 
-/** Rows per page if the query does not say. */
 export const DEFAULT_BOOKING_PAGE_SIZE = 100;
 /** Largest page size; for every matching booking (CSV export, #24) use `pageSize: "all"`. */
 export const MAX_BOOKING_PAGE_SIZE = 500;
@@ -41,7 +40,6 @@ const SORT_FIELDS: Readonly<Record<BookingSortField, true>> = {
   source: true,
 };
 
-/** Every sort field, e.g. for the URL schema of #22/#23. */
 export const BOOKING_SORT_FIELDS = Object.keys(SORT_FIELDS) as readonly BookingSortField[];
 export const SORT_DIRECTIONS: readonly SortDirection[] = ["asc", "desc"];
 
@@ -113,7 +111,6 @@ export interface BookingQueryErrorCodes {
   readonly amountFrom: "invalidAmount";
   /** `amountRangeInverted`: `amountTo` is below `amountFrom`. */
   readonly amountTo: "invalidAmount" | "amountRangeInverted";
-  /** Unknown field or direction. */
   readonly sort: "invalidSort";
   /** Not a positive integer. */
   readonly page: "invalidPage";
@@ -137,7 +134,6 @@ export type BookingQueryInvalid = {
   readonly errors: readonly BookingQueryError[];
 };
 
-/** A valid query with all defaults applied. */
 export interface NormalizedBookingQuery {
   readonly filter: BookingFilter;
   readonly sort: BookingSort;
@@ -166,7 +162,6 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
   const errors: BookingQueryError[] = [];
   const filter: { -readonly [K in keyof BookingFilter]: BookingFilter[K] } = {};
 
-  // Text
   if (query.text !== undefined) {
     const text = trimText(query.text).normalize("NFC");
     if (INVALID_TEXT_CHARACTER.test(text)) {
@@ -178,7 +173,6 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     }
   }
 
-  // Period
   const dateFrom = optionalDate(query.dateFrom);
   const dateTo = optionalDate(query.dateTo);
   if (dateFrom === null) errors.push({ field: "dateFrom", code: "invalidDate" });
@@ -191,13 +185,11 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     else filter.dateTo = dateTo;
   }
 
-  // Type
   if (query.type !== undefined) {
     if (BOOKING_TYPES.includes(query.type)) filter.type = query.type;
     else errors.push({ field: "type", code: "invalidType" });
   }
 
-  // Categories
   if (query.categoryIds !== undefined) {
     const categoryIds = [...new Set(query.categoryIds)];
     if (!categoryIds.every(isId)) {
@@ -209,13 +201,11 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     }
   }
 
-  // Source
   if (query.source !== undefined) {
     if (BOOKING_SOURCES.includes(query.source)) filter.source = query.source;
     else errors.push({ field: "source", code: "invalidSource" });
   }
 
-  // VAT rates
   if (query.vatRates !== undefined) {
     const vatRates = [...new Set(query.vatRates)];
     if (!vatRates.every((rate) => rate === null || isVatRate(rate))) {
@@ -225,7 +215,6 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     }
   }
 
-  // Amount
   const { amountFrom, amountTo } = query;
   if (amountFrom !== undefined) {
     if (isAmount(amountFrom)) filter.amountFrom = amountFrom;
@@ -240,13 +229,11 @@ export function normalizeBookingQuery(query: BookingQuery = {}): NormalizeBookin
     }
   }
 
-  // Sort order
   const sort = query.sort ?? DEFAULT_BOOKING_SORT;
   const sortValid =
     Object.hasOwn(SORT_FIELDS, sort.field) && SORT_DIRECTIONS.includes(sort.direction);
   if (!sortValid) errors.push({ field: "sort", code: "invalidSort" });
 
-  // Page
   const page = query.page ?? 1;
   if (!(Number.isSafeInteger(page) && page >= 1))
     errors.push({ field: "page", code: "invalidPage" });

@@ -138,8 +138,6 @@ describe("createAppServices – bookings on SQLite", () => {
   });
 });
 
-// The CSV export (#24) through the composition root: the bookings of the
-// real search (SQLite), written by a fake save dialog.
 describe("createAppServices – CSV export on SQLite", () => {
   it("exports every matching booking", async () => {
     const requests: SaveTextFileRequest[] = [];
@@ -200,7 +198,6 @@ describe("createAppServices – CSV export on SQLite", () => {
 
 const CRLF = CSV_LINE_ENDING;
 
-// The category service against SQLite with the seeded default categories.
 describe("createAppServices – categories on SQLite", () => {
   it("lists the seeded categories with usage and protects the system categories", async () => {
     const { services, incomeId } = await setup();
@@ -301,7 +298,6 @@ const booking = (incomeId: number, date: string, vatRate: "19" | null) =>
     note: null,
   }) as const;
 
-// The tax year service against SQLite, together with the booking service.
 describe("createAppServices – tax years on SQLite", () => {
   it("adds years, lists years with bookings and switches the status", async () => {
     const { services, sqlite, incomeId } = await setup();
@@ -459,8 +455,6 @@ describe("createAppServices – EÜR on SQLite", () => {
   });
 });
 
-// The EÜR export through the composition root: the real calculation on
-// SQLite, the CSV and a fake save dialog.
 describe("createAppServices – EÜR CSV export on SQLite", () => {
   it("exports a regular and a small-business year", async () => {
     const requests: SaveTextFileRequest[] = [];
@@ -595,7 +589,6 @@ describe("createAppServices – Stripe settings on SQLite", () => {
   });
 });
 
-/** Epoch seconds of an ISO instant. */
 const at = (iso: string) => Date.parse(iso) / 1000;
 
 describe("createAppServices – Stripe import on SQLite", () => {

@@ -17,7 +17,6 @@ export const BOOKING_TEXT_SUGGESTION_FIELDS: readonly BookingTextField[] = [
 /** Suggestions per request by default: enough for typing to filter, small to keep in memory. */
 export const DEFAULT_BOOKING_TEXT_SUGGESTION_LIMIT = 300;
 
-/** Upper bound of `limit`. */
 export const MAX_BOOKING_TEXT_SUGGESTION_LIMIT = 1000;
 
 export interface BookingTextSuggestionRequest {

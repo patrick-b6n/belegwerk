@@ -13,11 +13,6 @@ import {
 } from "@/ui/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/components/ui/tooltip";
 
-/**
- * Shared building blocks of the TanStack Form forms (booking form #18,
- * category form #19).
- */
-
 /** The (string) errors of a field, deduplicated, for `FieldError`. */
 export function fieldErrors(errors: readonly unknown[]): { message: string }[] {
   return [...new Set(errors.filter((error): error is string => typeof error === "string"))].map(
@@ -36,7 +31,6 @@ export function focusFirstInvalid(form: HTMLFormElement | null, fallback?: HTMLE
   });
 }
 
-/** Props a form control gets from {@link FormField}. */
 export interface ControlProps {
   id: string;
   "aria-invalid": true | undefined;

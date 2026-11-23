@@ -3,8 +3,7 @@
  * migrations in `./migrations` – after changing this file run
  * `pnpm db:generate` and commit the generated files.
  *
- * Design decisions (ids, dates, amounts, enums, constraints) are documented
- * in docs/data-model.md. The row types inferred from these tables stay in
+ * The row types inferred from these tables stay in
  * src/persistence; business works with its own domain types (#11).
  */
 import { sql } from "drizzle-orm";
@@ -31,7 +30,6 @@ function col(column: { name: string }) {
   return sql.identifier(column.name);
 }
 
-/** Boolean stored as INTEGER 0/1 (Drizzle maps it to `boolean`). */
 function flag(name: string) {
   return integer(name, { mode: "boolean" }).notNull().default(false);
 }
@@ -97,7 +95,7 @@ export const bookings = sqliteTable(
     index("bookings_category_id_idx").on(t.categoryId),
     // Partial index: manual bookings without external ID never collide.
     // Note: Drizzle 0.45 renders `onConflictDoNothing({ target, where })`
-    // against this index as invalid SQL (docs/data-model.md).
+    // against this index as invalid SQL.
     uniqueIndex("bookings_source_external_id_unique")
       .on(t.source, t.externalId)
       .where(sql`${col(t.externalId)} IS NOT NULL`),

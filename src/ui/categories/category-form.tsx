@@ -48,7 +48,6 @@ import {
 } from "./category-model";
 import { useCategoryMutations } from "./category-mutations";
 
-/** Error text of a client-side check for TanStack Form (`undefined` = valid). */
 function message(error: CategoryClientError | undefined): string | undefined {
   return error ? categoryClientErrorMessage(error) : undefined;
 }
@@ -56,7 +55,6 @@ function message(error: CategoryClientError | undefined): string | undefined {
 export interface CategoryFormProps {
   /** The category to edit; without it, the form creates a new category. */
   readonly category?: CategoryWithUsage;
-  /** Type a new category starts with. */
   readonly defaultType?: BookingType;
   /** Year whose line numbers the position options show. */
   readonly year: number;
@@ -365,7 +363,6 @@ export function CategoryForm({
   );
 }
 
-/** Hint under the position select. */
 function positionDescription(
   category: CategoryWithUsage | undefined,
   system: boolean,

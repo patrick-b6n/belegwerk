@@ -1,7 +1,6 @@
 /**
- * Port for saving files (docs/architecture.md, "Plattformzugriffe"): Business
- * stays free of Tauri; `src/app` implements it with `tauri-plugin-dialog`
- * (save dialog) and `tauri-plugin-fs` (writing).
+ * Port for saving files: business stays free of Tauri; `src/app` implements it
+ * with `tauri-plugin-dialog` (save dialog) and `tauri-plugin-fs` (writing).
  */
 
 export interface SaveTextFileRequest {
@@ -14,7 +13,6 @@ export interface SaveTextFileRequest {
 }
 
 export type SaveTextFileResult =
-  /** Written to `path` (the path the user chose). */
   | { readonly saved: true; readonly path: string }
   /** The user cancelled the dialog; nothing was written. */
   | { readonly saved: false };
@@ -42,7 +40,6 @@ export function fileNameOfPath(path: string): string {
   return path.split(/[\\/]/).pop() || path;
 }
 
-/** Request of {@link SavePathPicker.pickSavePath}. */
 export interface PickSavePathRequest {
   /** File name the save dialog suggests, e.g. `belegwerk-backup-2026-11-14_1530.db`. */
   readonly defaultFileName: string;

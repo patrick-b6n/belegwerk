@@ -23,7 +23,6 @@ export interface StripeDefaultsFormValues {
   readonly refundCategoryId: string;
 }
 
-/** The fields of the defaults form, in display order. */
 export const STRIPE_DEFAULTS_FIELDS = [
   "defaultVatRate",
   "feeCategoryId",
@@ -84,7 +83,6 @@ export function feeCategoryOptions(
   );
 }
 
-/** Categories for fee refunds: expense categories that reduce income (Erlösminderung). */
 export function refundCategoryOptions(
   categories: readonly Category[],
   keep: readonly (number | null)[],
@@ -102,7 +100,6 @@ function options(
   return result;
 }
 
-/** A select value as id (`null` if empty). */
 export function selectedId(value: string): number | null {
   return value === "" ? null : Number(value);
 }

@@ -9,16 +9,6 @@ import { isEmptyEuer } from "./euer-model";
 import { euerCsvLabels } from "./euer-messages";
 import { useEuerCsvExport } from "./euer-queries";
 
-/**
- * "Export CSV" on `/euer` (#27): saves the EÜR of the shown year via
- * the save dialog (same pattern as the booking export, #24).
- *
- * - Disabled while the EÜR is not calculated (loading or error), for a year
- *   without lines and while an export runs (then with a spinner). It stays
- *   focusable, the reason is in the tooltip.
- * - Success: toast with year and file name. Cancelling the dialog shows
- *   nothing; errors show an error toast.
- */
 export function EuerExportButton({
   year,
   result,

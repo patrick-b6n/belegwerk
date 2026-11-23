@@ -5,9 +5,8 @@ import { useAppServices } from "@/app/app-services";
 import type { DownloadProgress, UpdateCheck } from "@/business/updates";
 
 /**
- * TanStack Query keys of the auto-update (#71). `check` holds the latest
- * check result – from the background check at startup or from "Nach Updates
- * suchen" – and drives the notice in the top bar.
+ * `check` holds the latest check result – from the background check at startup
+ * or from "Nach Updates suchen" – and drives the notice in the top bar.
  */
 export const updateQueryKeys = {
   all: ["updates"] as const,
@@ -61,7 +60,6 @@ export function useInstallUpdate() {
   return { mutation, progress, blocked: running && !mutation.isPending };
 }
 
-/** Opens the release notes of a check in the default browser. */
 export function useOpenReleaseNotes() {
   const { updates } = useAppServices();
   return useMutation({

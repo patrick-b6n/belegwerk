@@ -3,14 +3,12 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAppServices } from "@/app/app-services";
 
 /**
- * TanStack Query keys of the tax year data (docs/architecture.md, "TanStack
- * Query"). `TaxYearService.list()` includes years that only have bookings,
+ * `TaxYearService.list()` includes years that only have bookings,
  * so booking mutations (#18) invalidate `taxYearQueryKeys.all` too; the
  * settings page (#20) invalidates it after changing a year's status.
  */
 export const taxYearQueryKeys = {
   all: ["taxYears"] as const,
-  /** All years with a record or bookings (`TaxYearService.list`). */
   list: () => [...taxYearQueryKeys.all, "list"] as const,
   detail: (year: number) => [...taxYearQueryKeys.all, "detail", year] as const,
 };
@@ -31,10 +29,6 @@ export function useTaxYear(year: number | undefined) {
   });
 }
 
-/**
- * All years that have a record or bookings, ascending, each with its number
- * of mismatched bookings (`TaxYearService.list`).
- */
 export function useTaxYearList() {
   const { taxYears } = useAppServices();
   return useQuery({

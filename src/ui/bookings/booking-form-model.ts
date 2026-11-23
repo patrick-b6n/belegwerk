@@ -35,10 +35,8 @@ export interface BookingFormValues {
 
 export type BookingFormField = keyof BookingFormValues;
 
-/** VAT rates in the order the form offers them. */
 export const VAT_RATES: readonly VatRate[] = ["19", "7", "0", "reverse_charge"];
 
-/** Default VAT rate of a new booking (the standard rate). */
 const DEFAULT_VAT_RATE: VatRate = "19";
 
 /** Today's local calendar date as `YYYY-MM-DD` (the date a new booking starts with). */
@@ -62,7 +60,6 @@ export function formatAmountInput(cents: number): string {
   return `${euroFormat.format(euros)},${restDigits}`;
 }
 
-/** Values of a new booking: today, expense, standard rate, everything else empty. */
 export function newBookingFormValues(today: string): BookingFormValues {
   return {
     date: today,
@@ -92,7 +89,6 @@ export function bookingFormValues(booking: Booking): BookingFormValues {
   };
 }
 
-/** The tax year of the form's date; `undefined` while the date is empty or invalid. */
 export function taxYearOf(date: string): number | undefined {
   return parseIsoDate(date)?.year;
 }
@@ -101,7 +97,7 @@ export function taxYearOf(date: string): number | undefined {
  * What the form submits to `BookingService.create`/`update`. In a small
  * business year the VAT rate is `null` (the field is hidden). `source` and
  * `externalId` are omitted: `create` uses the defaults, `update` keeps the
- * booking's values (docs/architecture.md, Buchungs-Service).
+ * booking's values.
  *
  * Invalid values are passed on as the service expects them (an unparsable
  * amount as `NaN`, no category as `NaN`), so the service reports them, too.
@@ -144,7 +140,6 @@ export function checkDate(date: string): ClientFieldError | undefined {
   return date === "" ? { field: "date", code: "required" } : undefined;
 }
 
-/** Client-side check of the amount text: must parse and be greater than 0. */
 export function checkAmount(amount: string): ClientFieldError | undefined {
   const parsed = parseAmount(amount);
   if (!parsed.ok) return { field: "amount", code: parsed.error };
@@ -152,7 +147,6 @@ export function checkAmount(amount: string): ClientFieldError | undefined {
   return undefined;
 }
 
-/** Client-side check of the VAT rate: required unless the year is a small business year. */
 export function checkVatRate(
   vatRate: VatRate | "",
   smallBusiness: boolean,
@@ -193,7 +187,6 @@ export function formFieldOf(field: BookingField): BookingFormField | undefined {
   return FORM_FIELD[field];
 }
 
-/** Service errors sorted by where the form shows them. */
 export function splitServiceErrors(errors: readonly BookingFieldError[]): {
   readonly byField: ReadonlyMap<BookingFormField, BookingFieldError>;
   readonly other: readonly BookingFieldError[];
@@ -208,7 +201,6 @@ export function splitServiceErrors(errors: readonly BookingFieldError[]): {
   return { byField, other };
 }
 
-/** Net and VAT of the live preview. */
 export interface AmountPreview {
   readonly grossCents: number;
   readonly netCents: number;
@@ -239,7 +231,7 @@ export function previewAmounts(
  * not archived – plus the categories in `keep` even if archived:
  *
  * - the edited booking's current category, since a booking may keep its
- *   archived category (docs/architecture.md, Buchungs-Service);
+ *   archived category;
  * - the selected one: if it is archived while the form is open, it stays
  *   visible with its "archived" mark and the service's error
  *   (`categoryArchived`) instead of silently vanishing from the select.

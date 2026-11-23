@@ -7,7 +7,7 @@
  * - Every operation runs in one {@link UnitOfWork.run}; inside the callback
  *   only the callback's repositories are used.
  * - Rule violations are result objects with field-addressable codes (no UI
- *   texts, docs/i18n.md); programmer errors throw.
+ *   texts); programmer errors throw.
  *
  * **EÜR position changes apply retroactively.** Bookings store only the
  * category; the EÜR (#25) takes the position and "reduces income" from the
@@ -25,7 +25,6 @@ import type { BookingType, Category, CategoryChanges } from "../model";
 import { ConstraintViolationError, type Repositories, type UnitOfWork } from "../repositories";
 import { isId, trimText } from "../validation";
 
-/** What the category form submits on create. */
 export interface CategoryFormInput {
   readonly name: string;
   /** Fixed after creation. */
@@ -81,12 +80,10 @@ export type CategoryField = keyof CategoryFieldErrorCodes;
 
 export type CategoryErrorCode = CategoryFieldErrorCodes[CategoryField];
 
-/** A validation error at a form field. */
 export type CategoryFieldError = {
   readonly [F in CategoryField]: { readonly field: F; readonly code: CategoryFieldErrorCodes[F] };
 }[CategoryField];
 
-/** A category with the number of bookings using it (e.g. to offer delete only when unused). */
 export interface CategoryWithUsage extends Category {
   readonly bookingCount: number;
 }
@@ -100,7 +97,6 @@ export type CategoryInvalid = {
   readonly errors: readonly CategoryFieldError[];
 };
 
-/** System categories cannot be archived or deleted. */
 export type CategoryIsSystem = { readonly ok: false; readonly reason: "systemCategory" };
 
 /** Bookings use the category: it cannot be deleted (archive it instead). */

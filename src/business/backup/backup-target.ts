@@ -4,7 +4,6 @@
  * (`belegwerk.db`) or its journal if the user picked one of them.
  */
 
-/** The picked target lies in (or below) the folder of the live database. */
 export class BackupTargetInDatabaseFolderError extends Error {
   constructor() {
     super("The backup target is inside the folder of the app's database");

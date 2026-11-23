@@ -29,7 +29,6 @@ import type { Repositories, UnitOfWork, VatRateUsage } from "../repositories";
 export const TAX_YEAR_MIN = 1000;
 export const TAX_YEAR_MAX = 9999;
 
-/** The tax status of a year. */
 export interface TaxYearStatus extends TaxYear {
   /** `true` if a record exists; `false` = default (regularly taxed). */
   readonly explicit: boolean;
@@ -223,7 +222,6 @@ function explicitStatus(record: TaxYear): TaxYearStatus {
   return { year: record.year, smallBusiness: record.smallBusiness, explicit: true };
 }
 
-/** Bookings whose VAT rate does not fit `smallBusiness` (see the module comment). */
 function mismatched(usage: VatRateUsage, smallBusiness: boolean): number {
   return smallBusiness ? usage.withVatRate : usage.withoutVatRate;
 }

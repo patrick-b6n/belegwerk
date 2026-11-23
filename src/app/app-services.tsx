@@ -63,7 +63,6 @@ export function AppServicesProvider({ children }: Readonly<{ children: ReactNode
   }
 }
 
-/** The app's services; only below {@link AppServicesProvider}. */
 export function useAppServices(): AppServices {
   const services = useContext(AppServicesContext);
   if (!services) {

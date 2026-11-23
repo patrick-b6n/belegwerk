@@ -39,7 +39,6 @@ import {
 // ---------------------------------------------------------------------------
 // URL search params
 
-/** The validated search params of `/euer`. */
 export interface EuerSearch {
   /** The year shown; absent = the current calendar year. */
   readonly year?: number;
@@ -62,7 +61,6 @@ export function validateEuerSearch(raw: Readonly<Record<string, unknown>>): Euer
   return { year: year !== undefined && isTaxYear(year) ? year : undefined };
 }
 
-/** The year the search params show. */
 export function euerSearchYear(search: EuerSearch, currentYear: number): number {
   return search.year ?? currentYear;
 }
@@ -103,7 +101,6 @@ export function contributionsSearch(
   });
 }
 
-/** The booking list's search params of a line. */
 export function lineSearch(line: EuerReportLine, year: number): BookingSearch | undefined {
   return contributionsSearch(line.contributions, year);
 }
@@ -111,7 +108,6 @@ export function lineSearch(line: EuerReportLine, year: number): BookingSearch | 
 // ---------------------------------------------------------------------------
 // Tables
 
-/** A row of the income or expense table. */
 export interface EuerRow {
   readonly line: EuerReportLine;
   /** "Davon" line (small business line 13): already part of another line, not summed. */

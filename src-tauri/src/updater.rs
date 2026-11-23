@@ -1,7 +1,7 @@
 //! Auto-update from GitHub releases (#71).
 //!
 //! Tauri's updater plugin needs an installer or archive; Belegwerk ships a
-//! bare, unsigned `.exe` (docs/release.md). So the app replaces itself:
+//! bare, unsigned `.exe`. So the app replaces itself:
 //!
 //! 1. `check_for_update`: `GET /repos/{REPOSITORY}/releases/latest` and a
 //!    SemVer comparison with the running version.
@@ -29,7 +29,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::ipc::Channel;
 
-/// The public repository the releases come from.
 const REPOSITORY: &str = "patrick-b6n/belegwerk-next";
 /// No personal data: GitHub only requires some User-Agent.
 const USER_AGENT: &str = "Belegwerk-Updater";
@@ -38,7 +37,6 @@ const MAX_EXE_SIZE: u64 = 256 * 1024 * 1024;
 /// Upper bound for the checksum file (one line in `sha256sum` format).
 const MAX_CHECKSUM_FILE_SIZE: usize = 4096;
 
-/// Result of [`check_for_update`], sent to the WebView.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCheck {
@@ -47,10 +45,7 @@ pub struct UpdateCheck {
     pub current_version: String,
     /// Version of the latest GitHub release (tag without `v`, CalVer).
     pub latest_version: String,
-    /// Whether the latest release is newer than the running app (compared in
-    /// SemVer form).
     pub update_available: bool,
-    /// The release page (release notes) on GitHub.
     pub release_url: String,
 }
 
@@ -70,14 +65,11 @@ pub enum UpdateErrorKind {
     Network,
     /// GitHub answered with an error status (e.g. rate limit).
     Http,
-    /// The repository has no published release yet.
     NoRelease,
     /// The release is unusable: bad tag, missing or unexpected assets, bad
     /// checksum file, size mismatch.
     InvalidRelease,
-    /// The downloaded exe does not match the published SHA-256.
     ChecksumMismatch,
-    /// `install_update` was called, but there is no newer version.
     NoUpdate,
     /// Debug build (`tauri dev`): the exe is never replaced.
     DevBuild,
@@ -88,7 +80,6 @@ pub enum UpdateErrorKind {
     /// back: the exe is missing, the old version is at `path` (`<exe>.old`)
     /// and must be renamed back by hand.
     RollbackFailed,
-    /// Another `install_update` is still running.
     AlreadyRunning,
     /// An internal error, e.g. the app's own version is no SemVer.
     Unexpected,
@@ -150,7 +141,6 @@ struct GithubAsset {
     size: u64,
 }
 
-/// The exe and checksum asset of a release.
 #[derive(Debug)]
 struct ReleaseAssets<'a> {
     exe: &'a GithubAsset,
@@ -381,7 +371,6 @@ fn staging_path(exe: &Path) -> PathBuf {
     PathBuf::from(path)
 }
 
-/// Why [`replace_executable`] failed.
 #[derive(Debug)]
 enum ReplaceError {
     /// Nothing changed: `exe` is still the old version (moved back if needed).
@@ -779,9 +768,7 @@ mod tests {
         semver::Version::parse(text).unwrap()
     }
 
-    /// The running version in the tests (2026-11-01-0930).
     const OLDER: &str = "2026.1101.930";
-    /// The release `v2026-11-14-2000`.
     const LATEST_SEMVER: &str = "2026.1114.2000";
 
     fn latest() -> ReleaseVersion {

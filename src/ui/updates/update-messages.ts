@@ -1,8 +1,3 @@
-/**
- * UI texts of the auto-update (#71): the error kinds of the updater and the
- * result of a check (docs/i18n.md: business returns codes, the UI translates
- * them).
- */
 import {
   type DownloadProgress,
   downloadPercent,
@@ -47,7 +42,6 @@ export function updateErrorKindMessage(kind: UpdateErrorKind, path?: string | nu
   throw new Error(`No message for update error ${String(kind)}`);
 }
 
-/** Message of any error of a check or an install. */
 export function updateErrorMessage(error: unknown): string {
   return error instanceof UpdateError
     ? updateErrorKindMessage(error.kind, error.path)
@@ -67,7 +61,6 @@ export function installErrorMessage(error: unknown): string {
     : `${message} ${m.update_error_unchanged()}`;
 }
 
-/** Result of "Check for updates". */
 export function updateCheckMessage(check: UpdateCheck): string {
   return check.updateAvailable
     ? m.update_available({ version: check.latestVersion, currentVersion: check.currentVersion })

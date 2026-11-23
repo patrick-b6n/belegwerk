@@ -2,7 +2,7 @@
  * CSV export of the EÜR (#27): maps an {@link EuerResult} to rows of the
  * shared CSV format (`src/business/csv`, same format as the booking export).
  *
- * Layout (docs/architecture.md, "CSV-Export der EÜR (#27)"): a header row,
+ * Layout (#27): a header row,
  * then one row per position – income in the order of the view (line 13
  * right after line 12), then expenses – and at the end the totals:
  *
@@ -33,14 +33,13 @@ import type { EuerReportLine, EuerResult } from "./calculate-euer";
 import type { EuerPosition } from "./positions";
 import { incomeInReportOrder } from "./report-order";
 
-/** The columns of the EÜR export, in file order. */
 export const EUER_CSV_COLUMNS = ["section", "line", "label", "amount", "nonDeductible"] as const;
 
 export type EuerCsvColumn = (typeof EUER_CSV_COLUMNS)[number];
 
 /**
  * Texts of the export: they are UI texts (Paraglide), so the UI passes them
- * in (docs/i18n.md). The official line labels are form data and come from
+ * in. The official line labels are form data and come from
  * the result.
  */
 export interface EuerCsvLabels {
@@ -54,11 +53,9 @@ export interface EuerCsvLabels {
     /** The totals rows. */
     readonly result: string;
   };
-  /** Labels of the totals rows. */
   readonly totals: {
     readonly income: string;
     readonly expenses: string;
-    /** Result > 0, < 0 and = 0. */
     readonly profit: string;
     readonly loss: string;
     readonly zero: string;

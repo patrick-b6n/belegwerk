@@ -3,8 +3,7 @@
  *
  * Pure function over the year's booking sums per category, type and VAT
  * rate (`BookingRepository.sumByCategoryAndVatRate`) and the categories; the
- * service (`euer-service.ts`) loads both in one unit of work. Every rule is
- * documented in docs/data-model.md, "EÜR-Berechnung (#25)":
+ * service (`euer-service.ts`) loads both in one unit of work. Rules:
  *
  * - The **tax status of the year** decides, not the VAT rate of a booking.
  *   Small business: gross into the category's position, turnover remapped to
@@ -40,7 +39,6 @@ import {
   positionForTaxStatus,
 } from "./positions";
 
-/** The category fields the calculation reads. */
 export type EuerCategory = Pick<Category, "id" | "type" | "euerPosition" | "reducesIncome">;
 
 export interface EuerInput {
@@ -87,7 +85,6 @@ export interface EuerReportLine {
   readonly label?: string;
   /** Amount of the line as it counts in the totals; may be negative (Erlösminderung). */
   readonly amountCents: number;
-  /** Bookings contributing to the line. */
   readonly bookingCount: number;
   /** Only for `BEWIRTUNG`. */
   readonly entertainment?: EntertainmentSplit;
@@ -128,7 +125,6 @@ export type EuerWarningCode = EuerWarning["code"];
 export interface EuerTotals {
   /** Sum of the income lines (without informational lines). */
   readonly incomeCents: number;
-  /** Sum of the expense lines. */
   readonly expenseCents: number;
   /** Gewinn (positive) or Verlust (negative): income − expenses. */
   readonly profitCents: number;
@@ -150,7 +146,6 @@ export interface EuerResult {
   readonly warnings: readonly EuerWarning[];
 }
 
-/** Share of Bewirtung that is not deductible, in percent. */
 export const ENTERTAINMENT_NON_DEDUCTIBLE_PERCENT = 30;
 
 const VAT_RATE_ORDER: readonly (VatRate | null)[] = [null, "0", "7", "19", "reverse_charge"];

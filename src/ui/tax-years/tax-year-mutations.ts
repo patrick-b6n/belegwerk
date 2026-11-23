@@ -5,7 +5,6 @@ import { euerQueryKeys } from "@/ui/euer/euer-queries";
 
 import { taxYearQueryKeys } from "./tax-year-queries";
 
-/** Arguments of {@link useTaxYearMutations}' `setSmallBusiness`. */
 export interface SetSmallBusinessVariables {
   readonly year: number;
   readonly smallBusiness: boolean;

@@ -1,14 +1,8 @@
-/**
- * CSV export of bookings (#24): maps the bookings of a search to rows of the
- * shared CSV format (`src/business/csv`).
- */
-
 import { type CsvCell, csvLiteral, type CsvRow, toCsv } from "../csv";
 import { formatAmountPlain, formatDate } from "../format";
 import type { BookingSource, BookingType, VatRate } from "../model";
 import type { BookingListItem } from "./booking-service";
 
-/** The columns of the booking export, in file order. */
 export const BOOKING_CSV_COLUMNS = [
   "date",
   "type",
@@ -29,7 +23,7 @@ export type BookingCsvColumn = (typeof BOOKING_CSV_COLUMNS)[number];
 
 /**
  * Texts of the export: column headers and the labels of the coded values.
- * They are UI texts (Paraglide), so the UI passes them in (docs/i18n.md).
+ * They are UI texts (Paraglide), so the UI passes them in.
  */
 export interface BookingCsvLabels {
   readonly columns: Readonly<Record<BookingCsvColumn, string>>;

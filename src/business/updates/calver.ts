@@ -9,13 +9,12 @@
  * `2026-11-14-2000` → `2026.1114.2000`, `2026-01-05-0930` → `2026.105.930`.
  * The order of both forms is the same. The committed package.json has the
  * development placeholder `0.0.0`; the release scripts set the real version
- * for the build only (docs/release.md).
+ * for the build only.
  *
  * No imports: `scripts/` (Node) uses this file directly. The Rust updater has
  * the same conversion (src-tauri/src/updater.rs).
  */
 
-/** The parts of a version. */
 export interface CalVerParts {
   readonly year: number;
   readonly month: number;
@@ -24,7 +23,6 @@ export interface CalVerParts {
   readonly minute: number;
 }
 
-/** Version of a development build (committed package.json). */
 export const DEV_VERSION = "0.0.0";
 
 const CALVER_PATTERN = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})$/;
@@ -41,7 +39,6 @@ function isValid({ year, month, day, hour, minute }: CalVerParts): boolean {
 
 const pad = (value: number, length = 2) => String(value).padStart(length, "0");
 
-/** `YYYY-MM-DD-HHMM` of the parts. */
 export function formatCalVer({ year, month, day, hour, minute }: CalVerParts): string {
   return `${pad(year, 4)}-${pad(month)}-${pad(day)}-${pad(hour)}${pad(minute)}`;
 }
@@ -60,7 +57,6 @@ export function calVerFromDate(date: Date): string {
   });
 }
 
-/** Parses `YYYY-MM-DD-HHMM`; `null` if it is no valid date and time. */
 export function parseCalVer(text: string): CalVerParts | null {
   const match = CALVER_PATTERN.exec(text);
   if (!match) return null;

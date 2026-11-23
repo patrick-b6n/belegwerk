@@ -37,22 +37,15 @@ import { createTauriUpdater } from "./tauri-updater";
  * runs its reads and writes in its own unit of work.
  */
 export interface AppServices {
-  /** "Backup erstellen" (#32): save dialog, then a copy of the database via `VACUUM INTO`. */
   readonly backup: BackupService;
   readonly bookings: BookingService;
-  /** CSV export of the booking list (#24): save dialog and file via `FileSaver`. */
   readonly bookingExport: BookingExportService;
   readonly categories: CategoryService;
-  /** EÜR of a year (#25). */
   readonly euer: EuerService;
-  /** CSV export of the EÜR (#27): save dialog and file via `FileSaver`. */
   readonly euerExport: EuerExportService;
-  /** Stripe key (masked only), import defaults (#28) and the connection test (#29). */
   readonly stripeSettings: StripeSettingsService;
-  /** Stripe import of application fees and fee refunds (#30) and its status for #31. */
   readonly stripeImport: StripeImportService;
   readonly taxYears: TaxYearService;
-  /** Auto-update from GitHub releases (#71): check, install, release notes. */
   readonly updates: UpdateService;
 }
 

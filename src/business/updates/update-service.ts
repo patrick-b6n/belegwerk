@@ -1,19 +1,15 @@
 /**
  * Auto-update from GitHub releases (#71). The Tauri host does the network
  * access and replaces the exe (src-tauri/src/updater.rs); business only
- * defines the port and the small amount of logic around it
- * (docs/architecture.md, "Auto-Update").
+ * defines the port and the small amount of logic around it.
  */
 
-/** Result of an update check. */
 export interface UpdateCheck {
   /** Version of the running app as CalVer, e.g. `"2026-11-14-2000"` (`"0.0.0"` in development). */
   readonly currentVersion: string;
   /** Version of the latest release on GitHub (tag without `v`, CalVer). */
   readonly latestVersion: string;
-  /** Whether the latest release is newer than the running app (SemVer). */
   readonly updateAvailable: boolean;
-  /** The release page with the release notes (GitHub). */
   readonly releaseUrl: string;
 }
 
@@ -32,13 +28,10 @@ export type UpdateErrorKind =
   | "network"
   /** GitHub answered with an error status (e.g. rate limit). */
   | "http"
-  /** No release has been published yet. */
   | "noRelease"
   /** The release is unusable (tag, assets, checksum file, size). */
   | "invalidRelease"
-  /** The download does not match the published SHA-256. */
   | "checksumMismatch"
-  /** There is no newer version (anymore). */
   | "noUpdate"
   /** Development build (`pnpm tauri dev`): the exe is never replaced. */
   | "devBuild"
@@ -49,9 +42,7 @@ export type UpdateErrorKind =
    * missing, the old version is at {@link UpdateError.path} (`<exe>.old`).
    */
   | "rollbackFailed"
-  /** Another update is already being installed. */
   | "alreadyRunning"
-  /** Anything else (also errors without a code, e.g. a failed IPC call). */
   | "unexpected";
 
 export const UPDATE_ERROR_KINDS: readonly UpdateErrorKind[] = [
@@ -103,7 +94,6 @@ export interface Updater {
    * @throws {UpdateError}
    */
   install(onProgress: (progress: DownloadProgress) => void): Promise<void>;
-  /** Opens a release page in the default browser. */
   openReleasePage(url: string): Promise<void>;
 }
 
@@ -121,7 +111,6 @@ export interface UpdateService {
   checkInBackground(): Promise<UpdateCheck | null>;
   /** "Jetzt aktualisieren"; see {@link Updater.install}. */
   install(onProgress: (progress: DownloadProgress) => void): Promise<void>;
-  /** "Release-Notes" of a check result. */
   openReleaseNotes(check: UpdateCheck): Promise<void>;
 }
 

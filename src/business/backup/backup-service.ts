@@ -5,7 +5,7 @@ import { BackupTargetInDatabaseFolderError } from "./backup-target";
 
 /**
  * Port for writing the backup (#32). `src/app` implements it on top of the
- * persistence layer (`VACUUM INTO`, docs/architecture.md, "Datensicherung").
+ * persistence layer (`VACUUM INTO`).
  */
 export interface DatabaseBackup {
   /**
@@ -20,7 +20,6 @@ export interface DatabaseBackup {
   writeTo(path: string): Promise<void>;
 }
 
-/** UI texts for {@link BackupService.createBackup}. */
 export interface CreateBackupRequest {
   /** First part of the suggested file name, e.g. `"belegwerk-backup"`. */
   readonly fileNameBase: string;
@@ -29,9 +28,7 @@ export interface CreateBackupRequest {
 }
 
 export type CreateBackupResult =
-  /** Backup written to `path`; `fileName` is its name without directory. */
   | { readonly saved: true; readonly fileName: string; readonly path: string }
-  /** The user cancelled the save dialog; nothing was written. */
   | { readonly saved: false; readonly reason: "cancelled" }
   /**
    * The user picked a file in the app's data folder (where the live database

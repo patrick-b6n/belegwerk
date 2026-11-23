@@ -4,7 +4,6 @@ import { type BookingCsvLabels, bookingsToCsv } from "./booking-csv";
 import type { BookingQuery, BookingQueryInvalid } from "./booking-query";
 import type { BookingService } from "./booking-service";
 
-/** UI texts and today's date for {@link BookingExportService.exportCsv}. */
 export interface ExportBookingsCsvRequest {
   /** Filters and sort order of the list; `page`/`pageSize` are ignored (all bookings). */
   readonly query: BookingQuery;
@@ -18,7 +17,6 @@ export interface ExportBookingsCsvRequest {
 export type ExportBookingsCsvResult =
   /** Saved `count` bookings to the file `fileName` (name only, without directory). */
   | { readonly ok: true; readonly saved: true; readonly fileName: string; readonly count: number }
-  /** The user cancelled the save dialog. */
   | { readonly ok: true; readonly saved: false }
   | BookingQueryInvalid;
 

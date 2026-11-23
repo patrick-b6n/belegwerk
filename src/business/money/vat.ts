@@ -8,7 +8,7 @@
  * always positive amounts here the same as half away from zero); the net
  * amount is the rest, `gross − vat`. This is how German receipts and
  * invoices state the contained VAT, and `net + vat = gross` holds by
- * construction (DB CHECK, docs/data-model.md).
+ * construction (DB CHECK).
  *
  * VAT-first and net-first (`net = round(gross × 100 / (100 + rate))`) could
  * only disagree when the exact quotient ends in exactly ½ cent. With the
@@ -28,7 +28,6 @@ const PERCENT_BY_RATE: Readonly<Record<VatRate, number>> = {
   reverse_charge: 0,
 };
 
-/** Result of splitting a gross amount; matches the `BookingInput` fields. */
 export interface VatSplit {
   readonly grossCents: number;
   readonly netCents: number;
@@ -48,10 +47,6 @@ function divideRoundHalfUp(numerator: bigint, denominator: bigint): bigint {
   return 2n * remainder >= denominator ? quotient + 1n : quotient;
 }
 
-/**
- * VAT contained in `grossCents` at `percent`, rounded half up. `percent` 0
- * gives 0.
- */
 function containedVatCents(grossCents: number, percent: number): number {
   if (percent === 0) return 0;
   // BigInt: gross × 19 exceeds Number.MAX_SAFE_INTEGER for gross > ~4.7e14.

@@ -1,8 +1,3 @@
-/**
- * UI texts of the "Stripe" settings (#28) and the import dialog (#31): key
- * mode and the texts of the services' error codes (docs/i18n.md: business
- * returns codes, the UI translates them).
- */
 import type {
   StripeApiKeyErrorCode,
   StripeClientError,
@@ -16,12 +11,10 @@ import { bookingErrorMessage } from "@/ui/bookings/booking-messages";
 
 import type { StripeImportFailureRow } from "./stripe-import-model";
 
-/** "Live" or "Test". */
 export function keyModeLabel(mode: StripeKeyMode): string {
   return mode === "live" ? m.stripe_key_mode_live() : m.stripe_key_mode_test();
 }
 
-/** Message of a refused key. */
 export function apiKeyErrorMessage(code: StripeApiKeyErrorCode): string {
   switch (code) {
     case "required":
@@ -37,7 +30,6 @@ export function apiKeyErrorMessage(code: StripeApiKeyErrorCode): string {
   throw new Error(`No message for Stripe key error ${String(code)}`);
 }
 
-/** Message of an error of the defaults (form field or stored value). */
 export function defaultsErrorMessage(error: StripeDefaultsFieldError): string {
   switch (error.field) {
     case "defaultVatRate":
@@ -66,7 +58,6 @@ export function defaultsErrorMessage(error: StripeDefaultsFieldError): string {
   throw new Error(`No message for Stripe defaults error ${JSON.stringify(error)}`);
 }
 
-/** Label of a defaults field, to name it in the hint about stored problems. */
 export function defaultsFieldLabel(field: StripeDefaultsFieldError["field"]): string {
   switch (field) {
     case "defaultVatRate":
@@ -78,7 +69,6 @@ export function defaultsFieldLabel(field: StripeDefaultsFieldError["field"]): st
   }
 }
 
-/** Message of a Stripe client error (#29; also for the import, #31). */
 export function stripeClientErrorMessage(error: StripeClientError): string {
   switch (error.code) {
     case "invalidApiKey":
@@ -103,7 +93,6 @@ export function stripeClientErrorMessage(error: StripeClientError): string {
   throw new Error(`No message for Stripe client error ${JSON.stringify(error)}`);
 }
 
-/** Message of "Verbindung testen". */
 export function testConnectionMessage(result: TestStripeConnectionResult): string {
   if (result.ok) return m.stripe_test_connection_ok();
   return result.reason === "noApiKey"
@@ -111,7 +100,6 @@ export function testConnectionMessage(result: TestStripeConnectionResult): strin
     : stripeClientErrorMessage(result.error);
 }
 
-/** Message of an invalid import period (client check or service). */
 export function importFieldErrorMessage(error: StripeImportFieldError): string {
   switch (error.code) {
     case "required":
@@ -128,12 +116,10 @@ export function importFieldErrorMessage(error: StripeImportFieldError): string {
   throw new Error(`No message for Stripe import error ${JSON.stringify(error)}`);
 }
 
-/** "Fee" or "Refund". */
 export function importKindLabel(kind: StripeImportFailureRow["kind"]): string {
   return kind === "fee" ? m.stripe_import_kind_fee() : m.stripe_import_kind_refund();
 }
 
-/** Why a fee or refund was not booked; for `invalidBooking` with the booking's field errors. */
 export function importFailureReason(row: Pick<StripeImportFailureRow, "code" | "errors">): string {
   switch (row.code) {
     case "unsupportedCurrency":
