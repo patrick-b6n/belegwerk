@@ -1,59 +1,37 @@
 > [!WARNING]
-> **100 % vibe-coded – Nutzung auf eigene Gefahr.** Keine Steuerberatung:
-> Ergebnisse vor der Übernahme in die Steuererklärung prüfen.
+> **100 % vibe-coded – Nutzung auf eigene Gefahr.**
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="src/ui/assets/brand/logo-dark.svg">
-    <img src="src/ui/assets/brand/logo.svg" alt="Belegwerk" width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+    <img src="docs/logo.svg" alt="Belegwerk" width="100%">
   </picture>
 </p>
 
-<p align="center"><b>Deine Buchhaltung. Deine EÜR. Dein Rechner.</b></p>
+Belegwerk ist eine Windows-App, mit der Selbstständige Einnahmen und Ausgaben
+erfassen und die Einnahmenüberschussrechnung (Anlage EÜR) erstellen. Alle Daten
+bleiben auf dem eigenen Rechner.
 
-Belegwerk ist die schlanke Windows-App für Selbstständige, die ihre Einnahmen
-und Ausgaben im Griff haben wollen – und am Jahresende eine fertige
-**Anlage EÜR** statt eines Schuhkartons voller Zettel. Kein Konto, keine Cloud,
-kein Abo: Deine Daten bleiben bei dir.
+![Buchungsliste mit Beispieldaten](docs/screenshot.png)
 
-![Belegwerk – Buchungsliste mit Beispieldaten](docs/screenshot.png)
+## Funktionen
 
-## Highlights
+- Buchungen erfassen; Netto und Umsatzsteuer werden aus dem Brutto berechnet
+- Buchungen suchen, filtern, sortieren und summieren
+- EÜR pro Jahr mit den Zeilennummern der Anlage EÜR (2025 und 2026)
+- Regelbesteuerung oder Kleinunternehmer (§ 19 UStG), pro Jahr einstellbar
+- Eigene Kategorien mit Zuordnung zur EÜR
+- Import von Stripe Application Fees und deren Rückerstattungen
+- CSV-Export von Buchungen und EÜR
+- Backup der gesamten Daten
 
-- **Blitzschnell buchen** – Brutto rein, Netto und USt rechnet Belegwerk aus.
-  Textvorschläge für Beschreibung und Gegenpartei inklusive.
-- **EÜR auf Knopfdruck** – mit amtlichen Zeilennummern, automatischer
-  Umsatzsteuer und Drill-down von jeder Zeile bis zur einzelnen Buchung.
-- **Alles sofort gefunden** – Suche, Filter, Sortierung und Summen in
-  Echtzeit.
-- **Stripe-Import** – Application Fees und Rückerstattungen landen
-  automatisch und ohne Duplikate in deinen Büchern.
-- **Kleinunternehmer-ready** – Steuerstatus nach § 19 UStG pro Jahr.
-- **Excel-freundlicher CSV-Export** – für Buchungen und EÜR.
-- **100 % lokal** – eine SQLite-Datei auf deinem Rechner, Backup mit einem
-  Klick.
-- **Native Windows-11-Optik** – eine einzige `.exe`, kein Installer,
-  Auto-Update eingebaut.
+## Installation
 
-## Loslegen
-
-Neueste `belegwerk-<version>.exe` aus den
-[Releases](https://github.com/patrick-b6n/belegwerk-next/releases) laden,
-starten, fertig. Alles Weitere – SmartScreen, Backup, Stripe – steht im
+Die aktuelle Version unter
+[Releases](https://github.com/patrick-b6n/belegwerk-next/releases) herunterladen
+und starten. Eine Installation ist nicht nötig. Weitere Hinweise stehen im
 [Handbuch](docs/handbuch.md).
 
 ## Development
 
-Prerequisites: Windows, Node.js ≥ 26, pnpm 12, Rust (MSVC) and the
-[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
-
-```sh
-pnpm install
-pnpm tauri dev   # desktop app with its own dev database and sample data
-pnpm verify      # format, lint, typecheck, tests – before every commit
-pnpm release     # build the release .exe into release/
-```
-
-Details: [Development](docs/development.md) ·
-[Architecture](docs/architecture.md) · [Data model](docs/data-model.md) ·
-[Tests](docs/testing.md) · [Release](docs/release.md)
+See [docs/development.md](docs/development.md).

@@ -97,10 +97,10 @@ UI and routes reach data only through services from `src/app`; business does
 not know persistence (dependency inversion). oxlint enforces the boundaries
 (`no-restricted-imports`, [`.oxlintrc.json`](../.oxlintrc.json)).
 
-Further reading (in German):
+Further reading:
 
-- [Architektur](architecture.md) – layers, services, routes, Stripe, backup
-- [Datenmodell](data-model.md) – tables, EÜR positions and calculation, migrations, backup
-- [i18n & Formatierung](i18n.md) – Paraglide, format helpers
+- [Architecture](architecture.md) – layers, services, routes, Stripe, backup
+- [Data model](data-model.md) – tables, EÜR positions and calculation, migrations, backup
+- [i18n & formatting](i18n.md) – Paraglide, format helpers
 - [Tests](testing.md) – Vitest, fakes, persistence tests
 - [Release](release.md) – release on every push to `main`, auto-update, building the `.exe`, versioning, storage locations
