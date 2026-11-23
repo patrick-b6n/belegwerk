@@ -25,7 +25,6 @@ import {
   validateStripeDefaults,
 } from "./stripe-settings";
 
-/** What the settings page shows. */
 export interface StripeSettings {
   /** The stored key, masked; `null` = no key stored. */
   readonly apiKey: StripeApiKeyInfo | null;
@@ -156,7 +155,6 @@ async function readDefaults(repos: Repositories): Promise<StoredStripeDefaults> 
   };
 }
 
-/** Everything the import needs, validated. */
 export type StripeImportSettingsResult =
   | {
       readonly ok: true;

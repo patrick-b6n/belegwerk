@@ -54,12 +54,6 @@ import {
 import { useStripeSettingsMutations } from "./stripe-mutations";
 import { useStripeSettings } from "./stripe-queries";
 
-/**
- * The "Stripe" section of the settings page (#28): the restricted API key
- * (masked; save, change, remove) with the hint about the required
- * permission, and the defaults of imported bookings (VAT rate, category of
- * fees and of fee refunds).
- */
 export function StripeSettingsSection() {
   const settings = useStripeSettings();
   const categories = useCategoryList();
@@ -373,7 +367,6 @@ function RemoveKeyDialog({
   );
 }
 
-/** Select items of categories; archived ones (a stored choice) are marked. */
 function categoryItems(options: readonly Category[]) {
   return options.map((category) => ({
     value: String(category.id),
@@ -383,7 +376,6 @@ function categoryItems(options: readonly Category[]) {
   }));
 }
 
-/** Client check of a select of the defaults form: something must be chosen. */
 function requiredMessage(field: keyof StripeDefaultsFormValues, value: string) {
   if (value !== "") return undefined;
   return defaultsErrorMessage({ field, code: "required" });

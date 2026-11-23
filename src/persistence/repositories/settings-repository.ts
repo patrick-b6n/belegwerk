@@ -5,7 +5,6 @@ import type { SettingsRepository } from "@/business/repositories";
 import type { Db } from "../database";
 import { settings } from "../schema";
 
-/** Drizzle implementation of {@link SettingsRepository} on `db` (or a transaction's `tx`). */
 export function createSettingsRepository(db: Db): SettingsRepository {
   return {
     get: async (key) => {

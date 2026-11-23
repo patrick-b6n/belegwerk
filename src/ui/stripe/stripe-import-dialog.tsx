@@ -114,7 +114,6 @@ export function StripeImportDialog({
   );
 }
 
-/** Loads settings, categories (validity of the defaults) and the import status. */
 function StripeImportPanel({
   onBusyChange,
   onClose,
@@ -532,7 +531,6 @@ function countsText(summary: StripeImportSummary): string {
     : m.stripe_import_done_counts({ created, skipped });
 }
 
-/** The result: counts, the entries not booked, a test-mode note and the way to the bookings. */
 function ImportSummaryView({
   summary,
   onClose,

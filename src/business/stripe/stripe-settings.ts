@@ -98,7 +98,6 @@ export function maskStripeApiKey(apiKey: string): StripeApiKeyInfo {
   return { masked: `${prefix}…${tail}`, mode: match?.[2] === "test" ? "test" : "live" };
 }
 
-/** The defaults of imported bookings, as entered (`setDefaults`). */
 export interface StripeDefaultsInput {
   /**
    * VAT rate of imported fees and refunds in **regularly taxed** years. In a
@@ -185,7 +184,6 @@ export function validateStripeDefaults(
   return errors;
 }
 
-/** Whether category `id` books payments to or refunds from the tax office (`isTaxOfficePayment`). */
 export function isTaxOfficeCategory(id: unknown, categories: readonly Category[]): boolean {
   const category = categories.find((c) => c.id === id);
   return category !== undefined && isTaxOfficePayment(category.euerPosition);

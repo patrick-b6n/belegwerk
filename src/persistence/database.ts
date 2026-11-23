@@ -43,7 +43,6 @@ export function createDatabase(connection: SqlConnection): Database {
   };
 }
 
-/** Drizzle instance bound to the client of a running transaction. */
 function transactionDb(client: SqlClient): Db {
   const callback = createProxyCallback(client);
   return drizzle(callback, createBatchCallback(callback), { schema });

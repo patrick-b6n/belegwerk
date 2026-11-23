@@ -59,7 +59,6 @@ function AnimatedLogo({ className }: Readonly<{ className?: string }>) {
   );
 }
 
-/** Shown instead of the app if it could not start. */
 export function StartupErrorScreen({
   details,
   onRetry,

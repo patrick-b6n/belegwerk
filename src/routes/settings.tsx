@@ -8,11 +8,6 @@ import { StripeSettingsSection } from "@/ui/stripe/stripe-settings-section";
 import { TaxYearSettings } from "@/ui/tax-years/tax-year-settings";
 import { UpdateSection } from "@/ui/updates/update-section";
 
-/**
- * The settings page: one {@link SettingsSection} per area, each loading its
- * own data: "Tax years" (#20), "Stripe" (#28), "Backup" (#32) and
- * "Updates" (#71).
- */
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
   head: () => ({ meta: [{ title: m.page_title({ page: m.settings_title() }) }] }),

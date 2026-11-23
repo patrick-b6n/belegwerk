@@ -69,7 +69,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             ))}
           </ul>
           <div className="ml-auto flex items-center gap-2">
-            {/* Newer version available (#71); background check at startup. */}
             <UpdateNotice />
             <Link
               id={SETTINGS_LINK_ID}

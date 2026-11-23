@@ -118,7 +118,6 @@ function BookingsPage() {
 
   return (
     <Page title={m.bookings_title()} fill compact>
-      {/* One toolbar: the filters (wrapping in their own area), the actions on the right. */}
       <div className="flex shrink-0 items-start gap-4">
         <div className="min-w-0 flex-1">
           <BookingFilterBar

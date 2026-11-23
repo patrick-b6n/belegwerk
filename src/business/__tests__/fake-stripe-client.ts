@@ -23,7 +23,6 @@ export interface FakeStripeClient extends StripeClient {
   failWith: StripeClientError | null;
   /** Names by `acct_…` ID; `null` = account without a visible name. */
   readonly accountNames: Map<string, string | null>;
-  /** The IDs `getAccountName` was asked for, in order. */
   readonly accountRequests: string[];
   accountFailWith: StripeClientError | null;
 }
@@ -71,7 +70,6 @@ export function createFakeStripeClient(fees: StripeApplicationFee[] = []): FakeS
 
 let sequence = 0;
 
-/** A EUR fee with defaults; override what the test is about. */
 export function stripeFee(
   overrides: Partial<StripeApplicationFee> & Pick<StripeApplicationFee, "created">,
 ): StripeApplicationFee {
@@ -87,7 +85,6 @@ export function stripeFee(
   };
 }
 
-/** A EUR refund with defaults. */
 export function stripeFeeRefund(
   overrides: Partial<StripeFeeRefund> & Pick<StripeFeeRefund, "created">,
 ): StripeFeeRefund {

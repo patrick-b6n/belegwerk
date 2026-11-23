@@ -152,7 +152,6 @@ export interface BookingTableProps {
   /** The rows of one page, already sorted (by SQL, #21). */
   readonly bookings: readonly BookingListItem[];
   readonly sort: BookingSort;
-  /** A column header was activated: the new sort order. */
   readonly onSortChange: (sort: BookingSort) => void;
 }
 

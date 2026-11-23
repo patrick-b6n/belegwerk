@@ -1,7 +1,3 @@
-/**
- * Small input helpers shared by the services (#14, #15).
- */
-
 /** Ids are positive integers; anything else (e.g. `NaN` from a route param) cannot exist. */
 export function isId(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;

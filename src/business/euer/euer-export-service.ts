@@ -3,7 +3,6 @@ import { fileNameOfPath, type FileSaver } from "../files";
 import { type EuerCsvLabels, euerToCsv } from "./euer-csv";
 import type { CalculateEuerResult, EuerService } from "./euer-service";
 
-/** Year and UI texts for {@link EuerExportService.exportCsv}. */
 export interface ExportEuerCsvRequest {
   readonly year: number;
   readonly labels: EuerCsvLabels;
@@ -16,7 +15,6 @@ export interface ExportEuerCsvRequest {
 export type ExportEuerCsvResult =
   /** Saved the EÜR of `year` to the file `fileName` (name only, without directory). */
   | { readonly ok: true; readonly saved: true; readonly fileName: string; readonly year: number }
-  /** The user cancelled the save dialog. */
   | { readonly ok: true; readonly saved: false }
   | Extract<CalculateEuerResult, { ok: false }>;
 

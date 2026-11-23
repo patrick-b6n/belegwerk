@@ -6,7 +6,6 @@ import type { TaxYearRepository } from "@/business/repositories";
 import type { Db } from "../database";
 import { taxYears } from "../schema";
 
-/** Drizzle implementation of {@link TaxYearRepository} on `db` (or a transaction's `tx`). */
 export function createTaxYearRepository(db: Db): TaxYearRepository {
   return {
     find: async (year) => {

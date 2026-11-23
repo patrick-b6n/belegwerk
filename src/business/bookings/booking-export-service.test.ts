@@ -10,7 +10,6 @@ import { type BookingFormInput, createBookingService } from "./booking-service";
 
 const FILE_NAME = { base: "buchungen", today: "2026-11-14", fromWord: "ab", toWord: "bis" };
 
-/** A fake save dialog: answers with `result` and records every request. */
 function fakeFileSaver(result: (request: SaveTextFileRequest) => SaveTextFileResult) {
   const requests: SaveTextFileRequest[] = [];
   const fileSaver: FileSaver = {
@@ -58,7 +57,6 @@ async function setup(result: (request: SaveTextFileRequest) => SaveTextFileResul
 
 const savedTo = (path: string) => () => ({ saved: true, path }) as const;
 
-/** Descriptions in the file, in order. */
 function descriptions(content: string): string[] {
   return content
     .slice(CSV_BOM.length)

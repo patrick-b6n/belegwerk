@@ -50,7 +50,6 @@ import {
 } from "./category-model";
 import { useCategoryMutations } from "./category-mutations";
 
-/** What the form dialog shows. */
 type FormState =
   | { readonly mode: "create"; readonly type: BookingType }
   | { readonly mode: "edit"; readonly category: CategoryWithUsage };
@@ -309,7 +308,6 @@ function CategoryRow({
   );
 }
 
-/** Message of a failed archive/reactivate (`SetCategoryArchivedResult`). */
 function archiveFailureMessage(failure: Exclude<SetCategoryArchivedResult, { ok: true }>): string {
   switch (failure.reason) {
     case "notFound":
@@ -319,7 +317,6 @@ function archiveFailureMessage(failure: Exclude<SetCategoryArchivedResult, { ok:
   }
 }
 
-/** Message of a failed delete (`DeleteCategoryResult`); `inUse` suggests archiving. */
 function deleteFailureMessage(failure: Exclude<DeleteCategoryResult, { ok: true }>): string {
   switch (failure.reason) {
     case "inUse":

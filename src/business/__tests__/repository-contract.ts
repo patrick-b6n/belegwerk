@@ -1136,7 +1136,6 @@ const INCOME_CATEGORY: CategoryInput = {
   isSystem: false,
 };
 
-/** A valid income booking (19 %) in `categoryId`. */
 function booking(categoryId: number): BookingInput {
   return {
     date: "2025-03-01",

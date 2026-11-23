@@ -21,7 +21,6 @@ import { EUER_POSITIONS, type EuerPosition, validateCategoryPosition } from "@/b
 import type { BookingType } from "@/business/model";
 import { trimText } from "@/business/validation";
 
-/** Order of the groups on the page. */
 export const CATEGORY_TYPES: readonly BookingType[] = ["income", "expense"];
 
 /** The categories of one type: active ones and archived ones, each sorted by name (de). */
@@ -35,7 +34,6 @@ function byName(a: CategoryWithUsage, b: CategoryWithUsage): number {
   return a.name.localeCompare(b.name, "de");
 }
 
-/** Groups the categories by type (income first), split into active and archived. */
 export function groupCategories(categories: readonly CategoryWithUsage[]): CategoryGroup[] {
   return CATEGORY_TYPES.map((type) => {
     const ofType = categories.filter((category) => category.type === type);
@@ -48,7 +46,6 @@ export function groupCategories(categories: readonly CategoryWithUsage[]): Categ
   });
 }
 
-/** Number of archived categories (for the "show archived" toggle). */
 export function archivedCount(categories: readonly CategoryWithUsage[]): number {
   return categories.filter((category) => category.archived).length;
 }
@@ -62,7 +59,6 @@ export function canDelete(category: CategoryWithUsage): boolean {
   return !category.isSystem && category.bookingCount === 0;
 }
 
-/** Whether "Archivieren" is offered: active, non-system categories. */
 export function canArchive(category: CategoryWithUsage): boolean {
   return !category.isSystem && !category.archived;
 }
@@ -116,12 +112,10 @@ export function positionAfterChange(
 /** The form's values; the same shape as the service's create input. */
 export type CategoryFormValues = CategoryFormInput;
 
-/** Values of a new category of `type`: no name, no position, not reducing income. */
 export function newCategoryFormValues(type: BookingType): CategoryFormValues {
   return { name: "", type, euerPosition: "", reducesIncome: false };
 }
 
-/** Values of an existing category. */
 export function categoryFormValues(category: CategoryWithUsage): CategoryFormValues {
   return {
     name: category.name,

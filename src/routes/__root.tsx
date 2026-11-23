@@ -49,7 +49,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   return (
     <RootDocument>
-      {/* Opens the database before the app renders; error screen on failure. */}
       <AppServicesProvider>
         <AppShell>
           <Outlet />

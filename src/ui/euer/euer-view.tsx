@@ -35,11 +35,6 @@ function lineLabel(line: EuerReportLine): string {
   return line.label ?? euerPositionName(line.position);
 }
 
-/**
- * The EÜR of one year (#26): hints, one table each for income and expenses
- * (line, label, amount) with totals, and the result (Gewinn/Verlust). A
- * position's label links to its bookings (`lineSearch`).
- */
 export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
   const year = String(result.year);
   if (isEmptyEuer(result)) {
@@ -291,7 +286,6 @@ function warningText(view: EuerWarningView, year: string): string {
   }
 }
 
-/** Hints of the calculation (#25), each with a link to the bookings concerned where possible. */
 function EuerWarnings({
   warnings,
   year,

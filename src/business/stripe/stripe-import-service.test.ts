@@ -20,7 +20,6 @@ const KEY = "rk_test_FAKEFAKEFAKEFAKE0123456789";
 const NOW = new Date("2025-07-15T10:00:00.000Z");
 const clock = () => NOW;
 
-/** Epoch seconds of an ISO instant. */
 const at = (iso: string) => Date.parse(iso) / 1000;
 
 async function setup(options: { key?: boolean; defaults?: boolean } = {}) {

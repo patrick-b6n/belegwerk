@@ -61,7 +61,6 @@ function assertNoTransactionControl(sql: string) {
   }
 }
 
-/** Converts Drizzle's parameters to values the plugin can bind. */
 export function toSqlValues(params: readonly unknown[]): SqlValue[] {
   return params.map((value) => {
     if (value === null || value === undefined) {

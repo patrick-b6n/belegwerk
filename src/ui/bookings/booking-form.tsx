@@ -69,7 +69,6 @@ import { BookingTextInput } from "./booking-text-input";
 
 const BOOKING_TYPES: readonly BookingType[] = ["expense", "income"];
 
-/** Error text of a client-side check for TanStack Form (`undefined` = valid). */
 function message(error: ClientFieldError | undefined): string | undefined {
   return error ? clientErrorMessage(error) : undefined;
 }
@@ -209,7 +208,6 @@ export function BookingForm({ booking, categories }: BookingFormProps) {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
         <div className="flex flex-col overflow-hidden rounded-xl border bg-card">
           {booking && booking.source !== "manual" && <ImportBar booking={booking} />}
-          {/* One field per row, the label above its control. */}
           <div className="flex flex-col gap-4 p-5">
             <form.Field
               name="type"
@@ -701,7 +699,6 @@ function ImportBar({ booking }: Readonly<{ booking: Booking }>) {
   );
 }
 
-/** "Delete" with a confirmation dialog; on success back to the list. */
 function DeleteBookingButton({ booking }: Readonly<{ booking: Booking }>) {
   const navigate = useNavigate();
   const { remove } = useBookingMutations();

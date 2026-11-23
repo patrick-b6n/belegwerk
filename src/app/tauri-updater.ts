@@ -74,7 +74,6 @@ export function toUpdateError(error: unknown): UpdateError {
   return new UpdateError("unexpected", message, { cause: error });
 }
 
-/** Validates the result of `check_for_update`. */
 export function parseUpdateCheck(value: unknown): UpdateCheck {
   if (
     isRecord(value) &&

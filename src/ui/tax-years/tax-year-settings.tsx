@@ -47,11 +47,6 @@ import {
 import { useTaxYearMutations } from "./tax-year-mutations";
 import { useTaxYearList } from "./tax-year-queries";
 
-/**
- * The "Steuerjahre" section of the settings page (#20): all years with a
- * record or bookings (oldest first), each with its status and a
- * Kleinunternehmer switch, plus "Add year".
- */
 export function TaxYearSettings() {
   const { data, error, isPending, refetch } = useTaxYearList();
   // The current year, fixed while the page is open.

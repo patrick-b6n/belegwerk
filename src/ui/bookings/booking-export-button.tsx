@@ -7,7 +7,6 @@ import { bookingCsvLabels } from "./booking-messages";
 import { useBookingCsvExport } from "./booking-queries";
 
 export interface BookingExportAction {
-  /** Whether the export cannot run now (see `hint` for why). */
   readonly disabled: boolean;
   readonly running: boolean;
   /** Tooltip: what the export does, or why it is disabled. */

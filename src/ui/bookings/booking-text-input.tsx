@@ -40,7 +40,6 @@ export function BookingTextInput({
   control: ControlProps;
   value: string;
   maxLength: number;
-  /** Accessible name of the suggestion list. */
   listLabel: string;
   onValueChange: (value: string) => void;
   onBlur: () => void;

@@ -9,7 +9,6 @@ import type { ExecuteResult, SqlClient, SqlRow, SqlValue } from "./sql-client";
 
 type Call = { kind: "execute" | "select"; sql: string; params: readonly SqlValue[] };
 
-/** Fake plugin: records calls, answers `select` with the given rows. */
 function fakeClient(rows: SqlRow[] = [], result: ExecuteResult = { rowsAffected: 1 }) {
   const calls: Call[] = [];
   const client: SqlClient = {
