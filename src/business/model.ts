@@ -20,7 +20,10 @@ export type BookingSource = "manual" | "stripe";
 
 export interface Booking {
   readonly id: number;
-  /** Payment date `YYYY-MM-DD`; its year is the EÜR year. */
+  /**
+   * Payment date `YYYY-MM-DD` (calendar day in Europe/Berlin); its year is the
+   * EÜR year. Stored as a UTC timestamp, see {@link BookingInput}.
+   */
   readonly date: string;
   readonly type: BookingType;
   readonly grossCents: number;
@@ -42,7 +45,14 @@ export interface Booking {
 }
 
 /** All fields of a booking the caller decides (insert and full update). */
-export type BookingInput = Omit<Booking, "id" | "createdAt" | "updatedAt">;
+export type BookingInput = Omit<Booking, "id" | "createdAt" | "updatedAt"> & {
+  /**
+   * Time of the booking (UTC, `toISOString()`), on the day `date` in
+   * Europe/Berlin. Omitted: 00:00 in Europe/Berlin; an update that keeps the
+   * day keeps the stored time.
+   */
+  readonly bookedAt?: string;
+};
 
 export interface Category {
   readonly id: number;

@@ -32,7 +32,7 @@ describe("schema migrations", () => {
     return db
       .insert(bookings)
       .values({
-        date: "2025-03-07",
+        date: "2025-03-06T23:00:00.000Z",
         type: "income",
         grossCents: 11900,
         vatRate: "19",
@@ -71,7 +71,7 @@ describe("schema migrations", () => {
     const booking = await insertBooking({ reference: null, note: "Notiz" });
     expect(booking).toMatchObject({
       id: expect.any(Number),
-      date: "2025-03-07",
+      date: "2025-03-06T23:00:00.000Z",
       vatRate: "19",
       source: "manual",
       externalId: null,
@@ -125,14 +125,16 @@ describe("schema migrations", () => {
       ["0 %", { vatRate: "0", netCents: 11900, vatCents: 0 }],
       ["7 %", { vatRate: "7", netCents: 11121, vatCents: 779 }],
       ["reverse charge", { vatRate: "reverse_charge", netCents: 11900, vatCents: 0 }],
-      ["leap day", { date: "2024-02-29" }],
+      ["leap day", { date: "2024-02-29T10:15:30.123Z" }],
     ] as const)("accepts %s", async (_, overrides) => {
       await expect(insertBooking(overrides)).resolves.toBeDefined();
     });
 
     it.each([
-      ["non-existent date", { date: "2025-02-30" }],
-      ["date with time", { date: "2025-03-07T00:00" }],
+      ["non-existent date", { date: "2025-02-30T00:00:00.000Z" }],
+      ["date without time", { date: "2025-03-07" }],
+      ["time without seconds", { date: "2025-03-07T00:00Z" }],
+      ["time with offset", { date: "2025-03-07T00:00:00.000+01:00" }],
       ["German date", { date: "07.03.2025" }],
       ["unknown type", { type: "transfer" }],
       ["unknown VAT rate", { vatRate: "16" }],

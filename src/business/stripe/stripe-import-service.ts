@@ -26,7 +26,7 @@ import {
   type BookingLookups,
   prepareBooking,
 } from "../bookings";
-import { parseIsoDate } from "../format";
+import { bookingDayOf, parseIsoDate, startOfBookingDay } from "../format";
 import type { Category, VatRate } from "../model";
 import { MAX_AMOUNT_CENTS } from "../money";
 import type { Clock, Repositories, UnitOfWork } from "../repositories";
@@ -194,10 +194,10 @@ export function createStripeImportService({
     getStatus: () =>
       unitOfWork.run(async (repos) => {
         const at = await repos.settings.get(STRIPE_SETTING_KEYS.lastImportAt);
-        const to = await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo);
+        const to = storedDay(await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo));
         return {
           lastImportAt: at !== undefined && !Number.isNaN(Date.parse(at)) ? at : null,
-          lastImportTo: to !== undefined && parseIsoDate(to) ? to : null,
+          lastImportTo: to ?? null,
         };
       }),
 
@@ -275,9 +275,9 @@ export function createStripeImportService({
         if (current.apiKey !== settings.apiKey) return { ok: false, reason: "settingsChanged" };
         const booked = await book(repos, sorted, current, counterparties);
         await repos.settings.set(STRIPE_SETTING_KEYS.lastImportAt, clock().toISOString());
-        const previousTo = await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo);
-        if (previousTo === undefined || !parseIsoDate(previousTo) || previousTo < to) {
-          await repos.settings.set(STRIPE_SETTING_KEYS.lastImportTo, to);
+        const previousTo = storedDay(await repos.settings.get(STRIPE_SETTING_KEYS.lastImportTo));
+        if (previousTo === undefined || previousTo < to) {
+          await repos.settings.set(STRIPE_SETTING_KEYS.lastImportTo, startOfBookingDay(to));
         }
         return {
           ok: true,
@@ -288,6 +288,17 @@ export function createStripeImportService({
       });
     },
   };
+}
+
+/** The day of a stored UTC timestamp; `undefined` if missing or unreadable. */
+function storedDay(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const day = bookingDayOf(value);
+    return parseIsoDate(day) ? day : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -421,7 +432,9 @@ async function book(
       fail("invalidBooking", prepared.errors);
       continue;
     }
-    await repos.bookings.insert(prepared.input);
+    // The booking keeps the real time of the fee or refund.
+    const bookedAt = new Date(item.created * 1000).toISOString();
+    await repos.bookings.insert({ ...prepared.input, bookedAt });
     existing.add(item.id);
     counts[item.kind].created += 1;
   }

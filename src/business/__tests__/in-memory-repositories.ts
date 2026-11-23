@@ -7,6 +7,7 @@ import type {
   CategoryInput,
   TaxYear,
 } from "../model";
+import { startOfBookingDay } from "../format";
 import { textSearchCharClasses } from "../bookings/text-search";
 import {
   type BookingFilter,
@@ -53,8 +54,13 @@ export interface InMemoryDatabase {
   readonly unitOfWork: UnitOfWork;
 }
 
+/** A booking with its stored time, which the repository does not return. */
+interface StoredBooking extends Booking {
+  readonly bookedAt: string;
+}
+
 interface State {
-  bookings: Map<number, Booking>;
+  bookings: Map<number, StoredBooking>;
   categories: Map<number, Category>;
   taxYears: Map<number, TaxYear>;
   settings: Map<string, string>;
@@ -168,33 +174,40 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
     }
   };
   return {
-    findById: op((id: number) => copy(state().bookings.get(id))),
+    findById: op((id: number) => {
+      const stored = state().bookings.get(id);
+      return stored && withoutTime(stored);
+    }),
     insert: op((input: BookingInput) => {
       check(input);
       const now = clock().toISOString();
       const s = state();
       s.lastBookingId += 1;
-      const booking: Booking = {
+      const booking: StoredBooking = {
         ...bookingFields(input),
+        bookedAt: input.bookedAt ?? startOfBookingDay(input.date),
         id: s.lastBookingId,
         createdAt: now,
         updatedAt: now,
       };
       s.bookings.set(booking.id, booking);
-      return { ...booking };
+      return withoutTime(booking);
     }),
     update: op((id: number, input: BookingInput) => {
       const existing = state().bookings.get(id);
       if (!existing) return undefined;
       check(input, id);
-      const booking: Booking = {
+      const booking: StoredBooking = {
         ...bookingFields(input),
+        bookedAt:
+          input.bookedAt ??
+          (existing.date === input.date ? existing.bookedAt : startOfBookingDay(input.date)),
         id,
         createdAt: existing.createdAt,
         updatedAt: clock().toISOString(),
       };
       state().bookings.set(id, booking);
-      return { ...booking };
+      return withoutTime(booking);
     }),
     delete: op((id: number) => state().bookings.delete(id)),
     findExistingExternalIds: op((source: BookingSource, externalIds: readonly string[]) => {
@@ -242,7 +255,7 @@ function createBookings(state: () => State, clock: Clock, op: Op): BookingReposi
       const sorted = matching.toSorted(comparator(sort, (id) => s.categories.get(id)?.name ?? ""));
       const start = limit === undefined ? 0 : (offset ?? 0);
       const end = limit === undefined ? undefined : start + limit;
-      return sorted.slice(start, end).map(copyOf);
+      return sorted.slice(start, end).map(withoutTime);
     }),
     summarize: op((filter: BookingFilter) => {
       const totals = { count: 0, incomeCents: 0, expenseCents: 0 };
@@ -347,7 +360,7 @@ function containsRegExp(text: string): RegExp {
 function comparator(
   { field, direction }: BookingSort,
   categoryName: (id: number) => string,
-): (a: Booking, b: Booking) => number {
+): (a: StoredBooking, b: StoredBooking) => number {
   const sign = direction === "asc" ? 1 : -1;
   const key = (booking: Booking): string | number => {
     switch (field) {
@@ -362,8 +375,8 @@ function comparator(
     }
   };
   return (a, b) => {
-    if (field === "date") return sign * (compare(a.date, b.date) || a.id - b.id);
-    return sign * compare(key(a), key(b)) || compare(b.date, a.date) || b.id - a.id;
+    if (field === "date") return sign * (compare(a.bookedAt, b.bookedAt) || a.id - b.id);
+    return sign * compare(key(a), key(b)) || compare(b.bookedAt, a.bookedAt) || b.id - a.id;
   };
 }
 
@@ -490,6 +503,11 @@ function createSettings(state: () => State, op: Op): SettingsRepository {
     }),
     delete: op((key: string) => state().settings.delete(key)),
   };
+}
+
+function withoutTime(stored: StoredBooking): Booking {
+  const { id, createdAt, updatedAt } = stored;
+  return { ...bookingFields(stored), id, createdAt, updatedAt };
 }
 
 /** Only the fields of {@link BookingInput} – like the Drizzle implementation, which maps them one by one. */

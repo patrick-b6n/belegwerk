@@ -7,6 +7,7 @@ import {
   gte,
   inArray,
   isNull,
+  lt,
   lte,
   or,
   type SQL,
@@ -15,6 +16,7 @@ import {
 } from "drizzle-orm";
 
 import { textSearchCharClasses } from "@/business/bookings";
+import { bookingDayOf, endOfBookingDay, startOfBookingDay } from "@/business/format";
 import type { Booking, BookingInput } from "@/business/model";
 import type {
   BookingFilter,
@@ -62,7 +64,11 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
       const row = await mapConstraintErrors(() =>
         db
           .update(bookings)
-          .set({ ...toColumns(input), updatedAt: clock().toISOString() })
+          .set({
+            ...toColumns(input),
+            ...(input.bookedAt === undefined ? { date: keepTimeOfDay(input.date) } : {}),
+            updatedAt: clock().toISOString(),
+          })
           .where(eq(bookings.id, id))
           .returning()
           .get(),
@@ -116,13 +122,10 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
     },
 
     countVatRateUsage: async (year) => {
-      // Range on the indexed date column (bookings_date_idx) instead of substr().
       const row = await db
         .select({ total: count(), withVatRate: count(bookings.vatRate) })
         .from(bookings)
-        .where(
-          and(gte(bookings.date, `${pad(year)}-01-01`), lte(bookings.date, `${pad(year)}-12-31`)),
-        )
+        .where(inYear(year))
         .get();
       const total = row?.total ?? 0;
       const withVatRate = row?.withVatRate ?? 0;
@@ -130,13 +133,18 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
     },
 
     listYears: async () => {
-      // Dates are validated `YYYY-MM-DD` (CHECK), so the first four characters are the year.
-      const year = sql<number>`cast(substr(${bookings.date}, 1, 4) AS integer)`;
-      const rows = await db
-        .selectDistinct({ year: year.as("year") })
-        .from(bookings)
-        .orderBy(year);
-      return rows.map((row) => row.year);
+      // SQLite has no time zones: the UTC year is the Berlin year except on
+      // 31 Dec (UTC), where the exact time decides.
+      const sample = sql<string>`case when substr(${bookings.date}, 6, 5) = '12-31' then ${bookings.date} else substr(${bookings.date}, 1, 4) end`;
+      const rows = await db.selectDistinct({ sample: sample.as("year_sample") }).from(bookings);
+      const years = new Set(
+        rows.map(({ sample: value }) =>
+          Number(value.length === 4 ? value : bookingDayOf(value).slice(0, 4)),
+        ),
+      );
+      const sorted = [...years];
+      sorted.sort((a, b) => a - b);
+      return sorted;
     },
 
     search: async ({ filter, sort, limit, offset }) => {
@@ -167,7 +175,6 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
     },
 
     sumByCategoryAndVatRate: async (year) => {
-      // Range on the indexed date column (bookings_date_idx) instead of substr().
       const rows = await db
         .select({
           categoryId: bookings.categoryId,
@@ -179,9 +186,7 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
           vatCents: sumOf(bookings.vatCents).as("vat_sum"),
         })
         .from(bookings)
-        .where(
-          and(gte(bookings.date, `${pad(year)}-01-01`), lte(bookings.date, `${pad(year)}-12-31`)),
-        )
+        .where(inYear(year))
         .groupBy(bookings.categoryId, bookings.type, bookings.vatRate)
         .orderBy(asc(bookings.categoryId), asc(bookings.type), asc(bookings.vatRate));
       return rows.map((row) => ({ ...row }));
@@ -200,7 +205,7 @@ export function createBookingRepository(db: Db, clock: Clock): BookingRepository
         .from(bookings)
         .groupBy(column, bookings.type)
         .orderBy(asc(bookings.type), asc(column));
-      return rows.map((row) => ({ ...row }));
+      return rows.map((row) => ({ ...row, lastDate: bookingDayOf(row.lastDate) }));
     },
   };
 }
@@ -235,8 +240,12 @@ function filterCondition(filter: BookingFilter): SQL | undefined {
       ),
     );
   }
-  if (filter.dateFrom !== undefined) conditions.push(gte(bookings.date, filter.dateFrom));
-  if (filter.dateTo !== undefined) conditions.push(lte(bookings.date, filter.dateTo));
+  if (filter.dateFrom !== undefined) {
+    conditions.push(gte(bookings.date, startOfBookingDay(filter.dateFrom)));
+  }
+  if (filter.dateTo !== undefined) {
+    conditions.push(lt(bookings.date, endOfBookingDay(filter.dateTo)));
+  }
   if (filter.type !== undefined) conditions.push(eq(bookings.type, filter.type));
   if (filter.categoryIds !== undefined) {
     // At most MAX_BOOKING_QUERY_CATEGORY_IDS (500): below SQLite's parameter limit.
@@ -301,17 +310,26 @@ function orderBy({ field, direction }: BookingSort): SQL[] {
 }
 
 /**
- * Four-digit year. ISO dates compare correctly as strings; the range stays
- * within the year (`year + 1` would give "10000-01-01" for 9999, which sorts
- * before "9999-…").
+ * Bookings of a tax year (calendar year in Europe/Berlin) as a range on the
+ * indexed column; UTC timestamps of one format compare correctly as strings.
  */
-function pad(year: number) {
-  return String(year).padStart(4, "0");
+function inYear(year: number): SQL | undefined {
+  const padded = String(year).padStart(4, "0");
+  return and(
+    gte(bookings.date, startOfBookingDay(`${padded}-01-01`)),
+    lt(bookings.date, endOfBookingDay(`${padded}-12-31`)),
+  );
+}
+
+/** The stored time if it is on `day` already, otherwise the start of `day`. */
+function keepTimeOfDay(day: string): SQL {
+  const start = startOfBookingDay(day);
+  return sql`case when ${bookings.date} >= ${start} and ${bookings.date} < ${endOfBookingDay(day)} then ${bookings.date} else ${start} end`;
 }
 
 function toColumns(input: BookingInput) {
   return {
-    date: input.date,
+    date: input.bookedAt ?? startOfBookingDay(input.date),
     type: input.type,
     grossCents: input.grossCents,
     vatRate: input.vatRate,
@@ -330,7 +348,7 @@ function toColumns(input: BookingInput) {
 function toBooking(row: typeof bookings.$inferSelect): Booking {
   return {
     id: row.id,
-    date: row.date,
+    date: bookingDayOf(row.date),
     type: row.type,
     grossCents: row.grossCents,
     vatRate: row.vatRate,
