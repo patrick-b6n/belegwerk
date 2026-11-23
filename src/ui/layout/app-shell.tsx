@@ -82,11 +82,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           </div>
         </nav>
       </header>
+      {/* `relative`: absolutely positioned content (e.g. `sr-only` texts) scrolls
+          in here instead of overflowing the document (second scrollbar). */}
       <div
         id={APP_CONTENT_ID}
         data-scroll-restoration-id={APP_CONTENT_ID}
         tabIndex={-1}
-        className="min-h-0 flex-1 scroll-pb-20 overflow-auto border-t bg-background text-foreground outline-none"
+        className="relative min-h-0 flex-1 scroll-pb-20 overflow-auto border-t bg-background text-foreground outline-none"
       >
         {children}
       </div>
