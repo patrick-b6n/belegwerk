@@ -55,7 +55,7 @@ describe("Drizzle repositories", () => {
 
     expect(sqlite.prepare("SELECT * FROM bookings WHERE id = ?").get(booking.id)).toEqual({
       id: booking.id,
-      date: "2025-03-01",
+      date: "2025-02-28T23:00:00.000Z",
       type: "income",
       gross_cents: 11900,
       vat_rate: null,
@@ -106,7 +106,8 @@ describe("Drizzle repositories", () => {
     const { category, repos } = await setup();
     const error = await repos.bookings
       .insert({
-        date: "2025-02-30",
+        date: "2025-03-02",
+        bookedAt: "2025-02-30T00:00:00.000Z",
         type: "income",
         grossCents: 100,
         vatRate: null,

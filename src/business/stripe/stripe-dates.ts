@@ -8,58 +8,11 @@
  * Uses `Intl` with an explicit time zone, so the result is the same on every
  * machine whatever its local time zone.
  */
-import { parseIsoDate } from "../format";
+import { berlinDay, berlinEndOfDay, berlinStartOfDay } from "../format";
 
-export const BOOKING_TIME_ZONE = "Europe/Berlin";
-
-const berlinParts = new Intl.DateTimeFormat("en-US", {
-  timeZone: BOOKING_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
+export { BOOKING_TIME_ZONE, berlinStartOfDay } from "../format";
 
 const SECONDS_PER_DAY = 86_400;
-
-interface LocalDateTime {
-  readonly year: number;
-  readonly month: number;
-  readonly day: number;
-  readonly hour: number;
-  readonly minute: number;
-  readonly second: number;
-}
-
-function toBerlin(epochSeconds: number): LocalDateTime {
-  const values: Record<string, number> = {};
-  for (const part of berlinParts.formatToParts(new Date(epochSeconds * 1000))) {
-    if (part.type !== "literal") values[part.type] = Number(part.value);
-  }
-  return {
-    year: values.year ?? Number.NaN,
-    month: values.month ?? Number.NaN,
-    day: values.day ?? Number.NaN,
-    hour: values.hour ?? Number.NaN,
-    minute: values.minute ?? Number.NaN,
-    second: values.second ?? Number.NaN,
-  };
-}
-
-/** Offset of Berlin time to UTC at the instant, in seconds (3600 or 7200). */
-function berlinOffsetSeconds(epochSeconds: number): number {
-  const local = toBerlin(epochSeconds);
-  const asUtc =
-    Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second) / 1000;
-  return asUtc - epochSeconds;
-}
-
-function pad(value: number, length = 2): string {
-  return String(value).padStart(length, "0");
-}
 
 function assertEpochSeconds(epochSeconds: number): void {
   if (!Number.isSafeInteger(epochSeconds)) {
@@ -75,26 +28,7 @@ function assertEpochSeconds(epochSeconds: number): void {
  */
 export function stripeCreatedToBookingDate(epochSeconds: number): string {
   assertEpochSeconds(epochSeconds);
-  const { year, month, day } = toBerlin(epochSeconds);
-  return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
-}
-
-/**
- * The first second (epoch seconds) of a calendar day in Europe/Berlin –
- * 00:00 local time, which never falls into a DST gap (switches are at
- * 02:00/03:00).
- *
- * @throws {RangeError} for an invalid ISO date (see `parseIsoDate`).
- */
-export function berlinStartOfDay(isoDate: string): number {
-  const parts = parseIsoDate(isoDate);
-  if (!parts) throw new RangeError(`Expected an existing ISO date (YYYY-MM-DD), got "${isoDate}"`);
-  const midnightUtc = Date.UTC(parts.year, parts.month - 1, parts.day) / 1000;
-  // Guess with the offset at UTC midnight, then correct with the offset at
-  // the guess (differs only on DST switch days).
-  let result = midnightUtc - berlinOffsetSeconds(midnightUtc);
-  result = midnightUtc - berlinOffsetSeconds(result);
-  return result;
+  return berlinDay(epochSeconds);
 }
 
 /**
@@ -109,11 +43,7 @@ export function bookingDateRangeToStripeCreated(
   to: string,
 ): { readonly createdFrom: number; readonly createdTo: number } {
   const createdFrom = berlinStartOfDay(from);
-  const toParts = parseIsoDate(to);
-  if (!toParts) throw new RangeError(`Expected an existing ISO date (YYYY-MM-DD), got "${to}"`);
-  const next = new Date(Date.UTC(toParts.year, toParts.month - 1, toParts.day + 1));
-  const nextIso = `${pad(next.getUTCFullYear(), 4)}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
-  const createdTo = berlinStartOfDay(nextIso) - 1;
+  const createdTo = berlinEndOfDay(to) - 1;
   if (createdTo < createdFrom) throw new RangeError(`"${from}" is after "${to}"`);
   return { createdFrom, createdTo };
 }

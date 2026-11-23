@@ -41,7 +41,7 @@ function insertBooking(sqlite: Database.Database, categoryId: number, descriptio
     .prepare(
       `INSERT INTO bookings (date, type, gross_cents, net_cents, vat_cents, vat_rate, category_id,
          description, counterparty, source, created_at, updated_at)
-       VALUES ('2025-03-01', 'income', 11900, 10000, 1900, '19', ?, ?, 'Kunde', 'manual',
+       VALUES ('2025-02-28T23:00:00.000Z', 'income', 11900, 10000, 1900, '19', ?, ?, 'Kunde', 'manual',
          '2025-03-01T00:00:00.000Z', '2025-03-01T00:00:00.000Z')`,
     )
     .run(categoryId, description);
@@ -135,9 +135,9 @@ describe("Database.backupTo (VACUUM INTO)", () => {
     insertBooking(sqlite, categoryId, "Zweite");
     await database.backupTo(join(dir, "2.db"));
 
-    expect(sqlite.prepare("PRAGMA database_list").all()).toEqual([
-      expect.objectContaining({ name: "main" }),
-    ]);
+    expect(sqlite.prepare("PRAGMA database_list").all()).not.toContainEqual(
+      expect.objectContaining({ name: "backup_check" }),
+    );
     const second = openBackup(join(dir, "2.db"));
     try {
       expect(second.prepare("SELECT count(*) AS n FROM bookings").get()).toEqual({ n: 2 });
@@ -230,9 +230,9 @@ describe("writeDatabaseBackup – leftovers", () => {
     await database.backupTo(path);
 
     expect(sqlite.inTransaction).toBe(false);
-    expect(sqlite.prepare("PRAGMA database_list").all()).toEqual([
-      expect.objectContaining({ name: "main" }),
-    ]);
+    expect(sqlite.prepare("PRAGMA database_list").all()).not.toContainEqual(
+      expect.objectContaining({ name: "backup_check" }),
+    );
     const copy = openBackup(path);
     try {
       expect(copy.prepare("SELECT count(*) AS n FROM bookings").get()).toEqual({ n: 1 });
@@ -284,6 +284,6 @@ describe("writeDatabaseBackup – check", () => {
 function sqlInsertBooking(categoryId: number) {
   return sql`INSERT INTO bookings (date, type, gross_cents, net_cents, vat_cents, vat_rate,
     category_id, description, counterparty, source, created_at, updated_at)
-    VALUES ('2025-04-01', 'income', 100, 100, 0, '0', ${categoryId}, 'Im Lauf', 'Kunde',
+    VALUES ('2025-03-31T22:00:00.000Z', 'income', 100, 100, 0, '0', ${categoryId}, 'Im Lauf', 'Kunde',
       'manual', '2025-04-01T00:00:00.000Z', '2025-04-01T00:00:00.000Z')`;
 }

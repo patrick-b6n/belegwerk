@@ -159,7 +159,7 @@ export type SortDirection = "asc" | "desc";
  * otherwise by code point – umlauts sort after `z`. `type` and `source`
  * compare their stored values (`expense` < `income`, `manual` < `stripe`).
  *
- * Ties: sorting by `date` breaks ties by `id` in the same direction (same
+ * Ties: sorting by `date` (stored time) breaks ties by `id` in the same direction (same
  * day in entry order, or reversed); every other field by `date` descending,
  * then `id` descending. The order is therefore total and stable across pages.
  */

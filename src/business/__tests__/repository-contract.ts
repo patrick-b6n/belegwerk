@@ -301,6 +301,41 @@ export function describeRepositoryContract(
         expect(await repos.bookings.listYears()).toEqual([1000, 2024, 2025, 9999]);
       });
 
+      it("assigns bookings around New Year to the year in Berlin", async () => {
+        await add({ date: "2025-12-31", bookedAt: "2025-12-31T22:59:59.000Z" });
+        await add({ date: "2026-01-01", bookedAt: "2025-12-31T23:00:00.000Z" });
+
+        expect(await repos.bookings.listYears()).toEqual([2025, 2026]);
+        expect((await repos.bookings.countVatRateUsage(2025)).withVatRate).toBe(1);
+        expect((await repos.bookings.sumByCategoryAndVatRate(2026))[0]?.count).toBe(1);
+        const [found] = await repos.bookings.search({
+          filter: { dateFrom: "2026-01-01", dateTo: "2026-01-01" },
+          sort: { field: "date", direction: "asc" },
+        });
+        expect(found?.date).toBe("2026-01-01");
+      });
+
+      it("keeps the stored time when an update keeps the day", async () => {
+        const late = await add({ date: "2025-03-07", bookedAt: "2025-03-07T20:00:00.000Z" });
+        const early = await add({ date: "2025-03-07" });
+        const order = async () =>
+          (
+            await repos.bookings.search({
+              filter: {},
+              sort: { field: "date", direction: "asc" },
+            })
+          ).map(({ id }) => id);
+        expect(await order()).toEqual([early.id, late.id]);
+
+        const { id, ...input } = late;
+        await repos.bookings.update(id, { ...input, note: "x" });
+        expect(await order()).toEqual([early.id, late.id]);
+
+        await repos.bookings.update(id, { ...input, date: "2025-03-06" });
+        await repos.bookings.update(id, input);
+        expect(await order()).toEqual([late.id, early.id]);
+      });
+
       it("counts bookings of the year 9999", async () => {
         await insertBooking({ date: "9998-12-31" });
         await insertBooking({ date: "9999-01-01" });

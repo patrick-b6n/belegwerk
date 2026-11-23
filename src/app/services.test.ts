@@ -628,12 +628,13 @@ describe("createAppServices – Stripe import on SQLite", () => {
     expect(
       sqlite
         .prepare(
-          "SELECT external_id, type, gross_cents, net_cents, vat_cents, vat_rate, source, reference FROM bookings ORDER BY date",
+          "SELECT external_id, date, type, gross_cents, net_cents, vat_cents, vat_rate, source, reference FROM bookings ORDER BY date",
         )
         .all(),
     ).toEqual([
       {
         external_id: "fee_int1",
+        date: "2025-02-01T12:00:00.000Z",
         type: "income",
         gross_cents: 1190,
         net_cents: 1000,
@@ -644,6 +645,7 @@ describe("createAppServices – Stripe import on SQLite", () => {
       },
       {
         external_id: "fr_int1",
+        date: "2025-02-10T12:00:00.000Z",
         type: "expense",
         gross_cents: 119,
         net_cents: 100,

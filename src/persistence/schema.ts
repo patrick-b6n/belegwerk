@@ -66,7 +66,10 @@ export const bookings = sqliteTable(
   "bookings",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    /** Payment date as ISO calendar date `YYYY-MM-DD`; its year is the EÜR year. */
+    /**
+     * Time of the payment as UTC timestamp (`toISOString()`); its calendar year
+     * in Europe/Berlin is the EÜR year.
+     */
     date: text("date").notNull(),
     type: text("type", { enum: BOOKING_TYPES }).notNull(),
     /** Gross amount in euro cents, always positive (#1). */
@@ -99,11 +102,12 @@ export const bookings = sqliteTable(
     uniqueIndex("bookings_source_external_id_unique")
       .on(t.source, t.externalId)
       .where(sql`${col(t.externalId)} IS NOT NULL`),
-    // `date(x) IS x` rejects malformed and non-existent dates (2025-02-30
-    // normalizes to 2025-03-02). `IS`, not `=`: a NULL result must fail.
+    // Rejects anything but the exact `toISOString()` format and non-existent
+    // days (2025-02-30 normalizes to 2025-03-02). `IS`, not `=`: a NULL result
+    // must fail. 1000-01-01 00:00 in Berlin is still 0999 in UTC.
     check(
       "bookings_date_check",
-      sql`date(${col(t.date)}) IS ${col(t.date)} AND ${col(t.date)} >= '1000-01-01'`,
+      sql`strftime('%Y-%m-%dT%H:%M:%fZ', ${col(t.date)}) IS ${col(t.date)} AND ${col(t.date)} >= '0999-12-31'`,
     ),
     check("bookings_type_check", sql`${col(t.type)} IN (${sqlList(BOOKING_TYPES)})`),
     check("bookings_vat_rate_check", sql`${col(t.vatRate)} IN (${sqlList(VAT_RATES)})`),

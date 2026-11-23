@@ -15,6 +15,13 @@
       "when": 1794574436173,
       "tag": "0001_default_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795463387373,
+      "tag": "0002_booking_utc_timestamps",
+      "breakpoints": true
     }
   ]
 }
