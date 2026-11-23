@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import { m } from "@/paraglide/messages.js";
 import { Button } from "@/ui/components/ui/button";
@@ -15,17 +15,14 @@ export function UpdateSection() {
     <div className="flex flex-col items-start gap-3">
       <Button
         variant="outline"
-        disabled={isPending}
-        focusableWhenDisabled
-        aria-busy={isPending || undefined}
-        className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-background"
+        busy={isPending}
         onClick={() =>
           checkForUpdate.mutate(undefined, {
             onError: (cause) => console.error("Update check failed", cause),
           })
         }
       >
-        {isPending ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+        <RefreshCw aria-hidden />
         {isPending ? m.update_checking() : m.update_check()}
       </Button>
       <p

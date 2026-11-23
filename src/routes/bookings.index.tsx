@@ -1,16 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CloudDownload, Download, Loader2, MoreHorizontal, Plus, RotateCcw } from "lucide-react";
+import { CloudDownload, Download, Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { type BookingQuery, type BookingSort, normalizeBookingQuery } from "@/business/bookings";
 import { m } from "@/paraglide/messages.js";
 import { Button, buttonVariants } from "@/ui/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/ui/components/ui/dropdown-menu";
 import {
   BookingFilterBar,
   type BookingSearchPatch,
@@ -30,15 +24,12 @@ import {
   updateBookingSearch,
   validateBookingSearch,
 } from "@/ui/bookings/booking-filter-model";
-import {
-  type BookingExportAction,
-  useBookingExportAction,
-} from "@/ui/bookings/booking-export-button";
+import { useBookingExportAction } from "@/ui/bookings/booking-export-button";
 import { BookingPagination } from "@/ui/bookings/booking-pagination";
 import { useBookingList } from "@/ui/bookings/booking-queries";
 import { BookingSumsSummary, BookingTable } from "@/ui/bookings/booking-table";
 import { useCategoryList } from "@/ui/categories/category-queries";
-import { Page, PagePlaceholder } from "@/ui/layout/page";
+import { EmptyState, LoadError, LoadingText, Page } from "@/ui/layout/page";
 import { StripeImportDialog } from "@/ui/stripe/stripe-import-dialog";
 import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
@@ -49,9 +40,10 @@ import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
  * `booking-filter-model.ts`) and go into the list query
  * (`BookingService.list(query)`, #21): sorting and paging happen in SQL.
  * The toolbar: search and filters on the left (they wrap early), on the
- * right "+" (new booking) and a "…" menu with "Export CSV" (#24, all
- * bookings of the filters in that order) and "Stripe importieren" (#31,
- * opens the import dialog); the actions stay on the toolbar's first row.
+ * right "Stripe importieren" (#31, opens the import dialog), "Export CSV"
+ * (#24, all bookings of the filters in that order) and "Neue Buchung"; the
+ * actions stay on the toolbar's first row, in a narrow window the secondary
+ * ones without their text.
  */
 export const Route = createFileRoute("/bookings/")({
   validateSearch: validateBookingSearch,
@@ -117,7 +109,7 @@ function BookingsPage() {
   const years = useMemo(() => taxYears.data?.map((taxYear) => taxYear.year) ?? [], [taxYears.data]);
 
   return (
-    <Page title={m.bookings_title()} fill compact>
+    <Page title={m.bookings_title()} fill>
       <div className="flex shrink-0 items-start gap-4">
         <div className="min-w-0 flex-1">
           <BookingFilterBar
@@ -132,15 +124,32 @@ function BookingsPage() {
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Link
-            to="/bookings/new"
-            aria-label={m.bookings_new()}
-            title={m.bookings_new()}
-            className={buttonVariants({ size: "icon" })}
+          <Button
+            variant="outline"
+            title={m.stripe_import_button_hint()}
+            onClick={() => setStripeImportOpen(true)}
           >
+            <CloudDownload aria-hidden />
+            <span className="max-lg:sr-only">{m.stripe_import_button()}</span>
+          </Button>
+          {/* Focusable when disabled: the tooltip says why. */}
+          <Button
+            variant="outline"
+            title={csvExport.hint}
+            busy={csvExport.running}
+            disabled={csvExport.disabled}
+            focusableWhenDisabled
+            onClick={() => void csvExport.run()}
+          >
+            <Download aria-hidden />
+            <span className="max-lg:sr-only">
+              {csvExport.running ? m.bookings_export_running() : m.bookings_export()}
+            </span>
+          </Button>
+          <Link to="/bookings/new" className={buttonVariants()}>
             <Plus aria-hidden />
+            {m.bookings_new()}
           </Link>
-          <MoreActionsMenu csvExport={csvExport} onStripeImport={() => setStripeImportOpen(true)} />
           <StripeImportDialog open={stripeImportOpen} onOpenChange={setStripeImportOpen} />
         </div>
       </div>
@@ -150,7 +159,6 @@ function BookingsPage() {
         invalid={!normalized.ok}
         filtered={filtered}
         onSearchChange={changeSearch}
-        onReset={reset}
       />
     </Page>
   );
@@ -167,14 +175,12 @@ function BookingList({
   invalid,
   filtered,
   onSearchChange,
-  onReset,
 }: Readonly<{
   query: BookingQuery;
   sort: BookingSort;
   invalid: boolean;
   filtered: boolean;
   onSearchChange: (patch: BookingSearchPatch, options?: SearchChangeOptions) => void;
-  onReset: () => void;
 }>) {
   const paginationId = useId();
   // An invalid query is not run (the filter bar shows the errors).
@@ -201,25 +207,25 @@ function BookingList({
     return <p className="text-muted-foreground">{m.bookings_filter_invalid()}</p>;
   }
   if (isPending) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {m.bookings_loading()}
-      </p>
-    );
+    return <LoadingText>{m.bookings_loading()}</LoadingText>;
   }
   // The query was checked above; an invalid result would be a programmer error.
   if (error || !data.ok) {
-    return (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.bookings_load_error()}</p>
-        <Button variant="outline" onClick={() => void refetch()}>
-          {m.common_retry()}
-        </Button>
-      </div>
-    );
+    return <LoadError onRetry={() => void refetch()}>{m.bookings_load_error()}</LoadError>;
   }
   if (data.total === 0 && !filtered && !isPlaceholderData) {
-    return <PagePlaceholder>{m.bookings_empty()}</PagePlaceholder>;
+    return (
+      <EmptyState
+        action={
+          <Link to="/bookings/new" className={buttonVariants({ variant: "outline" })}>
+            <Plus aria-hidden />
+            {m.bookings_empty_action()}
+          </Link>
+        }
+      >
+        {m.bookings_empty()}
+      </EmptyState>
+    );
   }
   return (
     <div
@@ -233,13 +239,8 @@ function BookingList({
           : m.bookings_found_other({ count: String(data.total) })}
       </p>
       {data.total === 0 ? (
-        <div className="flex flex-col items-start gap-3">
-          <PagePlaceholder>{m.bookings_filter_no_results()}</PagePlaceholder>
-          <Button variant="outline" onClick={onReset}>
-            <RotateCcw aria-hidden />
-            {m.bookings_filter_reset()}
-          </Button>
-        </div>
+        // "Filter zurücksetzen" is in the toolbar.
+        <EmptyState>{m.bookings_filter_no_results()}</EmptyState>
       ) : (
         // The table scrolls in its own box (sticky header); sums and pagination stay below.
         // At least min-h-48: in a low window the panel scrolls instead of squeezing the table.
@@ -266,49 +267,5 @@ function BookingList({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * "…" (more actions) next to "+": CSV export and Stripe import. A disabled
- * export says why in its tooltip; while it runs it shows a spinner.
- */
-function MoreActionsMenu({
-  csvExport,
-  onStripeImport,
-}: Readonly<{ csvExport: BookingExportAction; onStripeImport: () => void }>) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label={m.bookings_more_actions()}
-            title={m.bookings_more_actions()}
-          />
-        }
-      >
-        <MoreHorizontal aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem
-          disabled={csvExport.disabled}
-          title={csvExport.hint}
-          onClick={() => void csvExport.run()}
-        >
-          {csvExport.running ? (
-            <Loader2 aria-hidden className="animate-spin" />
-          ) : (
-            <Download aria-hidden />
-          )}
-          {csvExport.running ? m.bookings_export_running() : m.bookings_export()}
-        </DropdownMenuItem>
-        <DropdownMenuItem title={m.stripe_import_button_hint()} onClick={onStripeImport}>
-          <CloudDownload aria-hidden />
-          {m.stripe_import_button()}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

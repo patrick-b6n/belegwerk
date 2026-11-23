@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 
 import { m } from "@/paraglide/messages.js";
 import { periodYearOptions } from "@/ui/bookings/booking-filter-model";
-import { Button } from "@/ui/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -16,7 +15,7 @@ import { useEuer } from "@/ui/euer/euer-queries";
 import { EuerExportButton } from "@/ui/euer/euer-export-button";
 import { EuerReport } from "@/ui/euer/euer-view";
 import { FormField } from "@/ui/forms/form-field";
-import { Page } from "@/ui/layout/page";
+import { LoadError, LoadingText, Page } from "@/ui/layout/page";
 import { useTaxYearList } from "@/ui/tax-years/tax-year-queries";
 
 /**
@@ -100,22 +99,11 @@ function EuerYear({ year }: Readonly<{ year: number }>) {
   const { data, error, isPending, refetch } = useEuer(year);
 
   if (isPending) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {m.euer_loading()}
-      </p>
-    );
+    return <LoadingText>{m.euer_loading()}</LoadingText>;
   }
   // The year comes from a validated param; an invalid result would be a programmer error.
   if (error || !data.ok) {
-    return (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.euer_load_error()}</p>
-        <Button variant="outline" onClick={() => void refetch()}>
-          {m.common_retry()}
-        </Button>
-      </div>
-    );
+    return <LoadError onRetry={() => void refetch()}>{m.euer_load_error()}</LoadError>;
   }
   const result = data.euer;
   return (

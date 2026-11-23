@@ -1,8 +1,7 @@
 import { useForm } from "@tanstack/react-form";
-import { cn } from "cn";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, Loader2 } from "lucide-react";
-import { type ComponentProps, useEffect, useId, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { formatDate } from "@/business/format";
 import {
@@ -24,6 +23,7 @@ import {
 } from "@/ui/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
+import { Notice } from "@/ui/components/ui/notice";
 import {
   Table,
   TableBody,
@@ -40,6 +40,7 @@ import {
   focusFirstInvalid,
   FormField,
 } from "@/ui/forms/form-field";
+import { LoadError, LoadingText } from "@/ui/layout/page";
 import { revalidateKeepingServerErrorsOnBlur } from "@/ui/forms/validation-logic";
 
 import {
@@ -134,24 +135,16 @@ function StripeImportPanel({
   if (summary) {
     content = <ImportSummaryView summary={summary} onClose={onClose} />;
   } else if (settings.isPending || categories.isPending || status.isPending) {
-    content = (
-      <p role="status" className="text-muted-foreground">
-        {m.stripe_import_loading()}
-      </p>
-    );
+    content = <LoadingText>{m.stripe_import_loading()}</LoadingText>;
   } else if (settings.error || categories.error || status.error) {
     content = (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.stripe_import_load_error()}</p>
-        <Button
-          variant="outline"
-          onClick={() =>
-            void Promise.all([settings.refetch(), categories.refetch(), status.refetch()])
-          }
-        >
-          {m.common_retry()}
-        </Button>
-      </div>
+      <LoadError
+        onRetry={() =>
+          void Promise.all([settings.refetch(), categories.refetch(), status.refetch()])
+        }
+      >
+        {m.stripe_import_load_error()}
+      </LoadError>
     );
   } else if (settings.data.apiKey === null) {
     content = <SettingsHint text={m.stripe_import_no_key()} focus={attempted} onClose={onClose} />;
@@ -191,21 +184,6 @@ function StripeImportPanel({
   );
 }
 
-function Warning({ className, children, ...props }: Readonly<ComponentProps<"div">>) {
-  return (
-    <div
-      {...props}
-      className={cn(
-        "flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200",
-        className,
-      )}
-    >
-      <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <div className="flex flex-col gap-1">{children}</div>
-    </div>
-  );
-}
-
 /**
  * No key or no valid defaults: explain and link to the settings. With
  * `focus` (it replaced the form after an import attempt) it is an alert and
@@ -222,9 +200,9 @@ function SettingsHint({
   }, [focus]);
   return (
     <>
-      <Warning ref={ref} tabIndex={-1} role={focus ? "alert" : undefined} className="outline-none">
+      <Notice variant="warning" ref={ref} tabIndex={-1} role={focus ? "alert" : undefined}>
         <p>{text}</p>
-      </Warning>
+      </Notice>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           {m.common_close()}
@@ -338,10 +316,10 @@ function StripeImportForm({
         {(running) => (
           <>
             {testMode && (
-              <Warning id={id("test-warning")}>
-                <p className="font-medium">{m.stripe_import_test_warning_title()}</p>
+              <Notice variant="warning" id={id("test-warning")}>
+                <p className="font-semibold">{m.stripe_import_test_warning_title()}</p>
                 <p>{m.stripe_import_test_warning()}</p>
-              </Warning>
+              </Notice>
             )}
 
             <p className="text-sm text-muted-foreground">
@@ -375,6 +353,7 @@ function StripeImportForm({
                     <FormField
                       id={id("from")}
                       label={m.stripe_import_from_label()}
+                      required
                       errors={field.state.meta.errors}
                     >
                       {(control) => (
@@ -410,6 +389,7 @@ function StripeImportForm({
                     <FormField
                       id={id("to")}
                       label={m.stripe_import_to_label()}
+                      required
                       errors={field.state.meta.errors}
                     >
                       {(control) => (
@@ -477,37 +457,25 @@ function StripeImportForm({
             )}
 
             {importError && (
-              <div
-                ref={errorRef}
-                tabIndex={-1}
-                role="alert"
-                className="flex flex-col items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive outline-none"
-              >
+              <Notice variant="error" ref={errorRef} tabIndex={-1} role="alert">
                 <p>{importError.text}</p>
                 {importError.settingsLink && (
                   <Link
                     to="/settings"
-                    className="font-medium underline underline-offset-4"
+                    className="self-start font-semibold underline underline-offset-4"
                     onClick={onCancel}
                   >
                     {m.stripe_import_to_settings()}
                   </Link>
                 )}
-              </div>
+              </Notice>
             )}
 
             <DialogFooter>
               <Button type="button" variant="outline" disabled={running} onClick={onCancel}>
                 {m.common_cancel()}
               </Button>
-              <Button
-                type="submit"
-                disabled={running}
-                // Keeps the focus while the import runs.
-                focusableWhenDisabled
-                aria-busy={running || undefined}
-              >
-                {running ? <Loader2 aria-hidden className="animate-spin" /> : null}
+              <Button type="submit" busy={running}>
                 {running ? m.stripe_import_running() : m.stripe_import_submit()}
               </Button>
             </DialogFooter>
@@ -549,7 +517,7 @@ function ImportSummaryView({
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="font-heading text-base font-medium outline-none"
+          className="font-heading text-base font-semibold outline-none"
         >
           {m.stripe_import_done_title()}
         </h3>
@@ -559,7 +527,7 @@ function ImportSummaryView({
             to: formatDate(summary.to),
           })}
         </p>
-        <p className="text-lg font-medium tabular-nums">{countsText(summary)}</p>
+        <p className="text-lg font-semibold tabular-nums">{countsText(summary)}</p>
         <p className="text-sm text-muted-foreground tabular-nums">
           {m.stripe_import_done_details({
             feesCreated: String(summary.fees.created),
@@ -571,9 +539,9 @@ function ImportSummaryView({
           })}
         </p>
         {summary.keyMode === "test" && summary.created > 0 && (
-          <Warning>
+          <Notice variant="warning">
             <p>{m.stripe_import_done_test_note()}</p>
-          </Warning>
+          </Notice>
         )}
         {summary.failures.length > 0 && <FailureTable summary={summary} />}
       </section>
@@ -597,7 +565,7 @@ function ImportSummaryView({
 function FailureTable({ summary }: Readonly<{ summary: StripeImportSummary }>) {
   return (
     <div className="flex flex-col gap-2">
-      <h4 className="font-medium">{m.stripe_import_failures_heading()}</h4>
+      <h4 className="font-semibold">{m.stripe_import_failures_heading()}</h4>
       <p className="text-sm text-muted-foreground">{m.stripe_import_failures_hint()}</p>
       <div className="max-h-64 overflow-auto rounded-xl border">
         <Table>

@@ -1,4 +1,4 @@
-import { DatabaseBackup as BackupIcon, Loader2 } from "lucide-react";
+import { DatabaseBackup as BackupIcon } from "lucide-react";
 
 import { BackupWriteError } from "@/business/backup";
 import { m } from "@/paraglide/messages.js";
@@ -54,16 +54,8 @@ export function BackupSection() {
       <p className="max-w-3xl text-sm text-muted-foreground">
         {m.backup_location({ path: DATABASE_LOCATION })}
       </p>
-      <Button
-        variant="outline"
-        title={m.backup_hint()}
-        disabled={running}
-        focusableWhenDisabled
-        aria-busy={running || undefined}
-        className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-background"
-        onClick={() => void run()}
-      >
-        {running ? <Loader2 aria-hidden className="animate-spin" /> : <BackupIcon aria-hidden />}
+      <Button variant="outline" title={m.backup_hint()} busy={running} onClick={() => void run()}>
+        <BackupIcon aria-hidden />
         {running ? m.backup_running() : m.backup_create()}
       </Button>
     </div>

@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
-import { Info, TriangleAlert } from "lucide-react";
 import { useId } from "react";
 
 import type { EuerReportLine, EuerResult, EuerWarning } from "@/business/euer";
 import { formatCurrency } from "@/business/format";
 import { m } from "@/paraglide/messages.js";
+import { Badge } from "@/ui/components/ui/badge";
+import { Notice } from "@/ui/components/ui/notice";
 import {
   Table,
   TableBody,
@@ -16,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/components/ui/table";
-import { PagePlaceholder } from "@/ui/layout/page";
+import { EmptyState, SectionHeading } from "@/ui/layout/page";
 
 import {
   type EuerRow,
@@ -45,9 +46,9 @@ export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
       <div className="flex flex-col gap-4">
         {!result.hasLineMapping && <NoMappingHint year={year} />}
         <EuerWarnings warnings={warnings} year={year} />
-        <PagePlaceholder>
+        <EmptyState>
           {warnings.length === 0 ? m.euer_empty({ year }) : m.euer_empty_with_warnings({ year })}
-        </PagePlaceholder>
+        </EmptyState>
       </div>
     );
   }
@@ -77,10 +78,9 @@ export function EuerReport({ result }: Readonly<{ result: EuerResult }>) {
 
 function NoMappingHint({ year }: Readonly<{ year: string }>) {
   return (
-    <p className="flex items-start gap-2 rounded-xl border border-dashed p-3 text-sm">
-      <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      {m.euer_no_mapping({ year })}
-    </p>
+    <Notice>
+      <p>{m.euer_no_mapping({ year })}</p>
+    </Notice>
   );
 }
 
@@ -100,9 +100,7 @@ function EuerTable({
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-xl font-semibold">
-        {title}
-      </h2>
+      <SectionHeading id={headingId}>{title}</SectionHeading>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
@@ -124,7 +122,7 @@ function EuerTable({
             ))}
           </TableBody>
           <TableFooter>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableCell />
               <th scope="row" className="px-3 py-1.5 text-left font-semibold">
                 {totalLabel}
@@ -185,12 +183,7 @@ function EuerTableRow({ row }: Readonly<{ row: EuerRow }>) {
             </>
           )}
           {informational && (
-            <span
-              title={m.euer_informational_title()}
-              className="shrink-0 rounded-md bg-muted px-1 text-xs text-muted-foreground"
-            >
-              {m.euer_informational()}
-            </span>
+            <Badge title={m.euer_informational_title()}>{m.euer_informational()}</Badge>
           )}
         </div>
         {line.entertainment && (
@@ -223,9 +216,7 @@ function EuerResultSummary({ result }: Readonly<{ result: EuerResult }>) {
         : m.euer_result_zero();
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="font-heading text-xl font-semibold">
-        {m.euer_result_title()}
-      </h2>
+      <SectionHeading id={headingId}>{m.euer_result_title()}</SectionHeading>
       <dl className="grid max-w-md grid-cols-[1fr_auto] gap-y-1 rounded-xl border bg-card p-4 text-sm">
         <dt>{m.euer_income_total()}</dt>
         <dd className={cn(AMOUNT, "pl-6")}>{formatCurrency(incomeCents)}</dd>
@@ -238,8 +229,8 @@ function EuerResultSummary({ result }: Readonly<{ result: EuerResult }>) {
           className={cn(
             AMOUNT,
             "border-t pt-1 pl-6 font-semibold",
-            kind === "profit" && "text-emerald-700 dark:text-emerald-400",
-            kind === "loss" && "text-rose-700 dark:text-rose-400",
+            kind === "profit" && "text-emerald-700",
+            kind === "loss" && "text-rose-700",
           )}
         >
           {`${profitCents > 0 ? "+" : ""}${formatCurrency(profitCents)}`}
@@ -253,19 +244,27 @@ function warningText(view: EuerWarningView, year: string): string {
   const warning: EuerWarning = view.warning;
   switch (warning.code) {
     case "vatRateInSmallBusinessYear":
-      return m.euer_warning_vat_rate_in_small_business_year({
-        count: String(warning.bookingCount),
-        year,
-      });
+      return warning.bookingCount === 1
+        ? m.euer_warning_vat_rate_in_small_business_year_one({ year })
+        : m.euer_warning_vat_rate_in_small_business_year_other({
+            count: String(warning.bookingCount),
+            year,
+          });
     case "vatRateMissingInRegularYear":
-      return m.euer_warning_vat_rate_missing_in_regular_year({
-        count: String(warning.bookingCount),
-        year,
-      });
+      return warning.bookingCount === 1
+        ? m.euer_warning_vat_rate_missing_in_regular_year_one({ year })
+        : m.euer_warning_vat_rate_missing_in_regular_year_other({
+            count: String(warning.bookingCount),
+            year,
+          });
     case "vatRateOnTaxPayment":
-      return m.euer_warning_vat_rate_on_tax_payment({ count: String(warning.bookingCount) });
+      return warning.bookingCount === 1
+        ? m.euer_warning_vat_rate_on_tax_payment_one()
+        : m.euer_warning_vat_rate_on_tax_payment_other({ count: String(warning.bookingCount) });
     case "unassignableBookings":
-      return m.euer_warning_unassignable_bookings({ count: String(warning.bookingCount) });
+      return warning.bookingCount === 1
+        ? m.euer_warning_unassignable_bookings_one()
+        : m.euer_warning_unassignable_bookings_other({ count: String(warning.bookingCount) });
     case "negativeLine": {
       const lineNumber = view.line?.line;
       return m.euer_warning_negative_line({
@@ -293,12 +292,8 @@ function EuerWarnings({
   const headingId = useId();
   if (warnings.length === 0) return null;
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40"
-    >
-      <h2 id={headingId} className="flex items-center gap-2 font-semibold">
-        <TriangleAlert aria-hidden className="size-4" />
+    <Notice variant="warning" role="region" aria-labelledby={headingId}>
+      <h2 id={headingId} className="font-semibold">
         {m.euer_warnings_title()}
       </h2>
       <ul className="flex list-disc flex-col gap-2 pl-5">
@@ -309,7 +304,7 @@ function EuerWarnings({
               <Link
                 to="/bookings"
                 search={view.search}
-                className="font-medium whitespace-nowrap underline underline-offset-4"
+                className="font-semibold whitespace-nowrap underline underline-offset-4"
               >
                 {m.euer_warning_show_bookings()}
               </Link>
@@ -317,6 +312,6 @@ function EuerWarnings({
           </li>
         ))}
       </ul>
-    </section>
+    </Notice>
   );
 }

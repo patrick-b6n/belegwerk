@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { Download, ExternalLink, Loader2 } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 import { downloadPercent, type UpdateCheck } from "@/business/updates";
 import { m } from "@/paraglide/messages.js";
@@ -33,13 +33,12 @@ export function UpdateActions({
       <div className={cn("flex flex-wrap items-center", compact ? "gap-1" : "gap-2")}>
         <Button
           size={compact ? "sm" : "default"}
-          disabled={running || blocked}
+          busy={running}
+          disabled={blocked}
           focusableWhenDisabled
-          aria-busy={running || undefined}
-          className="data-disabled:cursor-not-allowed data-disabled:opacity-50"
           onClick={() => install.mutate()}
         >
-          {running ? <Loader2 aria-hidden className="animate-spin" /> : <Download aria-hidden />}
+          <Download aria-hidden />
           {running ? installProgressMessage(progress) : m.update_install()}
         </Button>
         <Button

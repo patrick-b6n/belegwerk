@@ -20,6 +20,7 @@ import type {
 import { formatCurrency, formatDate } from "@/business/format";
 import type { BookingType } from "@/business/model";
 import { m } from "@/paraglide/messages.js";
+import { Badge } from "@/ui/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -50,8 +51,8 @@ const AMOUNT = "text-right tabular-nums";
  * names the type and shows an arrow.
  */
 const TYPE_AMOUNT_CLASS: Record<BookingType, string> = {
-  income: "text-emerald-700 dark:text-emerald-400",
-  expense: "text-rose-700 dark:text-rose-400",
+  income: "text-emerald-700",
+  expense: "text-rose-700",
 };
 
 /** Column names by sort field: headers, the caption and the sort buttons' tooltips. */
@@ -113,11 +114,7 @@ const columns = column.columns([
     cell: ({ row }) => (
       <span title={row.original.category.name} className="flex max-w-40 items-center gap-1.5">
         <span className="truncate">{row.original.category.name}</span>
-        {row.original.category.archived && (
-          <span className="shrink-0 rounded-md border bg-muted px-1.5 text-xs text-muted-foreground">
-            {m.bookings_category_archived()}
-          </span>
-        )}
+        {row.original.category.archived && <Badge>{m.bookings_category_archived()}</Badge>}
       </span>
     ),
     meta: { sortField: "category" },
@@ -178,10 +175,7 @@ export function BookingTable({ bookings, sort, onSortChange }: BookingTableProps
   });
 
   return (
-    <Table
-      containerClassName="w-full"
-      className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4"
-    >
+    <Table containerClassName="w-full">
       <TableCaption className="sr-only">
         {m.bookings_table_caption({
           column: COLUMN_LABELS[sort.field](),
@@ -211,7 +205,12 @@ export function BookingTable({ bookings, sort, onSortChange }: BookingTableProps
                   {sortField === undefined ? (
                     label
                   ) : (
-                    <SortButton sort={sort} field={sortField} onSortChange={onSortChange}>
+                    <SortButton
+                      sort={sort}
+                      field={sortField}
+                      alignRight={className === AMOUNT}
+                      onSortChange={onSortChange}
+                    >
                       {label}
                     </SortButton>
                   )}
@@ -240,11 +239,14 @@ function SortButton({
   children,
   sort,
   field,
+  alignRight,
   onSortChange,
 }: Readonly<{
   children: ReactNode;
   sort: BookingSort;
   field: BookingSortField;
+  /** The arrow goes left of the label, which then lines up with the amounts. */
+  alignRight: boolean;
   onSortChange: (sort: BookingSort) => void;
 }>) {
   const direction = sort.field === field ? sort.direction : undefined;
@@ -262,6 +264,7 @@ function SortButton({
       })}
       className={cn(
         "group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+        alignRight && "flex-row-reverse",
         direction !== undefined && "font-semibold text-foreground",
       )}
     >
@@ -356,7 +359,7 @@ function BookingRow({
     void navigate({ to: "/bookings/$bookingId", params: { bookingId: row.original.id } });
   };
   return (
-    <TableRow data-booking-id={row.original.id} onClick={onClick}>
+    <TableRow interactive data-booking-id={row.original.id} onClick={onClick}>
       {children}
     </TableRow>
   );
@@ -365,7 +368,7 @@ function BookingRow({
 function BookingTypeBadge({ type }: Readonly<{ type: BookingType }>) {
   const Icon = type === "income" ? ArrowDownLeft : ArrowUpRight;
   return (
-    <span className={cn("inline-flex items-center gap-1", TYPE_AMOUNT_CLASS[type])}>
+    <span className={cn("flex items-center gap-1", TYPE_AMOUNT_CLASS[type])}>
       <Icon aria-hidden className="size-3.5" />
       {BOOKING_TYPE_LABELS[type]()}
     </span>

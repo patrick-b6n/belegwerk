@@ -22,7 +22,7 @@ Alles, was du zum Installieren, Sichern und Einrichten von Belegwerk brauchst.
   zugehörigen Buchungen.
 - **Stripe-Import** von Application Fees und deren Rückerstattungen als
   reguläre Buchungen, mit Duplikatschutz ([Stripe einrichten](#stripe-einrichten)).
-- **Backup** der ganzen Datenbank per Knopfdruck ([Datensicherung](#datensicherung)).
+- **Backup** der ganzen Datenbank per Knopfdruck ([Backup](#backup)).
 
 **Nicht im Umfang:** Belege/Anhänge, GoBD-Festschreibung bzw. Audit-Log,
 AfA/Anlageverzeichnis, Fremdwährungen (nur EUR), PDF-Ausgabe und
@@ -93,9 +93,9 @@ Die Datenbank ist eine einzelne SQLite-Datei (Journal-Modus `DELETE`, keine
 `-wal`/`-shm`-Dateien). Kann die App sie nicht öffnen, verweist der
 Fehlerbildschirm auf das Protokoll.
 
-### Datensicherung
+### Backup
 
-**Backup erstellen:** Einstellungen → Datensicherung → „Backup erstellen“.
+**Backup erstellen:** Einstellungen → Backup → „Backup erstellen“.
 Die App schreibt eine konsistente Kopie der ganzen Datenbank an einen frei
 gewählten Ort (Vorschlag `belegwerk-backup-YYYY-MM-DD_HHMM.db`) und prüft sie
 anschließend.
@@ -138,7 +138,7 @@ Der Import liest **Application Fees** (Stripe Connect) und deren
 Rückerstattungen. Belegwerk nimmt nur einen eingeschränkten, lesenden
 Schlüssel an.
 
-1. **Restricted Key anlegen:** im Stripe-Dashboard unter Entwickler →
+1. **Schlüssel anlegen:** im Stripe-Dashboard unter Entwickler →
    API-Schlüssel → „Eingeschränkten Schlüssel erstellen“ (englisch:
    Developers → API keys → Create restricted key). Berechtigung
    **„Application fees: Lesen“** (Read), optional **„Accounts: Lesen“**

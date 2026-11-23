@@ -1,6 +1,6 @@
 import { cn } from "cn";
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useId, useRef, useState } from "react";
 
 import type {
   CategoryWithUsage,
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/ui/components/ui/alert-dialog";
+import { Badge } from "@/ui/components/ui/badge";
 import { Button } from "@/ui/components/ui/button";
 import { Checkbox } from "@/ui/components/ui/checkbox";
 import {
@@ -38,6 +39,8 @@ import {
   TableRow,
 } from "@/ui/components/ui/table";
 import { toast } from "@/ui/components/ui/toast";
+import { DiscardChangesDialog } from "@/ui/forms/discard-changes-dialog";
+import { SectionHeading } from "@/ui/layout/page";
 
 import { CategoryForm } from "./category-form";
 import { CATEGORY_GROUP_TITLES, positionDisplay } from "./category-messages";
@@ -58,7 +61,8 @@ type FormState =
  * The category management (#19): one table per type (income, expense) with
  * name, flags, EÜR position (display name plus the line of `year`), booking
  * count and actions. Archived categories are hidden by default; the toggle
- * shows them muted at the end of their group.
+ * shows them muted at the end of their group. Closing the form with unsaved
+ * changes asks first.
  *
  * Create/edit opens {@link CategoryForm} in a dialog; archiving/reactivating
  * acts immediately (reversible) with a toast; deleting asks first and is only
@@ -125,10 +129,9 @@ function CategoryGroupSection({
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={headingId} className="font-heading text-xl font-semibold">
-          {title}
-        </h2>
-        <Button variant="outline" onClick={onCreate}>
+        <SectionHeading id={headingId}>{title}</SectionHeading>
+        <Button onClick={onCreate}>
+          <Plus aria-hidden />
           {group.type === "income" ? m.categories_new_income() : m.categories_new_expense()}
         </Button>
       </div>
@@ -164,17 +167,6 @@ function CategoryGroupSection({
         </Table>
       )}
     </section>
-  );
-}
-
-function Badge({ children, title }: Readonly<{ children: string; title?: string }>) {
-  return (
-    <span
-      title={title}
-      className="shrink-0 rounded-md bg-muted px-1 text-xs font-normal text-muted-foreground"
-    >
-      {children}
-    </span>
   );
 }
 
@@ -218,7 +210,9 @@ function CategoryRow({
   const deleteHintId = useId();
   const deleteHint = category.isSystem
     ? m.category_delete_system_hint()
-    : m.category_delete_in_use_hint({ count: String(category.bookingCount) });
+    : category.bookingCount === 1
+      ? m.category_delete_in_use_hint_one()
+      : m.category_delete_in_use_hint_other({ count: String(category.bookingCount) });
 
   return (
     <TableRow
@@ -227,7 +221,7 @@ function CategoryRow({
     >
       <TableCell>
         <span className="flex flex-wrap items-center gap-1.5">
-          <span className={cn("font-medium", category.archived && "font-normal")}>
+          <span className={cn("font-semibold", category.archived && "font-normal")}>
             {category.name}
           </span>
           {category.reducesIncome && (
@@ -296,7 +290,8 @@ function CategoryRow({
             aria-label={m.category_delete_label({ name: category.name })}
             aria-describedby={deletable ? undefined : deleteHintId}
             title={deletable ? m.category_delete() : deleteHint}
-            className="text-destructive hover:text-destructive data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-transparent"
+            // Red only if it can be deleted.
+            className={cn(deletable && "text-destructive hover:text-destructive")}
             onClick={onDelete}
           >
             <Trash2 aria-hidden />
@@ -324,7 +319,9 @@ function archiveFailureMessage(failure: Exclude<SetCategoryArchivedResult, { ok:
 function deleteFailureMessage(failure: Exclude<DeleteCategoryResult, { ok: true }>): string {
   switch (failure.reason) {
     case "inUse":
-      return m.category_delete_in_use({ count: String(failure.bookingCount) });
+      return failure.bookingCount === 1
+        ? m.category_delete_in_use_one()
+        : m.category_delete_in_use_other({ count: String(failure.bookingCount) });
     case "systemCategory":
       return m.category_delete_system_hint();
     case "notFound":
@@ -337,6 +334,15 @@ function CategoryFormDialog({
   year,
   onClose,
 }: Readonly<{ state: FormState | null; year: number; onClose: () => void }>) {
+  const unsavedRef = useRef(false);
+  const onUnsavedChange = useCallback((unsaved: boolean) => {
+    unsavedRef.current = unsaved;
+  }, []);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const requestClose = () => {
+    if (unsavedRef.current) setConfirmDiscard(true);
+    else onClose();
+  };
   // Keeps the content while the dialog animates out; the popup (and with it
   // the form) unmounts once closed, so every opening starts a fresh form.
   const [shown, setShown] = useState(state);
@@ -348,7 +354,7 @@ function CategoryFormDialog({
         ? m.category_new_income_title()
         : m.category_new_expense_title();
   return (
-    <Dialog open={state !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={state !== null} onOpenChange={(open) => !open && requestClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -361,9 +367,18 @@ function CategoryFormDialog({
             defaultType={shown.mode === "create" ? shown.type : undefined}
             year={year}
             onDone={onClose}
-            onCancel={onClose}
+            onCancel={requestClose}
+            onUnsavedChange={onUnsavedChange}
           />
         )}
+        <DiscardChangesDialog
+          open={confirmDiscard}
+          onKeep={() => setConfirmDiscard(false)}
+          onDiscard={() => {
+            setConfirmDiscard(false);
+            onClose();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -417,7 +432,7 @@ function DeleteCategoryDialog({
           <AlertDialogCancel ref={cancelRef} disabled={remove.isPending}>
             {m.common_cancel()}
           </AlertDialogCancel>
-          <Button variant="destructive" disabled={remove.isPending} onClick={() => void confirm()}>
+          <Button variant="destructive" busy={remove.isPending} onClick={() => void confirm()}>
             {remove.isPending ? m.category_deleting() : m.category_delete_confirm()}
           </Button>
         </AlertDialogFooter>

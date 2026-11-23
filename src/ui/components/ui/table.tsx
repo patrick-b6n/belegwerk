@@ -46,12 +46,20 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   );
 }
 
-function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
+function TableRow({
+  className,
+  interactive = false,
+  ...props
+}: React.ComponentProps<"tr"> & {
+  /** The row itself is clickable: highlighted on hover. */
+  interactive?: boolean;
+}) {
   return (
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/70 has-aria-expanded:bg-muted/70 data-[state=selected]:bg-muted",
+        "border-b transition-colors data-[state=selected]:bg-muted",
+        interactive && "cursor-pointer hover:bg-muted/70",
         className,
       )}
       {...props}
@@ -64,7 +72,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-8 px-3 text-left align-middle text-xs font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-8 px-3 first:pl-4 last:pr-4 text-left align-middle text-xs font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}
@@ -77,7 +85,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "h-8 px-3 py-1 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "h-8 px-3 py-1 first:pl-4 last:pr-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}

@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   /* Windows 11 system type (Fluent): Segoe UI Variable, "Text" optical size
      for body copy, "Display" for titles; Segoe UI / system font elsewhere. */
@@ -54,6 +52,8 @@
 }
 
 :root {
+  /* Light only: native controls (date picker, scrollbars) too. */
+  color-scheme: light;
   /* Belegwerk brand (src/ui/assets/brand): Kontotinte #16302B, Werkgrün
      #2F7D5B, Summenstrich #E8962E, Zeile #A9B9B2, Papier #F5F3EC. */
   --background: #fcfbf8;
@@ -91,42 +91,6 @@
   --sidebar-accent-foreground: #16302b;
   --sidebar-border: #e2ded3;
   --sidebar-ring: #2f7d5b;
-}
-
-.dark {
-  --background: #0f211d;
-  --foreground: #f5f3ec;
-  --card: #16302b;
-  --card-foreground: #f5f3ec;
-  --popover: #16302b;
-  --popover-foreground: #f5f3ec;
-  --primary: #8fd1ae;
-  --primary-foreground: #0f211d;
-  --secondary: #21403a;
-  --secondary-foreground: #f5f3ec;
-  --muted: #1c3833;
-  --muted-foreground: #a9b9b2;
-  --accent: #21403a;
-  --accent-foreground: #f5f3ec;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: rgb(245 243 236 / 12%);
-  --input: rgb(245 243 236 / 16%);
-  --ring: #8fd1ae;
-  --input-underline: rgb(245 243 236 / 45%);
-  --control-stroke: rgb(245 243 236 / 22%);
-  --chart-1: #8fd1ae;
-  --chart-2: #e8962e;
-  --chart-3: #f5f3ec;
-  --chart-4: #2f7d5b;
-  --chart-5: #a9b9b2;
-  --sidebar: #16302b;
-  --sidebar-foreground: #f5f3ec;
-  --sidebar-primary: #8fd1ae;
-  --sidebar-primary-foreground: #0f211d;
-  --sidebar-accent: #21403a;
-  --sidebar-accent-foreground: #f5f3ec;
-  --sidebar-border: rgb(245 243 236 / 12%);
-  --sidebar-ring: #8fd1ae;
 }
 
 @layer base {
