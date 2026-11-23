@@ -128,14 +128,17 @@ function CategoryGroupSection({
         <h2 id={headingId} className="font-heading text-xl font-semibold">
           {title}
         </h2>
-        <Button variant="outline" size="sm" onClick={onCreate}>
+        <Button variant="outline" onClick={onCreate}>
           {group.type === "income" ? m.categories_new_income() : m.categories_new_expense()}
         </Button>
       </div>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{m.categories_group_empty()}</p>
       ) : (
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed"
+          containerClassName="relative w-full overflow-x-auto rounded-xl border bg-card"
+        >
           <TableCaption className="sr-only">{title}</TableCaption>
           <TableHeader>
             <TableRow>
@@ -242,7 +245,8 @@ function CategoryRow({
         <span title={position.label}>{position.text}</span>
       </TableCell>
       <TableCell className="text-right tabular-nums">{category.bookingCount}</TableCell>
-      <TableCell>
+      {/* No vertical padding: the buttons would make the rows higher than in other tables. */}
+      <TableCell className="py-0">
         <span className="flex justify-end gap-1">
           <Button
             variant="ghost"
