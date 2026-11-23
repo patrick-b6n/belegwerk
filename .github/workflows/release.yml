@@ -121,7 +121,7 @@ jobs:
 
       # Sets the SemVer form of the version (YYYY.MMDD.HHMM) for the build in
       # package.json (not committed), runs tauri build --no-bundle, copies to
-      # release/belegwerk-<version>.exe, writes the checksum and checks the
+      # release/belegwerk.exe, writes the checksum and checks the
       # file version of the .exe (scripts/release.ts).
       - name: Build
         if: steps.head.outputs.current == 'true'
@@ -145,8 +145,8 @@ jobs:
           gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Belegwerk $VERSION" \
+            --title "$VERSION" \
             --generate-notes \
             --latest \
-            "release/belegwerk-$VERSION.exe" \
-            "release/belegwerk-$VERSION.exe.sha256"
+            "release/belegwerk.exe" \
+            "release/belegwerk.exe.sha256"

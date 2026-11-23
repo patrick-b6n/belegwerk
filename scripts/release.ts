@@ -7,7 +7,7 @@
 //
 // `tauri build --no-bundle` (release profile, frontend embedded, no
 // installer), then copies src-tauri/target/release/belegwerk.exe to
-// release/belegwerk-<calver>.exe and writes its SHA-256 next to it.
+// release/belegwerk.exe and writes its SHA-256 next to it.
 // Checks (format, lint, typecheck, tests) are separate: `pnpm verify`.
 
 import { spawnSync } from "node:child_process";
@@ -58,7 +58,7 @@ function release(calVer: string, semVer: string): void {
 
   const source = join(root, "src-tauri", "target", "release", "belegwerk.exe");
   const targetDir = join(root, "release");
-  const target = join(targetDir, `belegwerk-${calVer}.exe`);
+  const target = join(targetDir, "belegwerk.exe");
   mkdirSync(targetDir, { recursive: true });
   try {
     copyFileSync(source, target);

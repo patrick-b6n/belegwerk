@@ -6,8 +6,8 @@
 //! 1. `check_for_update`: `GET /repos/{REPOSITORY}/releases/latest` and a
 //!    SemVer comparison with the running version.
 //! 2. `install_update`: asks GitHub again (never trusts URLs from the
-//!    WebView), downloads `belegwerk-<version>.exe.sha256` and
-//!    `belegwerk-<version>.exe` – the latter into a staging file next to the
+//!    WebView), downloads `belegwerk.exe.sha256` and
+//!    `belegwerk.exe` – the latter into a staging file next to the
 //!    running exe (same volume, so the swap is a rename) – checks size and
 //!    SHA-256, then swaps the files and restarts the app.
 //! 3. The swap renames the running exe to `<exe>.old` (Windows allows
@@ -29,7 +29,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::ipc::Channel;
 
-const REPOSITORY: &str = "patrick-b6n/belegwerk-next";
+const REPOSITORY: &str = "patrick-b6n/belegwerk";
+/// Asset names of a release (scripts/release.ts); the same for every version.
+const EXE_ASSET: &str = "belegwerk.exe";
+const CHECKSUM_ASSET: &str = "belegwerk.exe.sha256";
 /// No personal data: GitHub only requires some User-Agent.
 const USER_AGENT: &str = "Belegwerk-Updater";
 /// Upper bound for the downloaded exe (the release exe has about 13 MB).
@@ -149,8 +152,8 @@ struct ReleaseAssets<'a> {
 
 // --- Pure logic (unit-tested) ---
 
-// Versions are CalVer `YYYY-MM-DD-HHMM` (release time in UTC) in tags, asset
-// names, UI and logs; the app itself (package.json, Tauri) carries the SemVer
+// Versions are CalVer `YYYY-MM-DD-HHMM` (release time in UTC) in tags,
+// release names, UI and logs; the app itself (package.json, Tauri) carries the SemVer
 // form `YYYY.(MM*100+DD).(HH*100+MM)`. Same conversion as
 // src/business/updates/calver.ts.
 
@@ -243,11 +246,6 @@ fn is_newer(current: &semver::Version, latest: &semver::Version) -> bool {
     latest > current
 }
 
-/// File name of the exe asset of `version` (scripts/release.ts).
-fn exe_asset_name(version: &ReleaseVersion) -> String {
-    format!("belegwerk-{}.exe", version.calver)
-}
-
 fn release_page_prefix() -> String {
     format!("https://github.com/{REPOSITORY}/releases/")
 }
@@ -277,14 +275,9 @@ fn evaluate_release(
     })
 }
 
-/// Picks `belegwerk-<version>.exe` and `belegwerk-<version>.exe.sha256` from
-/// the release; both must be downloads of this repository.
-fn select_assets<'a>(
-    release: &'a GithubRelease,
-    version: &ReleaseVersion,
-) -> Result<ReleaseAssets<'a>, UpdateError> {
-    let exe_name = exe_asset_name(version);
-    let checksum_name = format!("{exe_name}.sha256");
+/// Picks [`EXE_ASSET`] and [`CHECKSUM_ASSET`] from the release; both must be
+/// downloads of this repository.
+fn select_assets(release: &GithubRelease) -> Result<ReleaseAssets<'_>, UpdateError> {
     let find = |name: &str| {
         let asset = release
             .assets
@@ -307,16 +300,16 @@ fn select_assets<'a>(
         }
         Ok(asset)
     };
-    let exe = find(&exe_name)?;
+    let exe = find(EXE_ASSET)?;
     if exe.size == 0 || exe.size > MAX_EXE_SIZE {
         return Err(UpdateError::new(
             UpdateErrorKind::InvalidRelease,
-            format!("implausible size {} of {exe_name}", exe.size),
+            format!("implausible size {} of {EXE_ASSET}", exe.size),
         ));
     }
     Ok(ReleaseAssets {
         exe,
-        checksum: find(&checksum_name)?,
+        checksum: find(CHECKSUM_ASSET)?,
     })
 }
 
@@ -711,7 +704,7 @@ async fn install(
         ));
     }
     let latest = parse_tag(&release.tag_name)?;
-    let assets = select_assets(&release, &latest)?;
+    let assets = select_assets(&release)?;
     let expected_hash = download_checksum(assets.checksum, &assets.exe.name).await?;
 
     // The path the app was started from; `app.restart()` starts that path
@@ -770,10 +763,6 @@ mod tests {
 
     const OLDER: &str = "2026.1101.930";
     const LATEST_SEMVER: &str = "2026.1114.2000";
-
-    fn latest() -> ReleaseVersion {
-        parse_tag("v2026-11-14-2000").unwrap()
-    }
 
     fn asset(name: &str, size: u64) -> GithubAsset {
         GithubAsset {
@@ -949,33 +938,27 @@ mod tests {
     }
 
     #[test]
-    fn selects_the_exe_and_checksum_of_the_version() {
+    fn selects_the_exe_and_checksum() {
         let release = release(
             "v2026-11-14-2000",
             vec![
-                asset("belegwerk-2026-11-01-0930.exe", 100),
-                asset("belegwerk-2026-11-14-2000.exe.sha256", 85),
-                asset("belegwerk-2026-11-14-2000.exe", 13_000_000),
+                asset("other.exe", 100),
+                asset("belegwerk.exe.sha256", 85),
+                asset("belegwerk.exe", 13_000_000),
             ],
         );
-        let assets = select_assets(&release, &latest()).unwrap();
-        assert_eq!(assets.exe.name, "belegwerk-2026-11-14-2000.exe");
-        assert_eq!(assets.checksum.name, "belegwerk-2026-11-14-2000.exe.sha256");
+        let assets = select_assets(&release).unwrap();
+        assert_eq!(assets.exe.name, "belegwerk.exe");
+        assert_eq!(assets.checksum.name, "belegwerk.exe.sha256");
     }
 
     #[test]
     fn refuses_a_release_without_exe_or_checksum() {
-        let only_exe = release(
-            "v2026-11-14-2000",
-            vec![asset("belegwerk-2026-11-14-2000.exe", 100)],
-        );
-        let only_checksum = release(
-            "v2026-11-14-2000",
-            vec![asset("belegwerk-2026-11-14-2000.exe.sha256", 85)],
-        );
+        let only_exe = release("v2026-11-14-2000", vec![asset("belegwerk.exe", 100)]);
+        let only_checksum = release("v2026-11-14-2000", vec![asset("belegwerk.exe.sha256", 85)]);
         for release in [only_exe, only_checksum] {
             assert_eq!(
-                select_assets(&release, &latest()).unwrap_err().kind,
+                select_assets(&release).unwrap_err().kind,
                 UpdateErrorKind::InvalidRelease
             );
         }
@@ -983,14 +966,14 @@ mod tests {
 
     #[test]
     fn refuses_downloads_outside_the_repository() {
-        let mut exe = asset("belegwerk-2026-11-14-2000.exe", 100);
-        exe.browser_download_url = "https://example.com/belegwerk-2026-11-14-2000.exe".into();
+        let mut exe = asset("belegwerk.exe", 100);
+        exe.browser_download_url = "https://example.com/belegwerk.exe".into();
         let release = release(
             "v2026-11-14-2000",
-            vec![exe, asset("belegwerk-2026-11-14-2000.exe.sha256", 85)],
+            vec![exe, asset("belegwerk.exe.sha256", 85)],
         );
         assert_eq!(
-            select_assets(&release, &latest()).unwrap_err().kind,
+            select_assets(&release).unwrap_err().kind,
             UpdateErrorKind::InvalidRelease
         );
     }
@@ -1001,19 +984,19 @@ mod tests {
             let release = release(
                 "v2026-11-14-2000",
                 vec![
-                    asset("belegwerk-2026-11-14-2000.exe", size),
-                    asset("belegwerk-2026-11-14-2000.exe.sha256", 85),
+                    asset("belegwerk.exe", size),
+                    asset("belegwerk.exe.sha256", 85),
                 ],
             );
-            assert!(select_assets(&release, &latest()).is_err(), "{size}");
+            assert!(select_assets(&release).is_err(), "{size}");
         }
     }
 
     #[test]
     fn parses_the_checksum_file_of_the_release_script() {
-        let content = format!("{HASH}  belegwerk-2026-11-14-2000.exe\n");
+        let content = format!("{HASH}  belegwerk.exe\n");
         assert_eq!(
-            parse_checksum_file(&content, "belegwerk-2026-11-14-2000.exe").unwrap(),
+            parse_checksum_file(&content, "belegwerk.exe").unwrap(),
             HASH
         );
     }
@@ -1022,13 +1005,13 @@ mod tests {
     fn parses_binary_mode_uppercase_bom_and_bare_hashes() {
         let upper = HASH.to_ascii_uppercase();
         for content in [
-            format!("{HASH} *belegwerk-2026-11-14-2000.exe"),
-            format!("{upper}  belegwerk-2026-11-14-2000.exe\r\n"),
-            format!("\u{feff}{HASH}  belegwerk-2026-11-14-2000.exe"),
+            format!("{HASH} *belegwerk.exe"),
+            format!("{upper}  belegwerk.exe\r\n"),
+            format!("\u{feff}{HASH}  belegwerk.exe"),
             format!("\n{HASH}\n"),
         ] {
             assert_eq!(
-                parse_checksum_file(&content, "belegwerk-2026-11-14-2000.exe").unwrap(),
+                parse_checksum_file(&content, "belegwerk.exe").unwrap(),
                 HASH,
                 "{content:?}"
             );
@@ -1040,13 +1023,13 @@ mod tests {
         for content in [
             String::new(),
             "   \n".to_string(),
-            "not-a-hash  belegwerk-2026-11-14-2000.exe".to_string(),
-            format!("{}  belegwerk-2026-11-14-2000.exe", &HASH[..63]),
-            format!("{}g  belegwerk-2026-11-14-2000.exe", &HASH[..63]),
-            format!("{HASH}  belegwerk-2026-11-01-0930.exe"),
+            "not-a-hash  belegwerk.exe".to_string(),
+            format!("{}  belegwerk.exe", &HASH[..63]),
+            format!("{}g  belegwerk.exe", &HASH[..63]),
+            format!("{HASH}  other.exe"),
         ] {
             assert_eq!(
-                parse_checksum_file(&content, "belegwerk-2026-11-14-2000.exe")
+                parse_checksum_file(&content, "belegwerk.exe")
                     .unwrap_err()
                     .kind,
                 UpdateErrorKind::InvalidRelease,

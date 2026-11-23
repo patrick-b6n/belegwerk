@@ -28,7 +28,7 @@ bleiben auf dem eigenen Rechner.
 ## Installation
 
 Die aktuelle Version unter
-[Releases](https://github.com/patrick-b6n/belegwerk-next/releases) herunterladen
+[Releases](https://github.com/patrick-b6n/belegwerk/releases) herunterladen
 und starten. Eine Installation ist nicht nötig. Weitere Hinweise stehen im
 [Handbuch](docs/handbuch.md).
 

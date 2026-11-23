@@ -47,18 +47,16 @@ Kalenderjahr.
 Belegwerk ist eine **einzelne `.exe`** ohne Installer und ohne
 Code-Signierung. Bezugsquellen:
 
-- **GitHub-Releases** (`belegwerk-<version>.exe` samt `.sha256`), entstehen
+- **GitHub-Releases** (`belegwerk.exe` samt `.sha256`), entstehen
   automatisch bei jedem Push auf `main`. Die Version ist
   Datum und Uhrzeit des Releases in UTC, z. B. `2026-11-14-2000`.
-- **Selbst bauen** mit `pnpm release` (siehe [Development](development.md)); legt `release/belegwerk-<version>.exe` samt
+- **Selbst bauen** mit `pnpm release` (siehe [Development](development.md)); legt `release/belegwerk.exe` samt
   `.sha256` an. Lokale Builds werden nicht veröffentlicht.
 - **Artefakt eines CI-Laufs** (nur zum Ausprobieren, 7 Tage aufbewahrt, siehe
   [CI](development.md#ci)).
 
 - **Starten:** Die `.exe` an einen beliebigen Ort legen und starten; sie
-  braucht keine weiteren Dateien. Am besten in `belegwerk.exe` umbenennen:
-  Das Auto-Update behält den Dateinamen bei, sonst trüge die Datei nach
-  Updates weiter die alte Versionsnummer im Namen.
+  braucht keine weiteren Dateien. Das Auto-Update behält den Dateinamen bei.
 - **SmartScreen:** Da die `.exe` nicht signiert ist, meldet Windows nach dem
   Herunterladen „Der Computer wurde durch Windows geschützt“. Über **„Weitere
   Informationen“ → „Trotzdem ausführen“** starten, oder vorher in den
