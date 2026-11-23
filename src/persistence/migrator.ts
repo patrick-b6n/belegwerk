@@ -2,7 +2,6 @@ import type { Migration } from "./bundled-migrations";
 import { rollbackQuietly, type SqlConnection } from "./connection";
 import type { SqlClient } from "./sql-client";
 
-/** Tracking table: one row per applied migration. */
 export const MIGRATIONS_TABLE = "__migrations";
 
 export type MigrationErrorCode =

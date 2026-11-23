@@ -151,7 +151,6 @@ export type StripeImportResult =
   /** Stripe refused or was not reachable; nothing was written. */
   | { readonly ok: false; readonly reason: "stripe"; readonly error: StripeClientError };
 
-/** What #31 needs to suggest the next period. */
 export interface StripeImportStatus {
   /** When the last successful import ran (`toISOString()`), `null` if never. */
   readonly lastImportAt: string | null;
@@ -175,7 +174,6 @@ export interface StripeImportServiceDependencies {
   readonly clock: Clock;
 }
 
-/** One fee or refund to book. */
 interface ImportItem {
   readonly kind: "fee" | "refund";
   readonly id: string;

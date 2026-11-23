@@ -33,7 +33,6 @@ import type { EuerReportLine, EuerResult } from "./calculate-euer";
 import type { EuerPosition } from "./positions";
 import { incomeInReportOrder } from "./report-order";
 
-/** The columns of the EÜR export, in file order. */
 export const EUER_CSV_COLUMNS = ["section", "line", "label", "amount", "nonDeductible"] as const;
 
 export type EuerCsvColumn = (typeof EUER_CSV_COLUMNS)[number];
@@ -54,11 +53,9 @@ export interface EuerCsvLabels {
     /** The totals rows. */
     readonly result: string;
   };
-  /** Labels of the totals rows. */
   readonly totals: {
     readonly income: string;
     readonly expenses: string;
-    /** Result > 0, < 0 and = 0. */
     readonly profit: string;
     readonly loss: string;
     readonly zero: string;

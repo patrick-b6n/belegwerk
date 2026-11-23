@@ -13,19 +13,15 @@ import { euerQueryKeys } from "@/ui/euer/euer-queries";
 import { taxYearQueryKeys } from "@/ui/tax-years/tax-year-queries";
 
 /**
- * TanStack Query keys of the booking data.
  * Hierarchical, so mutations invalidate everything about bookings
  * with `queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all })`
  * – the list and every loaded single booking.
  */
 export const bookingQueryKeys = {
   all: ["bookings"] as const,
-  /** Every booking list query, whatever its search (prefix of `list(query)`). */
   lists: () => [...bookingQueryKeys.all, "list"] as const,
-  /** One booking search (#21): `["bookings", "list", query]`. */
   list: (query: BookingQuery) => [...bookingQueryKeys.lists(), query] as const,
   detail: (id: number) => [...bookingQueryKeys.all, "detail", id] as const,
-  /** Text suggestions of the booking form: `["bookings", "suggestions", field, type]`. */
   suggestions: (field: BookingTextField, type: BookingType) =>
     [...bookingQueryKeys.all, "suggestions", field, type] as const,
 };

@@ -1,6 +1,5 @@
 import { safeFileNamePart } from "../files";
 
-/** Parts of a suggested export file name; texts come from the UI. */
 export interface CsvFileNameParts {
   /** What is exported, e.g. `"buchungen"`. */
   readonly base: string;

@@ -1,8 +1,3 @@
-/**
- * UI texts of the booking area: labels of types, sources and VAT rates, and
- * the booking form's and the list filters' error codes (business
- * returns codes, the UI translates them).
- */
 import {
   BOOKING_SEARCH_TEXT_MAX_LENGTH,
   BOOKING_TEXT_MAX_LENGTH,
@@ -35,10 +30,6 @@ export const VAT_RATE_LABELS: Readonly<Record<VatRate, () => string>> = {
   reverse_charge: m.booking_vat_rate_reverse_charge,
 };
 
-/**
- * Texts of the CSV export (#24): the column headers are those of the list
- * and the form, the values the labels shown in the app.
- */
 export function bookingCsvLabels(): BookingCsvLabels {
   return {
     columns: {
@@ -80,7 +71,6 @@ const AMOUNT_INPUT_MESSAGES: Readonly<Record<AmountInputError, () => string>> = 
 
 const tooLong = (max: number) => m.booking_error_too_long({ max: String(max) });
 
-/** Message of an error the service reported (`BookingFieldError`). */
 export function bookingErrorMessage(error: BookingFieldError): string {
   switch (error.field) {
     case "date":
@@ -146,7 +136,6 @@ export function bookingErrorMessage(error: BookingFieldError): string {
   throw new Error(`No message for booking error ${JSON.stringify(error)}`);
 }
 
-/** Message of an error the form detected itself. */
 export function clientErrorMessage(error: ClientFieldError): string {
   switch (error.field) {
     case "date":
@@ -167,7 +156,6 @@ export function clientErrorMessage(error: ClientFieldError): string {
 const amountFilterTooLarge = () =>
   m.bookings_filter_error_amount_too_large({ max: formatCurrency(MAX_AMOUNT_CENTS) });
 
-/** Message of an amount filter input that `parseAmount` rejects. */
 export function amountFilterErrorMessage(error: Exclude<ParseAmountError, "empty">): string {
   switch (error) {
     case "negative":
@@ -181,7 +169,6 @@ export function amountFilterErrorMessage(error: Exclude<ParseAmountError, "empty
   }
 }
 
-/** Message of an error `normalizeBookingQuery` reports for the list's filters (#22). */
 export function bookingQueryErrorMessage(error: BookingQueryError): string {
   switch (error.code) {
     case "tooLong":

@@ -1,14 +1,8 @@
-/**
- * CSV export of bookings (#24): maps the bookings of a search to rows of the
- * shared CSV format (`src/business/csv`).
- */
-
 import { type CsvCell, csvLiteral, type CsvRow, toCsv } from "../csv";
 import { formatAmountPlain, formatDate } from "../format";
 import type { BookingSource, BookingType, VatRate } from "../model";
 import type { BookingListItem } from "./booking-service";
 
-/** The columns of the booking export, in file order. */
 export const BOOKING_CSV_COLUMNS = [
   "date",
   "type",

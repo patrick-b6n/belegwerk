@@ -215,7 +215,6 @@ function sumOf(column: SQLWrapper) {
   return sql<number>`sum(${column})`.mapWith(Number);
 }
 
-/** Sum of the gross amounts of the bookings of `type`; 0 if there are none. */
 function grossOf(type: "income" | "expense") {
   return sql<number>`coalesce(sum(case when ${bookings.type} = ${type} then ${bookings.grossCents} end), 0)`.mapWith(
     Number,

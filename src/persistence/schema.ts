@@ -30,7 +30,6 @@ function col(column: { name: string }) {
   return sql.identifier(column.name);
 }
 
-/** Boolean stored as INTEGER 0/1 (Drizzle maps it to `boolean`). */
 function flag(name: string) {
   return integer(name, { mode: "boolean" }).notNull().default(false);
 }

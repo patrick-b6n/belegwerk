@@ -18,9 +18,7 @@
 import type { EuerPosition } from "./positions";
 
 export interface EuerLine {
-  /** Line number ("Zeile") in the Anlage EÜR of the year. */
   readonly line: number;
-  /** Line text of the official form. */
   readonly label: string;
 }
 
@@ -171,13 +169,11 @@ const ANLAGE_EUER_2026 = withLabels(
   LABELS_2025_2026,
 );
 
-/** Mapping per tax year. */
 export const EUER_LINE_MAPPINGS: Readonly<Record<number, EuerLineMapping>> = {
   2025: ANLAGE_EUER_2025,
   2026: ANLAGE_EUER_2026,
 };
 
-/** Whether a line mapping exists for the year (EÜR view hint, #26). */
 export function hasLineMapping(year: number): boolean {
   return Object.hasOwn(EUER_LINE_MAPPINGS, year);
 }
