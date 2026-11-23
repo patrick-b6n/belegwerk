@@ -82,7 +82,7 @@ function ToastTitle({ className, ...props }: ToastPrimitive.Title.Props) {
   return (
     <ToastPrimitive.Title
       data-slot="toast-title"
-      className={cn("text-sm font-medium", className)}
+      className={cn("text-sm font-semibold", className)}
       {...props}
     />
   );
@@ -139,7 +139,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   let icon: React.ReactNode = null;
 
   if (type === "success") {
-    icon = <CircleCheckIcon aria-hidden="true" />;
+    icon = <CircleCheckIcon className="text-primary" aria-hidden="true" />;
   }
 
   if (type === "info") {

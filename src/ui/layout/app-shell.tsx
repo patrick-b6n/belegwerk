@@ -1,4 +1,4 @@
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
 import { BookOpenText, Calculator, type LucideIcon, Settings, Tags } from "lucide-react";
 import type { ReactNode } from "react";
@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 import iconUrl from "@/ui/assets/brand/icon.svg";
 import wordmarkUrl from "@/ui/assets/brand/wordmark.svg";
+import { LastSearchProvider, useLastSearches } from "@/ui/layout/last-search";
 import { UpdateNotice } from "@/ui/updates/update-notice";
 
 /** Id of the scrolling content area (scroll reset in src/router.tsx, skip link). */
@@ -17,7 +18,7 @@ export const SETTINGS_LINK_ID = "app-settings-link";
 type NavItem = {
   icon: LucideIcon;
   label: () => string;
-  to: LinkProps["to"];
+  to: "/bookings" | "/euer" | "/categories";
 };
 
 /**
@@ -42,62 +43,73 @@ const mainItems: NavItem[] = [
  */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="flex h-svh flex-col bg-sidebar text-sidebar-foreground">
-      <a
-        href={`#${APP_CONTENT_ID}`}
-        onClick={(event) => {
-          // Focus the content without adding a hash/history entry; the href
-          // stays as fallback.
-          event.preventDefault();
-          document.getElementById(APP_CONTENT_ID)?.focus();
-        }}
-        className="sr-only rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:ring-2 focus:ring-ring"
-      >
-        {m.nav_skip_to_content()}
-      </a>
-      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4">
-        <div className="flex items-center gap-2.5 pr-4">
-          <img src={iconUrl} alt="" className="size-5" />
-          <img src={wordmarkUrl} alt={m.app_title()} className="h-4.5" />
-        </div>
-        <nav aria-label={m.nav_label()} className="flex min-w-0 flex-1 items-center gap-2">
-          <ul className="flex items-center">
-            {mainItems.map((item) => (
-              <li key={item.to}>
-                <NavLink item={item} />
-              </li>
-            ))}
-          </ul>
-          <div className="ml-auto flex items-center gap-2">
-            <UpdateNotice />
-            <Link
-              id={SETTINGS_LINK_ID}
-              to="/settings"
-              aria-label={m.settings_title()}
-              title={m.settings_title()}
-              className={cn(NAV_ITEM, "size-8 justify-center data-[status=active]:after:-bottom-2")}
-            >
-              <Settings aria-hidden className="size-4" />
-            </Link>
+    <LastSearchProvider>
+      <div className="flex h-svh flex-col bg-sidebar text-sidebar-foreground">
+        <a
+          href={`#${APP_CONTENT_ID}`}
+          onClick={(event) => {
+            // Focus the content without adding a hash/history entry; the href
+            // stays as fallback.
+            event.preventDefault();
+            document.getElementById(APP_CONTENT_ID)?.focus();
+          }}
+          className="sr-only rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:ring-2 focus:ring-ring"
+        >
+          {m.nav_skip_to_content()}
+        </a>
+        <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4">
+          <div className="flex items-center gap-2.5 pr-4">
+            <img src={iconUrl} alt="" className="size-5" />
+            <img src={wordmarkUrl} alt={m.app_title()} className="h-4.5" />
           </div>
-        </nav>
-      </header>
-      <div
-        id={APP_CONTENT_ID}
-        data-scroll-restoration-id={APP_CONTENT_ID}
-        tabIndex={-1}
-        className="min-h-0 flex-1 scroll-pb-20 overflow-auto border-t bg-background text-foreground outline-none"
-      >
-        {children}
+          <nav aria-label={m.nav_label()} className="flex min-w-0 flex-1 items-center gap-2">
+            <ul className="flex items-center">
+              {mainItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink item={item} />
+                </li>
+              ))}
+            </ul>
+            <div className="ml-auto flex items-center gap-2">
+              <UpdateNotice />
+              <Link
+                id={SETTINGS_LINK_ID}
+                to="/settings"
+                aria-label={m.settings_title()}
+                title={m.settings_title()}
+                className={cn(
+                  NAV_ITEM,
+                  "size-8 justify-center data-[status=active]:after:-bottom-2",
+                )}
+              >
+                <Settings aria-hidden className="size-4" />
+              </Link>
+            </div>
+          </nav>
+        </header>
+        {/* `relative`: contains the absolutely positioned screen reader texts; they
+          would otherwise make the document scroll as well. */}
+        <div
+          id={APP_CONTENT_ID}
+          data-scroll-restoration-id={APP_CONTENT_ID}
+          tabIndex={-1}
+          className="relative min-h-0 flex-1 scroll-pb-20 overflow-auto border-t bg-background text-foreground outline-none"
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </LastSearchProvider>
   );
 }
 
 function NavLink({ item: { icon: Icon, label, to } }: Readonly<{ item: NavItem }>) {
+  const searches = useLastSearches();
   return (
     <Link
       to={to}
+      // As it was left (filters, year).
+      search={to === "/bookings" || to === "/euer" ? searches[to] : {}}
+      activeOptions={{ includeSearch: false }}
       className={cn(
         NAV_ITEM,
         "h-10 gap-2 px-3 data-[status=active]:font-semibold data-[status=active]:after:-bottom-1",

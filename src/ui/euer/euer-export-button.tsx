@@ -1,4 +1,4 @@
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 
 import type { EuerResult } from "@/business/euer";
 import { m } from "@/paraglide/messages.js";
@@ -57,15 +57,13 @@ export function EuerExportButton({
     <Button
       variant="outline"
       title={hint}
+      busy={running}
       disabled={disabled}
-      // Stays focusable while the export runs (the focus would fall back to
-      // the page) and shows its tooltip when disabled.
+      // Shows its tooltip when disabled.
       focusableWhenDisabled
-      aria-busy={running || undefined}
-      className="data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:hover:bg-background"
       onClick={() => void runExport()}
     >
-      {running ? <Loader2 aria-hidden className="animate-spin" /> : <Download aria-hidden />}
+      <Download aria-hidden />
       {running ? m.euer_export_running() : m.euer_export()}
     </Button>
   );

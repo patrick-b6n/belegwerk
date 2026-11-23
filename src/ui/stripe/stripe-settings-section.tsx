@@ -1,5 +1,4 @@
 import { useForm } from "@tanstack/react-form";
-import { AlertTriangle } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import type { Category, VatRate } from "@/business/model";
@@ -21,8 +20,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/ui/components/ui/alert-dialog";
+import { Badge } from "@/ui/components/ui/badge";
 import { Button } from "@/ui/components/ui/button";
 import { Input } from "@/ui/components/ui/input";
+import { Notice } from "@/ui/components/ui/notice";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
 } from "@/ui/components/ui/select";
 import { toast } from "@/ui/components/ui/toast";
 import { focusFirstInvalid, FormField } from "@/ui/forms/form-field";
+import { LoadError, LoadingText } from "@/ui/layout/page";
 import { revalidateKeepingServerErrorsOnBlur } from "@/ui/forms/validation-logic";
 
 import {
@@ -59,23 +61,13 @@ export function StripeSettingsSection() {
   const categories = useCategoryList();
 
   if (settings.isPending || categories.isPending) {
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        {m.stripe_loading()}
-      </p>
-    );
+    return <LoadingText>{m.stripe_loading()}</LoadingText>;
   }
   if (settings.error || categories.error) {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.stripe_load_error()}</p>
-        <Button
-          variant="outline"
-          onClick={() => void Promise.all([settings.refetch(), categories.refetch()])}
-        >
-          {m.common_retry()}
-        </Button>
-      </div>
+      <LoadError onRetry={() => void Promise.all([settings.refetch(), categories.refetch()])}>
+        {m.stripe_load_error()}
+      </LoadError>
     );
   }
   const { apiKey, defaults } = settings.data;
@@ -89,7 +81,7 @@ export function StripeSettingsSection() {
 
 function SubHeading({ id, children }: Readonly<{ id: string; children: string }>) {
   return (
-    <h3 id={id} className="font-heading text-base font-medium">
+    <h3 id={id} className="font-heading text-base font-semibold">
       {children}
     </h3>
   );
@@ -109,32 +101,26 @@ function ApiKeyPanel({ apiKey }: Readonly<{ apiKey: StripeApiKeyInfo | null }>) 
   return (
     <div id={groupId} role="group" aria-labelledby={headingId} className="flex flex-col gap-3">
       <SubHeading id={headingId}>{m.stripe_key_heading()}</SubHeading>
-      <div className="flex max-w-3xl flex-col gap-1 rounded-lg bg-muted/50 p-3 text-sm">
+      <Notice className="max-w-3xl">
         <p>{m.stripe_key_permission_hint()}</p>
         <p className="text-muted-foreground">{m.stripe_key_create_hint()}</p>
         <p className="text-muted-foreground">{m.stripe_key_storage_hint()}</p>
-      </div>
+      </Notice>
       {apiKey ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted-foreground">{m.stripe_key_stored_label()}</span>
           <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm">
             {apiKey.masked}
           </code>
-          <span
-            className={
-              apiKey.mode === "live"
-                ? "rounded-md bg-emerald-100 px-1.5 text-xs text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                : "rounded-md bg-amber-100 px-1.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-            }
-          >
+          <Badge variant={apiKey.mode === "live" ? "success" : "warning"}>
             {keyModeLabel(apiKey.mode)}
-          </span>
+          </Badge>
           {!editing && (
             <span className="flex gap-2">
               <Button ref={changeRef} variant="outline" onClick={() => setEditing(true)}>
                 {m.stripe_key_change()}
               </Button>
-              <Button variant="destructive" onClick={() => setConfirmRemove(true)}>
+              <Button variant="destructive-outline" onClick={() => setConfirmRemove(true)}>
                 {m.stripe_key_remove()}
               </Button>
             </span>
@@ -233,6 +219,7 @@ function ApiKeyForm({ replacing, onDone }: Readonly<{ replacing: boolean; onDone
           <FormField
             id={`${id}-key`}
             label={label}
+            required
             errors={field.state.meta.errors}
             className="w-full max-w-2xl"
           >
@@ -254,7 +241,7 @@ function ApiKeyForm({ replacing, onDone }: Readonly<{ replacing: boolean; onDone
                 />
                 <form.Subscribe selector={(state) => state.isSubmitting}>
                   {(isSubmitting) => (
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button type="submit" busy={isSubmitting}>
                       {isSubmitting ? m.stripe_key_saving() : m.stripe_key_save()}
                     </Button>
                   )}
@@ -300,7 +287,7 @@ function TestConnection() {
     <div className="flex flex-col items-start gap-2">
       <Button
         variant="outline"
-        disabled={isPending}
+        busy={isPending}
         onClick={() =>
           testConnection.mutate(undefined, {
             // No details: nothing about the request (headers) belongs in the log.
@@ -356,7 +343,7 @@ function RemoveKeyDialog({
           </AlertDialogCancel>
           <Button
             variant="destructive"
-            disabled={deleteApiKey.isPending}
+            busy={deleteApiKey.isPending}
             onClick={() => void confirm()}
           >
             {deleteApiKey.isPending ? m.stripe_key_removing() : m.stripe_key_remove_confirm()}
@@ -438,22 +425,19 @@ function DefaultsForm({
       <SubHeading id={headingId}>{m.stripe_defaults_heading()}</SubHeading>
       {unsaved && <p className="text-sm text-muted-foreground">{m.stripe_defaults_unsaved()}</p>}
       {problems.length > 0 && (
-        <div className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400">
-          <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
-          <div>
-            <p>{m.stripe_defaults_problems()}</p>
-            <ul className="list-disc pl-5">
-              {problems.map((problem) => (
-                <li key={problem.field}>
-                  {m.stripe_defaults_problem({
-                    field: defaultsFieldLabel(problem.field),
-                    message: defaultsErrorMessage(problem),
-                  })}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        <Notice variant="warning" className="max-w-3xl">
+          <p>{m.stripe_defaults_problems()}</p>
+          <ul className="list-disc pl-5">
+            {problems.map((problem) => (
+              <li key={problem.field}>
+                {m.stripe_defaults_problem({
+                  field: defaultsFieldLabel(problem.field),
+                  message: defaultsErrorMessage(problem),
+                })}
+              </li>
+            ))}
+          </ul>
+        </Notice>
       )}
 
       <form.Field
@@ -464,6 +448,7 @@ function DefaultsForm({
           <FormField
             id={`${id}-vat`}
             label={m.stripe_defaults_vat_rate_label()}
+            required
             description={m.stripe_defaults_vat_rate_description()}
             errors={field.state.meta.errors}
             className="max-w-xl"
@@ -511,6 +496,7 @@ function DefaultsForm({
                     ? m.stripe_defaults_fee_category_label()
                     : m.stripe_defaults_refund_category_label()
                 }
+                required
                 description={
                   options.length === 0
                     ? m.stripe_defaults_category_none()
@@ -552,7 +538,7 @@ function DefaultsForm({
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <div>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" busy={isSubmitting}>
               {isSubmitting ? m.stripe_defaults_saving() : m.stripe_defaults_save()}
             </Button>
           </div>

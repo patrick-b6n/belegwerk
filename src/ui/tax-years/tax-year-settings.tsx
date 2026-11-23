@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/ui/components/ui/alert-dialog";
+import { Badge } from "@/ui/components/ui/badge";
 import { Button } from "@/ui/components/ui/button";
 import { Input } from "@/ui/components/ui/input";
 import { Switch } from "@/ui/components/ui/switch";
@@ -26,6 +27,7 @@ import {
   TableRow,
 } from "@/ui/components/ui/table";
 import { toast } from "@/ui/components/ui/toast";
+import { LoadError, LoadingText } from "@/ui/layout/page";
 import { focusFirstInvalid, FormField } from "@/ui/forms/form-field";
 import { revalidateKeepingServerErrorsOnBlur } from "@/ui/forms/validation-logic";
 
@@ -53,21 +55,10 @@ export function TaxYearSettings() {
   const [currentYear] = useState(() => new Date().getFullYear());
 
   if (isPending) {
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        {m.tax_years_loading()}
-      </p>
-    );
+    return <LoadingText>{m.tax_years_loading()}</LoadingText>;
   }
   if (error) {
-    return (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.tax_years_load_error()}</p>
-        <Button variant="outline" onClick={() => void refetch()}>
-          {m.common_retry()}
-        </Button>
-      </div>
-    );
+    return <LoadError onRetry={() => void refetch()}>{m.tax_years_load_error()}</LoadError>;
   }
   const years = sortYearsAscending(data);
   const listed = years.map((taxYear) => taxYear.year);
@@ -170,25 +161,20 @@ function TaxYearRow({ taxYear }: Readonly<{ taxYear: TaxYearOverview }>) {
 
   return (
     <TableRow data-year={year}>
-      <TableCell className="font-medium tabular-nums">{year}</TableCell>
+      <TableCell className="font-semibold tabular-nums">{year}</TableCell>
       <TableCell className="whitespace-normal">
         <div className="flex flex-col gap-1">
           <span className="flex flex-wrap items-center gap-1.5">
             <span>{taxStatusLabel(taxYear.smallBusiness)}</span>
             {!taxYear.explicit && (
-              <span
-                title={m.tax_years_default_title()}
-                className="shrink-0 rounded-md bg-muted px-1 text-xs text-muted-foreground"
-              >
-                {m.tax_years_default()}
-              </span>
+              <Badge title={m.tax_years_default_title()}>{m.tax_years_default()}</Badge>
             )}
           </span>
           {hasHint && (
             <span id={hintId} className="flex flex-col gap-1 text-sm">
               {!taxYear.explicit && <span className="sr-only">{m.tax_years_default_title()}</span>}
               {taxYear.mismatchedBookings > 0 && (
-                <span className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
+                <span className="flex items-start gap-1.5 text-amber-700">
                   <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
                   {mismatchedBookingsHint(taxYear.mismatchedBookings, taxYear.smallBusiness)}
                 </span>
@@ -255,7 +241,7 @@ function ConflictDialog({
           <AlertDialogCancel ref={cancelRef} disabled={saving}>
             {m.common_cancel()}
           </AlertDialogCancel>
-          <Button disabled={saving} onClick={onConfirm}>
+          <Button busy={saving} onClick={onConfirm}>
             {saving ? m.tax_years_conflict_saving() : m.tax_years_conflict_confirm()}
           </Button>
         </AlertDialogFooter>
@@ -330,6 +316,7 @@ function AddTaxYearForm({
           <FormField
             id={`${id}-year`}
             label={m.tax_years_add_label()}
+            required
             description={m.tax_years_add_description()}
             errors={field.state.meta.errors}
             className="w-auto max-w-md"
@@ -349,7 +336,7 @@ function AddTaxYearForm({
                 />
                 <form.Subscribe selector={(state) => state.isSubmitting}>
                   {(isSubmitting) => (
-                    <Button type="submit" variant="outline" disabled={isSubmitting}>
+                    <Button type="submit" busy={isSubmitting}>
                       {isSubmitting ? m.tax_years_adding() : m.tax_years_add_submit()}
                     </Button>
                   )}

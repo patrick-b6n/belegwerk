@@ -4,8 +4,7 @@ import { useState } from "react";
 import { m } from "@/paraglide/messages.js";
 import { CategoryList } from "@/ui/categories/category-list";
 import { useCategoryList } from "@/ui/categories/category-queries";
-import { Button } from "@/ui/components/ui/button";
-import { Page } from "@/ui/layout/page";
+import { LoadError, LoadingText, Page } from "@/ui/layout/page";
 
 /**
  * The category management (#19). EÜR line numbers are shown for the current
@@ -32,21 +31,10 @@ function Categories() {
   const [year] = useState(() => new Date().getFullYear());
 
   if (isPending) {
-    return (
-      <p role="status" className="text-muted-foreground">
-        {m.categories_loading()}
-      </p>
-    );
+    return <LoadingText>{m.categories_loading()}</LoadingText>;
   }
   if (error) {
-    return (
-      <div className="flex flex-col items-start gap-3">
-        <p role="alert">{m.categories_load_error()}</p>
-        <Button variant="outline" onClick={() => void refetch()}>
-          {m.common_retry()}
-        </Button>
-      </div>
-    );
+    return <LoadError onRetry={() => void refetch()}>{m.categories_load_error()}</LoadError>;
   }
   return <CategoryList categories={data} year={year} />;
 }

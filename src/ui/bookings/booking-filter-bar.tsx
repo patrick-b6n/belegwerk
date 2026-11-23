@@ -391,7 +391,7 @@ export function BookingFilterBar({
               className="-my-1 -ml-2.5 self-start text-primary hover:text-primary"
               onClick={onReset}
             >
-              {m.bookings_filter_reset_all()}
+              {m.bookings_filter_reset()}
             </Button>
           )}
         </PopoverContent>
@@ -412,7 +412,7 @@ export function BookingFilterBar({
         </div>
       ))}
 
-      <div className="flex items-center gap-2 self-center">
+      <div className="flex items-center gap-2">
         {/* The number of set filters is on the "Filter" button; announced here. */}
         <span aria-live="polite" className="sr-only">
           {activeCount === 0
@@ -454,8 +454,11 @@ interface FilterSlot {
 }
 
 function chipClass(active: boolean): string {
-  return cn(active && "border-primary/40 bg-primary/10 font-semibold dark:bg-primary/15");
+  return cn(active && "border-primary/40 bg-primary/10 font-semibold");
 }
+
+/** "Alle" (no value selected) is a choice here, not a placeholder. */
+const MULTI_SELECT = "max-w-64 data-placeholder:text-foreground";
 
 /** The filter's name inside its trigger ("Art: Alle"); the label is for screen readers. */
 function ChipLabel({ children }: Readonly<{ children: ReactNode }>) {
@@ -581,7 +584,7 @@ function SearchField({
               if (event.key === "Enter") input.flush();
             }}
             onBlur={input.flush}
-            className="bg-background pl-8"
+            className="pl-8"
           />
         </div>
       )}
@@ -843,7 +846,7 @@ function DateField({
           value={input.value}
           onChange={(event) => input.onChange(event.target.value)}
           onBlur={input.flush}
-          className="w-36 bg-background"
+          className="w-36"
         />
       )}
     </FilterField>
@@ -972,43 +975,45 @@ function AmountField({
       label={label}
       hideLabel
       errors={ownError ? [ownError] : errors}
-      className={cn(inPanel && "min-w-0 flex-1")}
+      className={cn(inPanel ? "min-w-0 flex-1" : "max-w-56")}
     >
       {(control) => (
-        <div className="relative">
-          <Input
-            {...control}
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder={placeholder}
-            value={input.value}
-            onChange={(event) => input.onChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") input.flush();
-            }}
-            onBlur={() => {
-              input.flush();
-              const value = parseAmountFilter(input.value);
-              if (value.ok && value.cents !== undefined) {
-                const canonical = formatAmountInput(value.cents);
-                if (canonical !== input.value) {
-                  input.onChange(canonical);
-                  input.flush();
+        // Two boxes: the field stretches the outer one to the width of an error.
+        <div>
+          <div className={cn("relative", !inPanel && "w-24")}>
+            <Input
+              {...control}
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder={placeholder}
+              value={input.value}
+              onChange={(event) => input.onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") input.flush();
+              }}
+              onBlur={() => {
+                input.flush();
+                const value = parseAmountFilter(input.value);
+                if (value.ok && value.cents !== undefined) {
+                  const canonical = formatAmountInput(value.cents);
+                  if (canonical !== input.value) {
+                    input.onChange(canonical);
+                    input.flush();
+                  }
                 }
-              }
-            }}
-            className={cn(
-              inPanel ? "w-full" : "w-24",
-              "bg-background pr-7 text-right tabular-nums",
-              cents !== undefined && "border-primary bg-primary/10 dark:bg-primary/15",
-            )}
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground"
-          >
-            €
-          </span>
+              }}
+              className={cn(
+                "pr-7 text-right tabular-nums",
+                cents !== undefined && "border-primary bg-primary/10",
+              )}
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground"
+            >
+              €
+            </span>
+          </div>
         </div>
       )}
     </FilterField>
@@ -1075,7 +1080,7 @@ function CategoryFilter({
           value={selected}
           onValueChange={(ids) => onChange(ids.length > 0 ? ids : undefined)}
         >
-          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), "max-w-64")}>
+          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), MULTI_SELECT)}>
             <ChipLabel>{m.bookings_filter_category_label()}</ChipLabel>
             <SelectValue>{(ids: readonly number[]) => summary(ids)}</SelectValue>
           </SelectTrigger>
@@ -1152,7 +1157,7 @@ function VatRateFilter({
           value={[...selected]}
           onValueChange={(rates) => onChange(sortedVatRateParams(rates))}
         >
-          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), "max-w-64")}>
+          <SelectTrigger {...control} className={cn(chipClass(selected.length > 0), MULTI_SELECT)}>
             <ChipLabel>{m.bookings_filter_vat_rate_label()}</ChipLabel>
             <SelectValue>{(rates: readonly VatRateParam[]) => vatRateSummary(rates)}</SelectValue>
           </SelectTrigger>

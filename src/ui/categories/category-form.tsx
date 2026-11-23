@@ -1,5 +1,5 @@
-import { useForm } from "@tanstack/react-form";
-import { useId, useRef } from "react";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useEffect, useId, useRef } from "react";
 
 import { CATEGORY_NAME_MAX_LENGTH, type CategoryWithUsage } from "@/business/categories";
 import type { BookingType } from "@/business/model";
@@ -7,6 +7,7 @@ import { m } from "@/paraglide/messages.js";
 import { BOOKING_TYPE_LABELS } from "@/ui/bookings/booking-messages";
 import { Button } from "@/ui/components/ui/button";
 import { Checkbox } from "@/ui/components/ui/checkbox";
+import { DialogFooter } from "@/ui/components/ui/dialog";
 import {
   Field,
   FieldContent,
@@ -16,6 +17,7 @@ import {
 } from "@/ui/components/ui/field";
 import { Input } from "@/ui/components/ui/input";
 import { Label } from "@/ui/components/ui/label";
+import { Notice } from "@/ui/components/ui/notice";
 import { RadioGroup, RadioGroupItem } from "@/ui/components/ui/radio-group";
 import {
   Select,
@@ -61,6 +63,8 @@ export interface CategoryFormProps {
   /** Called after saving (or "not found"): the dialog closes. */
   readonly onDone: () => void;
   readonly onCancel: () => void;
+  /** Whether the form has unsaved changes: the dialog asks before closing. */
+  readonly onUnsavedChange: (unsaved: boolean) => void;
 }
 
 /**
@@ -83,6 +87,7 @@ export function CategoryForm({
   year,
   onDone,
   onCancel,
+  onUnsavedChange,
 }: CategoryFormProps) {
   const { create, update } = useCategoryMutations();
   const formRef = useRef<HTMLFormElement>(null);
@@ -128,6 +133,9 @@ export function CategoryForm({
     },
   });
 
+  const unsaved = useStore(form.store, (state) => !state.isDefaultValue);
+  useEffect(() => onUnsavedChange(unsaved), [onUnsavedChange, unsaved]);
+
   const idPrefix = useId();
   const id = (name: string) => `${idPrefix}-${name}`;
 
@@ -143,9 +151,9 @@ export function CategoryForm({
       }}
     >
       {system && (
-        <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          {m.category_form_system_note()}
-        </p>
+        <Notice>
+          <p>{m.category_form_system_note()}</p>
+        </Notice>
       )}
 
       <form.Field name="name" validators={{ onDynamic: ({ value }) => message(checkName(value)) }}>
@@ -173,7 +181,7 @@ export function CategoryForm({
 
       {category ? (
         <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">{m.category_form_type_label()}</span>
+          <span className="font-semibold">{m.category_form_type_label()}</span>
           <span>{BOOKING_TYPE_LABELS[category.type]()}</span>
           <span className="text-muted-foreground">{m.category_form_type_fixed()}</span>
         </div>
@@ -304,6 +312,7 @@ export function CategoryForm({
                 <FormField
                   id={id("euerPosition")}
                   label={m.category_form_position_label()}
+                  required={!system}
                   description={positionDescription(category, system, reducesIncome)}
                   errors={field.state.meta.errors}
                 >
@@ -343,13 +352,13 @@ export function CategoryForm({
         )}
       </form.Subscribe>
 
-      <div className="-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-6 sm:flex-row sm:justify-end">
+      <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
           {m.common_cancel()}
         </Button>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" busy={isSubmitting}>
               {isSubmitting
                 ? m.category_form_saving()
                 : category
@@ -358,7 +367,7 @@ export function CategoryForm({
             </Button>
           )}
         </form.Subscribe>
-      </div>
+      </DialogFooter>
     </form>
   );
 }
@@ -372,7 +381,11 @@ function positionDescription(
   const hints: string[] = [];
   if (reducesIncome) hints.push(m.category_form_position_reduces_income());
   if (category && category.bookingCount > 0) {
-    hints.push(m.category_form_position_retroactive({ count: String(category.bookingCount) }));
+    hints.push(
+      category.bookingCount === 1
+        ? m.category_form_position_retroactive_one()
+        : m.category_form_position_retroactive_other({ count: String(category.bookingCount) }),
+    );
   }
   return hints.length > 0 ? hints.join(" ") : undefined;
 }

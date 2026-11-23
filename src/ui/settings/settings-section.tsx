@@ -1,5 +1,7 @@
 import { type ReactNode, useId } from "react";
 
+import { SectionHeading } from "@/ui/layout/page";
+
 /**
  * One section of the settings page (`/settings`), like a group in the
  * Windows 11 settings: a heading with an optional description above a card
@@ -17,12 +19,10 @@ export function SettingsSection({
     <section
       aria-labelledby={headingId}
       aria-describedby={description ? descriptionId : undefined}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-3"
     >
       <div className="flex flex-col gap-1">
-        <h2 id={headingId} className="text-sm font-semibold">
-          {title}
-        </h2>
+        <SectionHeading id={headingId}>{title}</SectionHeading>
         {description && (
           <p id={descriptionId} className="max-w-3xl text-sm text-muted-foreground">
             {description}

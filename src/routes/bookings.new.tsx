@@ -5,7 +5,8 @@ import { m } from "@/paraglide/messages.js";
 import { BookingForm } from "@/ui/bookings/booking-form";
 import { taxYearOf, todayIsoDate } from "@/ui/bookings/booking-form-model";
 import { useCategoryList } from "@/ui/categories/category-queries";
-import { Page } from "@/ui/layout/page";
+import { BackToBookings } from "@/ui/bookings/back-to-bookings";
+import { LoadError, LoadingText, Page, PageColumn } from "@/ui/layout/page";
 import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
 /** A new booking (#18). Static route: takes precedence over `/bookings/$bookingId`. */
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/bookings/new")({
 
 function NewBookingPage() {
   return (
-    <Page title={m.booking_new_title()} stretch>
+    <Page title={m.booking_new_title()} back={<BackToBookings />} stretch>
       <NewBooking />
     </Page>
   );
@@ -29,12 +30,20 @@ function NewBooking() {
   const [year] = useState(() => taxYearOf(todayIsoDate()));
   const taxYear = useTaxYear(year);
 
-  if (categories.error) return <p role="alert">{m.booking_form_load_error()}</p>;
+  if (categories.error) {
+    return (
+      <PageColumn>
+        <LoadError onRetry={() => void categories.refetch()}>
+          {m.booking_form_load_error()}
+        </LoadError>
+      </PageColumn>
+    );
+  }
   if (categories.isPending || (year !== undefined && taxYear.isPending)) {
     return (
-      <p role="status" className="text-muted-foreground">
-        {m.booking_form_loading()}
-      </p>
+      <PageColumn>
+        <LoadingText>{m.booking_form_loading()}</LoadingText>
+      </PageColumn>
     );
   }
   return <BookingForm categories={categories.data} />;

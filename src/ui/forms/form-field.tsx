@@ -40,7 +40,7 @@ export interface ControlProps {
 /**
  * Label, control and error of one form field (shadcn `Field`). `required`
  * marks the label with an asterisk (and "Pflichtfeld" for screen readers).
- * The description is behind an info icon at the right end of the label row
+ * The description is behind an info icon next to the label
  * (tooltip on hover and focus); for screen readers it stays linked to the
  * control. The control gets `id`, `aria-invalid` and `aria-describedby`
  * (description and error), so screen readers announce the error with the
@@ -86,7 +86,7 @@ export function FormField({
   );
   return (
     <Field data-invalid={invalid || undefined} className={cn("gap-1", className)}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {labelAs === "label" ? (
           <FieldLabel htmlFor={id}>{labelContent}</FieldLabel>
         ) : (
@@ -99,13 +99,13 @@ export function FormField({
                 <button
                   type="button"
                   aria-label={m.form_field_hint({ label })}
-                  className="ml-auto flex size-5 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 />
               }
             >
               <Info aria-hidden className="size-4" />
             </TooltipTrigger>
-            <TooltipContent side="top" align="end">
+            <TooltipContent side="top" align="start">
               {description}
             </TooltipContent>
           </Tooltip>

@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { m } from "@/paraglide/messages.js";
+import { BackToBookings } from "@/ui/bookings/back-to-bookings";
 import { BookingForm } from "@/ui/bookings/booking-form";
 import { taxYearOf } from "@/ui/bookings/booking-form-model";
 import { useBooking } from "@/ui/bookings/booking-queries";
 import { useCategoryList } from "@/ui/categories/category-queries";
 import { buttonVariants } from "@/ui/components/ui/button";
-import { Page, PagePlaceholder } from "@/ui/layout/page";
+import { EmptyState, LoadError, LoadingText, Page, PageColumn } from "@/ui/layout/page";
+import { useLastSearches } from "@/ui/layout/last-search";
 import { useTaxYear } from "@/ui/tax-years/tax-year-queries";
 
 /**
@@ -33,22 +35,30 @@ export const Route = createFileRoute("/bookings/$bookingId")({
 function EditBookingPage() {
   const { bookingId } = Route.useParams();
   return (
-    <Page title={m.booking_edit_title()} stretch>
+    <Page title={m.booking_edit_title()} back={<BackToBookings />} stretch>
       {Number.isInteger(bookingId) ? <EditBooking id={bookingId} /> : <BookingNotFound />}
     </Page>
   );
 }
 
 function BookingNotFound() {
+  const searches = useLastSearches();
   return (
-    <>
-      <PagePlaceholder>{m.booking_not_found()}</PagePlaceholder>
-      <div>
-        <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
-          {m.booking_back_to_list()}
-        </Link>
-      </div>
-    </>
+    <PageColumn>
+      <EmptyState
+        action={
+          <Link
+            to="/bookings"
+            search={searches["/bookings"]}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            {m.booking_back_to_list()}
+          </Link>
+        }
+      >
+        {m.booking_not_found()}
+      </EmptyState>
+    </PageColumn>
   );
 }
 
@@ -59,12 +69,20 @@ function EditBooking({ id }: Readonly<{ id: number }>) {
   // Loaded before the form renders, so the VAT field does not flicker.
   const taxYear = useTaxYear(year);
 
-  if (booking.error || categories.error) return <p role="alert">{m.booking_load_error()}</p>;
+  if (booking.error || categories.error) {
+    return (
+      <PageColumn>
+        <LoadError onRetry={() => void Promise.all([booking.refetch(), categories.refetch()])}>
+          {m.booking_load_error()}
+        </LoadError>
+      </PageColumn>
+    );
+  }
   if (booking.isPending || categories.isPending || (year !== undefined && taxYear.isPending)) {
     return (
-      <p role="status" className="text-muted-foreground">
-        {m.booking_loading()}
-      </p>
+      <PageColumn>
+        <LoadingText>{m.booking_loading()}</LoadingText>
+      </PageColumn>
     );
   }
   if (!booking.data.ok) return <BookingNotFound />;

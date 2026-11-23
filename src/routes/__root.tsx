@@ -14,7 +14,7 @@ import { getLocale } from "@/paraglide/runtime.js";
 import { buttonVariants } from "@/ui/components/ui/button";
 import { Toaster } from "@/ui/components/ui/toast";
 import { AppShell } from "@/ui/layout/app-shell";
-import { Page, PagePlaceholder } from "@/ui/layout/page";
+import { EmptyState, Page } from "@/ui/layout/page";
 import appCss from "@/ui/styles/globals.css?url";
 
 export type RouterContext = {
@@ -61,12 +61,15 @@ function RootComponent() {
 function NotFound() {
   return (
     <Page title={m.not_found_title()}>
-      <PagePlaceholder>{m.not_found_description()}</PagePlaceholder>
-      <div>
-        <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
-          {m.not_found_back()}
-        </Link>
-      </div>
+      <EmptyState
+        action={
+          <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
+            {m.not_found_back()}
+          </Link>
+        }
+      >
+        {m.not_found_description()}
+      </EmptyState>
     </Page>
   );
 }

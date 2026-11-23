@@ -16,16 +16,26 @@ export function taxStatusSavedMessage(year: number, smallBusiness: boolean): str
 
 export function mismatchedBookingsHint(count: number, smallBusiness: boolean): string {
   const params = { count: String(count) };
-  return smallBusiness
-    ? m.tax_years_mismatched_small_business(params)
-    : m.tax_years_mismatched_regular(params);
+  if (smallBusiness) {
+    return count === 1
+      ? m.tax_years_mismatched_small_business_one()
+      : m.tax_years_mismatched_small_business_other(params);
+  }
+  return count === 1
+    ? m.tax_years_mismatched_regular_one()
+    : m.tax_years_mismatched_regular_other(params);
 }
 
 export function conflictDescription(year: number, smallBusiness: boolean, count: number): string {
   const params = { year: String(year), count: String(count) };
-  return smallBusiness
-    ? m.tax_years_conflict_to_small_business(params)
-    : m.tax_years_conflict_to_regular(params);
+  if (smallBusiness) {
+    return count === 1
+      ? m.tax_years_conflict_to_small_business_one(params)
+      : m.tax_years_conflict_to_small_business_other(params);
+  }
+  return count === 1
+    ? m.tax_years_conflict_to_regular_one(params)
+    : m.tax_years_conflict_to_regular_other(params);
 }
 
 const invalidYear = () =>
